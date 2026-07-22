@@ -1,93 +1,173 @@
-# EDS_AI_Transformation
+# EDS order intake
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Upload a photo of a delivery slip → a Planner task is created in the right
+bucket, assigned to the right person, with the image attached.
 
 ```
-cd existing_repo
-git remote add origin https://git02.smartosc.com/division-1/digital-transformation/eds_ai_transformation.git
-git branch -M main
-git push -uf origin main
+POST /api/v1/orders   (multipart: image)
+      │
+      ├─ extractor      image ──► fields            (pluggable, one result shape)
+      ├─ routing        department ──► bucket
+      │                 receiver_name ──► assignee
+      ├─ Graph drive    image ──► group document library
+      └─ Graph planner  task + assignment + image reference
 ```
 
-## Integrate with your tools
+## Endpoints
 
-* [Set up project integrations](https://git02.smartosc.com/division-1/digital-transformation/eds_ai_transformation/-/settings/integrations)
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| POST | `/api/v1/orders` | Entra ID | `multipart/form-data`: `image` (required), `extractor` (optional override) |
+| GET | `/api/v1/me` | Entra ID | echoes the verified caller — use it to check token wiring |
+| GET | `/api/v1/config` | Entra ID | effective routing config, no secrets |
+| GET | `/health` | open | liveness, no external calls |
+| GET | `/health/ready` | open | readiness — proves Graph auth works and the plan resolves |
 
-## Collaborate with your team
+`POST /api/v1/orders` answers `200` with `status: "created"` and the task, or
+`status: "rejected"` when the image is not a package label (nothing is created).
+`4xx` means the request was bad; `5xx` means extraction or Graph failed.
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Authentication
 
-## Test and Deploy
+Two unrelated identities:
 
-Use the built-in continuous integration in GitLab.
+- **Uploader → this API**: an Entra ID access token is required on every
+  `/api/v1/*` call (`app/auth.py`). The token's signature, audience, issuer,
+  tenant and expiry are verified against the tenant's published keys; app-only
+  tokens are rejected, so an upload always comes from a person. The verified
+  caller is written into the task description and returned as `uploaded_by`.
+- **This API → Graph**: always app-only, whoever uploaded. Uploaders need no
+  Planner permission of their own.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+The service refuses to start with `AUTH_ENABLED=true` and no `AUTH_AUDIENCE`,
+so it cannot be deployed unprotected by accident. `AUTH_ENABLED=false` is for
+local development only and logs a warning on every start.
 
-***
+Entra setup, once:
 
-# Editing this README
+```bash
+# 1. App registration for THIS API (separate from the Graph app registration)
+az ad app create --display-name eds-order-intake-api
+az ad app update --id <api-app-id> --identifier-uris api://<api-app-id>
+#    then add a scope named access_as_user (Portal: Expose an API)
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+# 2. The client app (SPA/Teams/desktop) requests that scope and sends the
+#    resulting access token as:  Authorization: Bearer <token>
+```
 
-## Suggestions for a good README
+Set `AUTH_AUDIENCE=api://<api-app-id>` (add `,<api-app-id>` if some clients
+send the bare-guid audience form) and `AUTH_REQUIRED_SCOPE=access_as_user`.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Extractors
 
-## Name
-Choose a self-explaining name for your project.
+Both produce the identical `ExtractionResult`; nothing downstream knows which ran.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+| `EXTRACTOR` | Flow | Needs |
+| --- | --- | --- |
+| `vlm` (default) | image → vision model → fields | `LLM_*` |
+| `ocr_llm` | image → Azure Document Intelligence → text → LLM → fields | `LLM_*`, `AZURE_DI_*`, `pip install .[ocr]` |
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+To add a third, subclass `Extractor` in `app/extractors/`, return
+`build_result(...)`, and register the name in `app/extractors/__init__.py`.
+Nothing else changes.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Routing
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+`config/directory.yaml` maps departments → bucket ids and lists each
+department's members. Matching is fuzzy (NFKC-folded, whitespace-stripped) so
+OCR spacing and full-width characters do not matter, and `aliases` cover the
+Japanese spellings of the same unit.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Rules, in order:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+1. Extraction confidence below `MIN_CONFIDENCE`, or department score below
+   `MIN_DEPARTMENT_SCORE` → `fallback_bucket_id`, unassigned.
+2. Otherwise the department's bucket; `receiver_name` scoring above
+   `MIN_EMPLOYEE_SCORE` picks the assignee, else `default_assignee`, else
+   the task is created unassigned.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Nothing is ever dropped — an unroutable slip becomes a visible task in the
+fallback bucket.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Run locally
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```bash
+cp .env.example .env      # fill AZURE_*, PLAN_ID, LLM_API_KEY
+uv venv .venv && uv pip install --python .venv -e ".[dev]"
+.venv/Scripts/python.exe -m app.main          # Linux/macOS: python -m app.main
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+curl http://localhost:8000/health/ready
+TOKEN=$(az account get-access-token --resource api://<api-app-id> --query accessToken -o tsv)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/me
+curl -H "Authorization: Bearer $TOKEN" \
+     -X POST http://localhost:8000/api/v1/orders -F "image=@sample.jpg"
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Docs at <http://localhost:8000/docs>.
 
-## License
-For open source projects, say how it is licensed.
+```bash
+.venv/Scripts/python.exe -m pytest -q          # no network, no credentials needed
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Configuration
+
+Every field in `app/config.py` is an environment variable of the same name
+(case-insensitive). See `.env.example`. Secrets are never returned by any
+endpoint or written to logs.
+
+## Deploy to Azure Container Apps
+
+```bash
+cp .env.example .env    # fill in AZURE_*, PLAN_ID, LLM_API_KEY, AUTH_AUDIENCE, ACR_NAME
+./deploy.sh
+```
+
+`deploy.sh` reads `.env`, creates the resource group / registry / container app
+if they are missing, builds the image in ACR (no local Docker needed), stores
+`AZURE_CLIENT_SECRET` and `LLM_API_KEY` as Container App secrets rather than
+plain env vars, rolls out the revision and smoke-tests `/health/ready`. Re-run
+it to redeploy — bump `IMAGE_TAG` first, since Container Apps will not re-pull
+an unchanged tag.
+
+The image is deliberately small — no torch, no OpenCV; extraction is done by
+hosted models.
+
+<details>
+<summary>The same steps by hand</summary>
+
+```bash
+az acr build -r <registry> -t eds-order-intake:latest .
+
+az containerapp create \
+  -n eds-order-intake -g <rg> --environment <env> \
+  --image <registry>.azurecr.io/eds-order-intake:latest \
+  --target-port 8000 --ingress external \
+  --user-assigned <user-assigned-identity-resource-id> \
+  --secrets llm-key=<...> \
+  --env-vars PLAN_ID=<...> AZURE_TENANT_ID=<...> \
+             AZURE_CLIENT_ID=<uami-client-id> \
+             AUTH_AUDIENCE=api://<api-app-id> \
+             AUTH_REQUIRED_SCOPE=access_as_user \
+             LLM_API_KEY=secretref:llm-key
+```
+
+</details>
+
+Ingress can stay `external`: the API is closed to anyone without a tenant
+token. Only `/health` and `/health/ready` answer unauthenticated, and neither
+returns configuration or secrets.
+
+Auth is `DefaultAzureCredential`: locally it uses
+`AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`; in Container Apps,
+setting `AZURE_CLIENT_ID` to a user-assigned managed identity is enough — no
+code change, no secret to rotate.
+
+Graph app-only permissions required (admin consent):
+`Tasks.ReadWrite.All`, `Group.ReadWrite.All`, `Files.ReadWrite.All`.
+These cannot be granted to a managed identity in the portal; use
+`New-MgServicePrincipalAppRoleAssignment`.
+
+Point the Container Apps health probes at `/health` (liveness) and
+`/health/ready` (readiness).

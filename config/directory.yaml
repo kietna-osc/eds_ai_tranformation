@@ -1,0 +1,37 @@
+# Department -> Planner bucket, and the people who can be assigned.
+#
+# bucket_id : from GET /planner/plans/{planId}/buckets
+# user_id   : the user's object GUID, from GET /groups/{groupId}/members
+#
+# `aliases` are extra spellings the OCR/LLM may produce for the same
+# department; they are matched with the same fuzzy scorer as `name`.
+
+# Bucket used when the department cannot be resolved with enough confidence.
+fallback_bucket_id: "na9flvmEfk6uq8eF8FnCqskALazV"   # "Unknown"
+
+departments:
+  - id: sales
+    name: Sales
+    aliases: ["営業部", "営業", "Sales Dept"]
+    bucket_id: "K4uXG5uK2Uy9u4M0EVeZlckAG_3R"
+    default_assignee: "6689dcdf-f9d5-4f99-af61-95d883b21924"
+    employees:
+      - name: Tong The Kiet
+        user_id: "6689dcdf-f9d5-4f99-af61-95d883b21924"
+        aliases: ["Kiet", "キエット"]
+      - name: Dang Phuong Dung
+        user_id: "2b995e25-12fa-41d1-8abf-c34644e97bbc"
+        aliases: ["Dung"]
+
+  - id: rnd
+    name: RnD
+    aliases: ["R&D", "研究開発部", "開発部"]
+    bucket_id: "5duOrssD4kK6OQ0zjvVhY8kABfso"
+    default_assignee: "72d2cfb2-8d86-4323-95e6-96f2734805ba"
+    employees:
+      - name: Tu Anh Nguyen Duy
+        user_id: "72d2cfb2-8d86-4323-95e6-96f2734805ba"
+        aliases: ["Tu Anh"]
+      - name: Dang Quang Vinh
+        user_id: "155107a0-25b4-4aad-9640-18b4940a4acb"
+        aliases: ["Vinh"]
