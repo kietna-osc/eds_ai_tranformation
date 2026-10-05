@@ -1,0 +1,11 @@
+{
+  "name": "eds-api",
+  "version": "1.0.0",
+  "description": "EDS Phase 2 API - Azure SQL behind APIM",
+  "main": "src/index.js",
+  "dependencies": {
+    "@azure/functions": "^4.6.0",
+    "@azure/identity": "^4.5.0",
+    "mssql": "^11.0.1"
+  }
+}

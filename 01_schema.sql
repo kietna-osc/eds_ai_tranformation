@@ -1,0 +1,188 @@
+/* EDS Phase 2 — schema v1.1
+   Azure SQL Database: eds-db
+   Source of truth: EDS_Phase2_DB_Schema_v1.0.xlsx (sheets: employee, history, Index & ràng buộc)
+   Convention: snake_case; PK <table>_id; is_* flags; created_at / updated_at in UTC. */
+
+------------------------------------------------------------------- employee
+IF OBJECT_ID('dbo.employee', 'U') IS NULL
+CREATE TABLE dbo.employee
+(
+    employee_id      INT             IDENTITY(1,1) NOT NULL,
+    employee_code    NVARCHAR(50)    NOT NULL,
+    full_name        NVARCHAR(200)   NOT NULL,
+    name_normalized  NVARCHAR(200)   NULL,
+    department_id    INT             NULL,
+    department_name  NVARCHAR(200)   NULL,
+    email            NVARCHAR(320)   NULL,
+    is_active        BIT             NOT NULL CONSTRAINT DF_employee_is_active  DEFAULT (1),
+    created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_created_at DEFAULT (SYSUTCDATETIME()),
+    updated_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_updated_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_employee       PRIMARY KEY CLUSTERED (employee_id),
+    CONSTRAINT UQ_employee_code  UNIQUE (employee_code)
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_employee_name_normalized' AND object_id = OBJECT_ID('dbo.employee'))
+CREATE INDEX IX_employee_name_normalized ON dbo.employee (name_normalized)
+    INCLUDE (full_name, department_id, department_name, email)
+    WHERE is_active = 1;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_employee_department_id' AND object_id = OBJECT_ID('dbo.employee'))
+CREATE INDEX IX_employee_department_id ON dbo.employee (department_id)
+    WHERE is_active = 1;
+GO
+
+-- SQL Server has no ON UPDATE CURRENT_TIMESTAMP; updated_at is maintained by trigger.
+IF OBJECT_ID('dbo.TR_employee_updated_at', 'TR') IS NOT NULL DROP TRIGGER dbo.TR_employee_updated_at;
+GO
+CREATE TRIGGER dbo.TR_employee_updated_at ON dbo.employee AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE e SET updated_at = SYSUTCDATETIME()
+    FROM dbo.employee e JOIN inserted i ON e.employee_id = i.employee_id;
+END
+GO
+
+-------------------------------------------------------------------- history
+IF OBJECT_ID('dbo.history', 'U') IS NULL
+CREATE TABLE dbo.history
+(
+    history_id                 BIGINT          IDENTITY(1,1) NOT NULL,
+    slip_no                    NVARCHAR(100)   NULL,
+    image_url                  NVARCHAR(1000)  NULL,
+    sender_name                NVARCHAR(200)   NULL,
+    sender_content             NVARCHAR(1000)  NULL,
+    sender_address             NVARCHAR(500)   NULL,
+    employee_id                INT             NULL,  -- snapshot id, not a foreign key
+    recipient_name             NVARCHAR(200)   NULL,  -- snapshot at delivery time
+    recipient_department_id    INT             NULL,  -- snapshot
+    recipient_department_name  NVARCHAR(200)   NULL,  -- snapshot
+    status                     VARCHAR(20)     NOT NULL CONSTRAINT DF_history_status     DEFAULT ('Unknown'),
+    notified_at                DATETIME2(0)    NULL,
+    delivered_at               DATETIME2(0)    NULL,
+    delivered_by               NVARCHAR(320)   NULL,
+    planner_task_id            NVARCHAR(100)   NULL,
+    created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_created_at DEFAULT (SYSUTCDATETIME()),
+    updated_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_updated_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_history          PRIMARY KEY CLUSTERED (history_id),
+    CONSTRAINT CK_history_status   CHECK (status IN ('Unknown', 'Identified'))
+);
+GO
+
+-- Existing databases created before v1.1: add sender columns and tighten status.
+IF COL_LENGTH('dbo.history', 'sender_name') IS NULL
+    ALTER TABLE dbo.history ADD sender_name NVARCHAR(200) NULL;
+IF COL_LENGTH('dbo.history', 'sender_content') IS NULL
+    ALTER TABLE dbo.history ADD sender_content NVARCHAR(1000) NULL;
+IF COL_LENGTH('dbo.history', 'sender_address') IS NULL
+    ALTER TABLE dbo.history ADD sender_address NVARCHAR(500) NULL;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history DROP CONSTRAINT CK_history_status;
+GO
+UPDATE dbo.history
+SET    status = CASE WHEN status IN ('Notified', 'Delivered', 'Identified') THEN 'Identified' ELSE 'Unknown' END;
+GO
+IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history DROP CONSTRAINT DF_history_status;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history ADD CONSTRAINT DF_history_status DEFAULT ('Unknown') FOR status;
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history ADD CONSTRAINT CK_history_status CHECK (status IN ('Unknown', 'Identified'));
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_created_at' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_created_at ON dbo.history (created_at DESC);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_status' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_status ON dbo.history (status, created_at DESC);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_slip_no' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_slip_no ON dbo.history (slip_no);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_employee_id' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_employee_id ON dbo.history (employee_id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_department' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_department ON dbo.history (recipient_department_id);
+GO
+-- One Planner task maps to exactly one package; NULLs are not constrained.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_history_planner_task' AND object_id = OBJECT_ID('dbo.history'))
+CREATE UNIQUE INDEX UQ_history_planner_task ON dbo.history (planner_task_id)
+    WHERE planner_task_id IS NOT NULL;
+GO
+
+-- Drop the employee foreign key so deleting an employee does not require
+-- deleting history rows that still store that employee_id.
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_history_employee' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history DROP CONSTRAINT FK_history_employee;
+GO
+
+IF COL_LENGTH('dbo.history', 'ocr_name') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN ocr_name;
+IF COL_LENGTH('dbo.history', 'ocr_department') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN ocr_department;
+GO
+
+----------------------------------------------------------------- department
+IF OBJECT_ID('dbo.department', 'U') IS NULL
+CREATE TABLE dbo.department
+(
+    department_id    INT             IDENTITY(1,1) NOT NULL,
+    department_name  NVARCHAR(200)   NOT NULL,
+    created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_department_created_at DEFAULT (SYSUTCDATETIME()),
+    updated_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_department_updated_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_department          PRIMARY KEY CLUSTERED (department_id),
+    CONSTRAINT UQ_department_name     UNIQUE (department_name)
+);
+GO
+
+IF OBJECT_ID('dbo.TR_department_updated_at', 'TR') IS NOT NULL DROP TRIGGER dbo.TR_department_updated_at;
+GO
+CREATE TRIGGER dbo.TR_department_updated_at ON dbo.department AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE d SET updated_at = SYSUTCDATETIME()
+    FROM dbo.department d JOIN inserted i ON d.department_id = i.department_id;
+END
+GO
+
+--------------------------------------------------------------- ocr_history
+-- Log of one OCR read. history_id is optional; deleting the package sets it NULL.
+IF OBJECT_ID('dbo.ocr_history', 'U') IS NULL
+CREATE TABLE dbo.ocr_history
+(
+    id               BIGINT          IDENTITY(1,1) NOT NULL,
+    history_id       BIGINT          NULL,
+    name             NVARCHAR(200)   NULL,
+    department       NVARCHAR(200)   NULL,
+    slip_no          NVARCHAR(100)   NULL,
+    sender_name      NVARCHAR(200)   NULL,
+    sender_content   NVARCHAR(1000)  NULL,
+    sender_address   NVARCHAR(500)   NULL,
+    model_name       NVARCHAR(200)   NULL,
+    created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_ocr_history_created_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_ocr_history PRIMARY KEY CLUSTERED (id),
+    CONSTRAINT FK_ocr_history_history FOREIGN KEY (history_id) REFERENCES dbo.history (history_id) ON DELETE SET NULL
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ocr_history_history_id' AND object_id = OBJECT_ID('dbo.ocr_history'))
+CREATE INDEX IX_ocr_history_history_id ON dbo.ocr_history (history_id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ocr_history_created_at' AND object_id = OBJECT_ID('dbo.ocr_history'))
+CREATE INDEX IX_ocr_history_created_at ON dbo.ocr_history (created_at DESC);
+GO
+
+IF OBJECT_ID('dbo.TR_history_updated_at', 'TR') IS NOT NULL DROP TRIGGER dbo.TR_history_updated_at;
+GO
+CREATE TRIGGER dbo.TR_history_updated_at ON dbo.history AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE h SET updated_at = SYSUTCDATETIME()
+    FROM dbo.history h JOIN inserted i ON h.history_id = i.history_id;
+END
+GO

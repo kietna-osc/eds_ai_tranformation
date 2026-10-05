@@ -1,0 +1,540 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "EDS Data API",
+    "description": "History and Employee data for the EDS Power App, backed by Azure SQL via func-eds-dev.",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://apim-eds-dev.azure-api.net/eds"
+    }
+  ],
+  "paths": {
+    "/history": {
+      "get": {
+        "summary": "List history",
+        "description": "Latest packages, newest first. All filters are optional and combine with AND.",
+        "operationId": "history-list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, 1-based.",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Rows per page, 1-200.",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Unknown | Identified.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_id",
+            "in": "query",
+            "description": "Recipient department id, 1-20.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "employee_id",
+            "in": "query",
+            "description": "Recipient employee id.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "notified_start",
+            "in": "query",
+            "description": "Inclusive lower bound on notified_at.",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "notified_end",
+            "in": "query",
+            "description": "Inclusive upper bound on notified_at.",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "delivered_start",
+            "in": "query",
+            "description": "Inclusive lower bound on delivered_at.",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "delivered_end",
+            "in": "query",
+            "description": "Inclusive upper bound on delivered_at.",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching packages."
+          }
+        }
+      },
+      "post": {
+        "summary": "Append history",
+        "description": "Appends one package. Call at the end of the capture flow. Returns history_id.",
+        "operationId": "history-insert",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slip_no": { "type": "string" },
+                  "image_url": { "type": "string" },
+                  "sender_name": { "type": "string" },
+                  "sender_content": { "type": "string" },
+                  "sender_address": { "type": "string" },
+                  "employee_id": { "type": "integer" },
+                  "recipient_name": { "type": "string" },
+                  "recipient_department_id": { "type": "integer" },
+                  "recipient_department_name": { "type": "string" },
+                  "status": {
+                    "type": "string",
+                    "enum": ["Unknown", "Identified"]
+                  },
+                  "notified_at": { "type": "string", "format": "date-time" },
+                  "planner_task_id": { "type": "string", "nullable": true }
+                }
+              },
+              "example": {
+                "slip_no": "SLP-20260910-0001",
+                "image_url": "https://smartosc.sharepoint.com/sites/eds/PackageSlips/20260910/slip_00001.jpg",
+                "sender_name": "山田 花子",
+                "sender_content": "契約書類",
+                "sender_address": "東京都千代田区丸の内1-1-1",
+                "employee_id": 1838,
+                "recipient_name": "田中 太郎",
+                "recipient_department_id": 17,
+                "recipient_department_name": "総務部",
+                "status": "Identified",
+                "notified_at": "2026-09-10T10:00:00.0000000+00:00",
+                "planner_task_id": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created; body contains history_id."
+          }
+        }
+      }
+    },
+    "/history/delivered": {
+      "post": {
+        "summary": "Mark delivered",
+        "description": "Records delivered_at. Idempotent - replaying a completion does not move delivered_at. Identify the package by planner_task_id or history_id. Status stays Unknown or Identified.",
+        "operationId": "history-delivered",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib",
+                "delivered_by": "someone@smartosc.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          },
+          "404": {
+            "description": "No package is linked to that Planner task."
+          }
+        }
+      }
+    },
+    "/history/{id}/planner-task": {
+      "patch": {
+        "summary": "Link Planner task",
+        "description": "Stores the Planner task id on a package. Required for completion lookup.",
+        "operationId": "history-planner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "history_id returned by Append history.",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linked."
+          },
+          "404": {
+            "description": "history_id not found."
+          }
+        }
+      }
+    },
+    "/employees": {
+      "get": {
+        "summary": "List employees",
+        "description": "Paginated employees, same response shape as List history. department_id and search_keyword are optional and combine with AND.",
+        "operationId": "employee-list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, 1-based.",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Rows per page, 1-200.",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "department_id",
+            "in": "query",
+            "description": "Restrict to one department.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search_keyword",
+            "in": "query",
+            "description": "Match full_name, department_name, or email (contains), plus name_normalized and employee_code prefix.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching employees."
+          }
+        }
+      },
+      "post": {
+        "summary": "Insert employee",
+        "description": "Inserts a new employee. employee_id, employee_code and full_name are required.",
+        "operationId": "employee-insert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["employee_id", "employee_code", "full_name"],
+                "properties": {
+                  "employee_id": { "type": "integer" },
+                  "employee_code": { "type": "string" },
+                  "full_name": { "type": "string" },
+                  "name_normalized": { "type": "string" },
+                  "department_id": { "type": "integer", "nullable": true },
+                  "department_name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "is_active": { "type": "boolean", "default": true }
+                }
+              },
+              "example": {
+                "employee_id": 2100,
+                "employee_code": "demo-2100",
+                "full_name": "田中 太郎",
+                "name_normalized": "たなかたろう",
+                "department_id": 17,
+                "department_name": "総務部",
+                "email": "taro.tanaka@example.co.jp",
+                "is_active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created."
+          },
+          "400": {
+            "description": "Missing required fields."
+          },
+          "409": {
+            "description": "employee_id or employee_code already exists."
+          }
+        }
+      }
+    },
+    "/employees/match": {
+      "get": {
+        "summary": "Match OCR name",
+        "description": "Ranked candidate recipients for an OCR-read name. The name must already be normalised (NFKC, katakana to hiragana, whitespace stripped).",
+        "operationId": "employee-match",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Normalised name from normalize.js.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_id",
+            "in": "query",
+            "description": "OCR department, adds to the match score.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "description": "Candidates to return, 1-50.",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidates with match_score, best first."
+          }
+        }
+      }
+    },
+    "/employees/fuzzy-search": {
+      "get": {
+        "summary": "Fuzzy search employees",
+        "description": "OCR receiver fuzzy match against dbo.employee. Candidates use the Office Script schema: employee_id, name, department, email, name_score, department_score, score.",
+        "operationId": "employee-fuzzy-search",
+        "parameters": [
+          {
+            "name": "receiver_name",
+            "in": "query",
+            "description": "OCR receiver name. Empty returns the first top_k roster rows.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "department",
+            "in": "query",
+            "description": "OCR department.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "name_weight",
+            "in": "query",
+            "description": "Name score weight 0-1.",
+            "schema": { "type": "number", "default": 0.85 }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "description": "Weak-candidate count when no exact name match.",
+            "schema": { "type": "integer", "default": 3 }
+          },
+          {
+            "name": "fuzzy_threshold",
+            "in": "query",
+            "description": "If the best fuzzy score is above this, return top 1.",
+            "schema": { "type": "number", "default": 90 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "match_type and candidates."
+          }
+        }
+      },
+      "post": {
+        "summary": "Fuzzy search employees",
+        "description": "Same as GET. Accepts snake_case or camelCase body fields (receiverName, nameWeight, topK, fuzzyThreshold).",
+        "operationId": "employee-fuzzy-search-post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "receiver_name": { "type": "string" },
+                  "receiverName": { "type": "string" },
+                  "department": { "type": "string" },
+                  "name_weight": { "type": "number", "default": 0.85 },
+                  "nameWeight": { "type": "number", "default": 0.85 },
+                  "top_k": { "type": "integer", "default": 3 },
+                  "topK": { "type": "integer", "default": 3 },
+                  "fuzzy_threshold": { "type": "number", "default": 90 },
+                  "fuzzyThreshold": { "type": "number", "default": 90 }
+                }
+              },
+              "example": {
+                "receiverName": "前川 雄亮",
+                "department": "総務部",
+                "nameWeight": 0.85,
+                "topK": 3,
+                "fuzzyThreshold": 90
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "match_type and candidates."
+          }
+        }
+      }
+    },
+    "/employees/{id}": {
+      "delete": {
+        "summary": "Delete employee",
+        "description": "Deletes the employee by employee_id. History rows keep the employee_id snapshot.",
+        "operationId": "employee-delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "employee_id to delete.",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          },
+          "404": {
+            "description": "employee_id not found."
+          }
+        }
+      }
+    },
+    "/departments": {
+      "get": {
+        "summary": "List departments",
+        "operationId": "department-list",
+        "responses": {
+          "200": { "description": "Department catalog." }
+        }
+      },
+      "post": {
+        "summary": "Insert department",
+        "operationId": "department-insert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["department_name"],
+                "properties": {
+                  "department_name": { "type": "string" }
+                }
+              },
+              "example": { "department_name": "総務部" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created." },
+          "409": { "description": "department_name already exists." }
+        }
+      }
+    },
+    "/ocr-history": {
+      "post": {
+        "summary": "Append OCR log",
+        "description": "Stores one OCR result. history_id is optional.",
+        "operationId": "ocr-history-insert",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "history_id": { "type": "integer", "nullable": true },
+                  "name": { "type": "string" },
+                  "department": { "type": "string" },
+                  "slip_no": { "type": "string" },
+                  "sender_name": { "type": "string" },
+                  "sender_content": { "type": "string" },
+                  "sender_address": { "type": "string" },
+                  "model_name": { "type": "string" }
+                }
+              },
+              "example": {
+                "history_id": 12,
+                "name": "前川 雄亮",
+                "department": "総務部",
+                "slip_no": "SLP-20260910-0001",
+                "sender_name": "山田 花子",
+                "sender_content": "契約書類",
+                "sender_address": "東京都千代田区丸の内1-1-1",
+                "model_name": "gpt-4o"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created; body contains id." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyHeader": {
+        "type": "apiKey",
+        "name": "Ocp-Apim-Subscription-Key",
+        "in": "header"
+      },
+      "apiKeyQuery": {
+        "type": "apiKey",
+        "name": "subscription-key",
+        "in": "query"
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKeyHeader": [ ]
+    },
+    {
+      "apiKeyQuery": [ ]
+    }
+  ]
+}

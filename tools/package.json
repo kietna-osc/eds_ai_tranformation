@@ -1,0 +1,10 @@
+{
+  "name": "eds-db-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Helper scripts: run .sql batches, generate seed data, build deploy zips.",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "mssql": "^11.0.1"
+  }
+}

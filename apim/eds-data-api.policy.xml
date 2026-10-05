@@ -1,0 +1,46 @@
+<policies>
+    <inbound>
+        <!-- Deliberately does NOT call <base />. The global policy hard-codes the
+             OCR.Invoke role for every API; the data API needs its own role so that
+             a caller allowed to run OCR cannot also write delivery records. The
+             JWT check and rate limit below therefore replace the inherited ones
+             rather than adding to them. -->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401"
+                      failed-validation-error-message="Unauthorized: missing or invalid token.">
+            <openid-config url="https://login.microsoftonline.com/{{tenant-id}}/v2.0/.well-known/openid-configuration" />
+            <audiences>
+                <audience>{{api-audience}}</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
+                <issuer>https://login.microsoftonline.com/{{tenant-id}}/v2.0</issuer>
+            </issuers>
+            <required-claims>
+                <claim name="roles" match="any">
+                    <value>{{data-app-role}}</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+        <rate-limit-by-key calls="120" renewal-period="60"
+            counter-key="@(context.Request.Headers.GetValueOrDefault("Authorization","").Split(' ').Last())" />
+        <!-- Strip the caller's token before forwarding, then authenticate to the
+             Function with its host key. The Function App additionally refuses any
+             inbound IP other than this gateway, so it cannot be called directly. -->
+        <set-header name="Authorization" exists-action="delete" />
+        <set-backend-service base-url="{{func-eds-url}}" />
+        <set-header name="x-functions-key" exists-action="override">
+            <value>{{func-eds-key}}</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <forward-request />
+    </backend>
+    <outbound>
+        <set-header name="apim-request-id" exists-action="delete" />
+        <set-header name="X-Powered-By" exists-action="delete" />
+    </outbound>
+    <on-error>
+        <!-- Never surface backend error detail to the client. -->
+        <set-header name="apim-request-id" exists-action="delete" />
+    </on-error>
+</policies>
