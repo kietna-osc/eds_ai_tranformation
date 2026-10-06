@@ -117,13 +117,13 @@
     "Id": "e79138de-a0c4-4176-a886-3f6b2c5585b4",
     "LocalDatabaseReferences": "",
     "ManualOfflineProfileId": "",
-    "Name": "EDS-App-Desktop-phase2",
+    "Name": "EDS-App-Desktop-phase2-base64",
     "OriginatingVersion": "1.349",
     "ParserErrorCount": 0,
     "ShowStatusBar": false
   },
   "PublishInfo": {
-    "AppName": "EDS-App-Desktop-phase2",
+    "AppName": "EDS-App-Desktop-phase2-base64",
     "BackgroundColor": "RGBA(0,176,240,1)",
     "IconColor": "RGBA(255,255,255,1)",
     "IconName": "Edit",

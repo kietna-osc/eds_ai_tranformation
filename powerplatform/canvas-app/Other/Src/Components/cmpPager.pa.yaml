@@ -21,7 +21,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(148, 163, 184, 1)
             BorderStyle: =
             Color: =RGBA(51, 65, 85, 1)
-            DisplayMode: =If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * 0.046
@@ -39,7 +39,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(0, 102, 204, 1)
             BorderStyle: =
             Color: =If(gblPage = 1, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
-            DisplayMode: =If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Semibold
             Height: =App.Height * 0.046
@@ -57,7 +57,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(0, 102, 204, 1)
             BorderStyle: =
             Color: =If(gblPage = 2, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Semibold
             Height: =App.Height * 0.046
@@ -75,7 +75,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(0, 102, 204, 1)
             BorderStyle: =
             Color: =If(gblPage = 3, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Semibold
             Height: =App.Height * 0.046
@@ -93,7 +93,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(148, 163, 184, 1)
             BorderStyle: =
             Color: =RGBA(51, 65, 85, 1)
-            DisplayMode: =If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * 0.046
@@ -110,7 +110,7 @@ ComponentDefinitions:
             Appearance: =ButtonAppearance.Outline
             BorderStyle: =
             Color: =RGBA(100, 116, 139, 1)
-            DisplayMode: =If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * .032
@@ -127,7 +127,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = 1, ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = 1, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = 1, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -144,7 +144,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -161,7 +161,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -178,7 +178,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -195,7 +195,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -212,7 +212,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -229,7 +229,7 @@ ComponentDefinitions:
             Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
             BorderStyle: =
             Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
-            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)) > 0, DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .032
@@ -246,7 +246,7 @@ ComponentDefinitions:
             Appearance: =ButtonAppearance.Outline
             BorderStyle: =
             Color: =RGBA(100, 116, 139, 1)
-            DisplayMode: =If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled))
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * .032
@@ -264,6 +264,7 @@ ComponentDefinitions:
             BasePaletteColor: =RGBA(100, 116, 139, 1)
             BorderStyle: =
             Color: =RGBA(100, 116, 139, 1)
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Normal
             Height: =App.Height * .032
@@ -361,6 +362,7 @@ ComponentDefinitions:
             BasePaletteColor: =If(gblPageSize = 10, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
             BorderStyle: =
             Color: =If(gblPageSize = 10, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPageSize = 10, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .030
@@ -378,6 +380,7 @@ ComponentDefinitions:
             BasePaletteColor: =If(gblPageSize = 20, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
             BorderStyle: =
             Color: =If(gblPageSize = 20, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPageSize = 20, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .030
@@ -395,6 +398,7 @@ ComponentDefinitions:
             BasePaletteColor: =If(gblPageSize = 30, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
             BorderStyle: =
             Color: =If(gblPageSize = 30, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPageSize = 30, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .030
@@ -412,6 +416,7 @@ ComponentDefinitions:
             BasePaletteColor: =If(gblPageSize = 40, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
             BorderStyle: =
             Color: =If(gblPageSize = 40, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPageSize = 40, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .030
@@ -429,6 +434,7 @@ ComponentDefinitions:
             BasePaletteColor: =If(gblPageSize = 50, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
             BorderStyle: =
             Color: =If(gblPageSize = 50, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
             Font: =Font.'Segoe UI'
             FontWeight: =If(gblPageSize = 50, FontWeight.Semibold, FontWeight.Normal)
             Height: =App.Height * .030
@@ -457,7 +463,7 @@ ComponentDefinitions:
                   If(
                       IsBlank(varHistSearch),
                       Set(varHistLoading, true);
-                      Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""));
+                      Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""), ""));
                       If(
                           IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
                           Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
