@@ -1,0 +1,1283 @@
+{
+  "displayName": "EDS-APIManagement1",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "undefined",
+    "parameters": {
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      },
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      }
+    },
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "PowerAppV2",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "Please enter your input",
+                "title": "table",
+                "type": "string",
+                "x-ms-content-hint": "TEXT",
+                "x-ms-dynamically-added": true
+              },
+              "text_1": {
+                "description": "Please enter your input",
+                "title": "content",
+                "type": "string",
+                "x-ms-content-hint": "TEXT",
+                "x-ms-dynamically-added": true
+              },
+              "text_2": {
+                "description": "Please enter your input",
+                "title": "action",
+                "type": "string",
+                "x-ms-content-hint": "TEXT",
+                "x-ms-dynamically-added": true
+              }
+            },
+            "required": [
+              "text",
+              "text_1",
+              "text_2"
+            ]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Get_auth_token": {
+        "runAfter": {},
+        "metadata": {
+          "operationMetadataId": "31783c68-3578-4803-9331-a70bac3807b0"
+        },
+        "type": "Http",
+        "inputs": {
+          "uri": "https://login.microsoftonline.com/d4e484ed-0018-471f-b7c2-3265f48203f3/oauth2/v2.0/token",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=client_credentials&client_id=53ddbbff-90ae-4085-858e-9923b3c6a3d9&client_secret=<CLIENT_SECRET>&scope=api://652e20e5-6a5a-46c6-a42a-67076fcce01e/.default"
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Switch_table": {
+        "runAfter": {
+          "Get_auth_token": [
+            "Succeeded"
+          ]
+        },
+        "cases": {
+          "History": {
+            "case": "history",
+            "actions": {
+              "History_Route": {
+                "cases": {
+                  "historyList": {
+                    "case": "historyList",
+                    "actions": {
+                      "Parse_list_params": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "page_size": {
+                                "type": "integer"
+                              },
+                              "page": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "department_id": {
+                                "type": "integer"
+                              },
+                              "employee_id": {
+                                "type": "integer"
+                              },
+                              "pageSize": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Query_history": {
+                        "runAfter": {
+                          "Parse_list_params": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/history",
+                          "method": "GET",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "queries": {
+                            "pageSize": "@{coalesce(body('Parse_list_params')?['pageSize'], body('Parse_list_params')?['page_size'])}",
+                            "page": "@{body('Parse_list_params')?['page']}",
+                            "status": "@{body('Parse_list_params')?['status']}",
+                            "employee_id": "@{body('Parse_list_params')?['employee_id']}",
+                            "department_id": "@{body('Parse_list_params')?['department_id']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON": {
+                        "runAfter": {
+                          "Query_history": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Query_history')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "page": {
+                                "type": "integer"
+                              },
+                              "pageSize": {
+                                "type": "integer"
+                              },
+                              "totalCount": {
+                                "type": "integer"
+                              },
+                              "totalPages": {
+                                "type": "integer"
+                              },
+                              "count": {
+                                "type": "integer"
+                              },
+                              "value": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "history_id": {
+                                      "type": "integer"
+                                    },
+                                    "slip_no": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "image_url": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "sender_name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "sender_content": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "sender_address": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "employee_id": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "recipient_name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "recipient_department_id": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "recipient_department_name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    },
+                                    "notified_at": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "delivered_at": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "delivered_by": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "planner_task_id": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "created_at": {
+                                      "type": "string"
+                                    },
+                                    "updated_at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "history_id",
+                                    "status",
+                                    "created_at",
+                                    "updated_at"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "page",
+                              "pageSize",
+                              "totalCount",
+                              "totalPages",
+                              "count",
+                              "value"
+                            ]
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow": {
+                        "runAfter": {
+                          "Parse_JSON": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "response": "@{body('Parse_JSON')}",
+                            "action": "@{triggerBody()?['text_2']}"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "historyAppend": {
+                    "case": "historyAppend",
+                    "actions": {
+                      "Parse_append_params": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "history_id": {
+                                "type": "string"
+                              },
+                              "slip_no": {
+                                "type": "string"
+                              },
+                              "image_url": {
+                                "type": "string"
+                              },
+                              "employee_id": {
+                                "type": "integer"
+                              },
+                              "ocr_name": {
+                                "type": "string"
+                              },
+                              "ocr_department": {
+                                "type": "string"
+                              },
+                              "recipient_name": {
+                                "type": "string"
+                              },
+                              "recipient_department": {
+                                "type": "string"
+                              },
+                              "recipient_department_id": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "notified_at": {
+                                "type": "string"
+                              },
+                              "delivered_at": {
+                                "type": "string"
+                              },
+                              "delivered_by": {
+                                "type": "string"
+                              },
+                              "planner_task_id": {
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "updated_at": {
+                                "type": "string"
+                              },
+                              "sender_name": {
+                                "type": "string"
+                              },
+                              "sender_address": {
+                                "type": "string"
+                              },
+                              "sender_content": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Append_history": {
+                        "runAfter": {
+                          "Parse_append_params": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/history",
+                          "method": "POST",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "body": {
+                            "history_id": "@{body('Parse_append_params')?['history_id']}",
+                            "slip_no": "@{body('Parse_append_params')?['slip_no']}",
+                            "image_url": "@{body('Parse_append_params')?['image_url']}",
+                            "ocr_name": "@{body('Parse_append_params')?['ocr_name']}",
+                            "ocr_department": "@{body('Parse_append_params')?['ocr_department']}",
+                            "employee_id": "@{body('Parse_append_params')?['employee_id']}",
+                            "recipient_name": "@{body('Parse_append_params')?['recipient_name']}",
+                            "recipient_department": "@{body('Parse_append_params')?['recipient_department']}",
+                            "recipient_department_id": "@{body('Parse_append_params')?['recipient_department_id']}",
+                            "status": "@{body('Parse_append_params')?['status']}",
+                            "notified_at": "@{body('Parse_append_params')?['notified_at']}",
+                            "delivered_at": "@{body('Parse_append_params')?['delivered_at']}",
+                            "delivered_by": "@{body('Parse_append_params')?['delivered_by']}",
+                            "planner_task_id": "@{body('Parse_append_params')?['planner_task_id']}",
+                            "created_at": "@{body('Parse_append_params')?['created_at']}",
+                            "updated_at": "@{body('Parse_append_params')?['updated_at']}",
+                            "sender_name": "@{body('Parse_append_params')?['sender_name']}",
+                            "sender_address": "@{body('Parse_append_params')?['sender_address']}",
+                            "sender_content": "@{body('Parse_append_params')?['sender_content']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON_1": {
+                        "runAfter": {
+                          "Append_history": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Append_history')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "history_id": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_1": {
+                        "runAfter": {
+                          "Parse_JSON_1": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_1')}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "default": {
+                  "actions": {}
+                },
+                "expression": "@triggerBody()?['text_2']",
+                "type": "Switch"
+              }
+            }
+          },
+          "Employee": {
+            "case": "employee",
+            "actions": {
+              "Employee_Route": {
+                "cases": {
+                  "employeeList": {
+                    "case": "employeeList",
+                    "actions": {
+                      "Parse_list_params_1": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "page_size": {
+                                "type": "integer"
+                              },
+                              "page": {
+                                "type": "integer"
+                              },
+                              "search_keyword": {
+                                "type": "string"
+                              },
+                              "department_id": {
+                                "type": "integer"
+                              },
+                              "pageSize": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Query_employee": {
+                        "runAfter": {
+                          "Parse_list_params_1": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees",
+                          "method": "GET",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "queries": {
+                            "pageSize": "@{coalesce(body('Parse_list_params_1')?['pageSize'], body('Parse_list_params_1')?['page_size'])}",
+                            "page": "@{body('Parse_list_params_1')?['page']}",
+                            "department_id": "@{body('Parse_list_params_1')?['department_id']}",
+                            "search_keyword": "@{body('Parse_list_params_1')?['search_keyword']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON_2": {
+                        "runAfter": {
+                          "Query_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Query_employee')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "page": {
+                                "type": "integer"
+                              },
+                              "pageSize": {
+                                "type": "integer"
+                              },
+                              "totalCount": {
+                                "type": "integer"
+                              },
+                              "totalPages": {
+                                "type": "integer"
+                              },
+                              "count": {
+                                "type": "integer"
+                              },
+                              "value": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "employee_id": {
+                                      "type": "integer"
+                                    },
+                                    "employee_code": {
+                                      "type": "string"
+                                    },
+                                    "full_name": {
+                                      "type": "string"
+                                    },
+                                    "name_normalized": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "department_id": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "department_name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "email": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "is_active": {
+                                      "type": "boolean"
+                                    },
+                                    "created_at": {
+                                      "type": "string"
+                                    },
+                                    "updated_at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "employee_id",
+                                    "employee_code",
+                                    "full_name",
+                                    "name_normalized",
+                                    "department_id",
+                                    "department_name",
+                                    "email",
+                                    "is_active",
+                                    "created_at",
+                                    "updated_at"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "page",
+                              "pageSize",
+                              "totalCount",
+                              "count",
+                              "value"
+                            ]
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_2": {
+                        "runAfter": {
+                          "Parse_JSON_2": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_2')}"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "employeeDelete": {
+                    "case": "employeeDelete",
+                    "actions": {
+                      "Parse_delete_employee": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "history_id": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Delete_employee": {
+                        "runAfter": {
+                          "Parse_delete_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees/@{body('Parse_delete_employee')?['history_id']}",
+                          "method": "DELETE",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_3": {
+                        "runAfter": {
+                          "Delete_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Delete_employee')}"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "employeeInsert": {
+                    "case": "employeeInsert",
+                    "actions": {
+                      "Parse_insert_employee": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "employee_id": {
+                                "type": "integer"
+                              },
+                              "employee_code": {
+                                "type": "string"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "name_normalized": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "department_id": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "department_name": {
+                                "type": "string"
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "is_active": {
+                                "type": "boolean",
+                                "default": true
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Insert_employee": {
+                        "runAfter": {
+                          "Parse_insert_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees",
+                          "method": "POST",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "body": {
+                            "employee_id": "@{body('Parse_insert_employee')?['employee_id']}",
+                            "employee_code": "@{body('Parse_insert_employee')?['employee_code']}",
+                            "full_name": "@{body('Parse_insert_employee')?['full_name']}",
+                            "name_normalized": "@body('Parse_insert_employee')?['name_normalized']",
+                            "department_id": "@{body('Parse_insert_employee')?['department_id']}",
+                            "email": "@{body('Parse_insert_employee')?['email']}",
+                            "is_active": "@body('Parse_insert_employee')?['is_active']"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_4": {
+                        "runAfter": {
+                          "Parse_JSON_3": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_3')}"
+                          }
+                        }
+                      },
+                      "Parse_JSON_3": {
+                        "runAfter": {
+                          "Insert_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Insert_employee')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "employee_id": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "default": {
+                  "actions": {}
+                },
+                "expression": "@triggerBody()?['text_2']",
+                "type": "Switch"
+              }
+            }
+          },
+          "OCR_History": {
+            "case": "ocr_history",
+            "actions": {
+              "Ocr_History_Route": {
+                "cases": {
+                  "ocrHistoryInsert": {
+                    "case": "ocrHistoryInsert",
+                    "actions": {
+                      "Parse_insert_ocr_result": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "history_id": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "department": {
+                                "type": "string"
+                              },
+                              "slip_no": {
+                                "type": "string"
+                              },
+                              "sender_name": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "sender_address": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "sender_content": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "model_name": {
+                                "type": "string",
+                                "default": "gpt-5.5"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Insert_ocr_history": {
+                        "runAfter": {
+                          "Parse_insert_ocr_result": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/ocr-history",
+                          "method": "POST",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "body": {
+                            "name": "@{body('Parse_insert_ocr_result')?['name']}",
+                            "department": "@{body('Parse_insert_ocr_result')?['department']}",
+                            "slip_no": "@{body('Parse_insert_ocr_result')?['slip_no']}",
+                            "sender_name": "@{body('Parse_insert_ocr_result')?['sender_name']}",
+                            "sender_content": "@{body('Parse_insert_ocr_result')?['sender_content']}",
+                            "sender_address": "@{body('Parse_insert_ocr_result')?['sender_address']}",
+                            "model_name": "@{body('Parse_insert_ocr_result')?['model_name']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON_4": {
+                        "runAfter": {
+                          "Insert_ocr_history": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Insert_ocr_history')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_5": {
+                        "runAfter": {
+                          "Parse_JSON_4": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_4')}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "default": {
+                  "actions": {}
+                },
+                "expression": "@triggerBody()?['text_2']",
+                "type": "Switch"
+              }
+            }
+          },
+          "Department": {
+            "case": "department",
+            "actions": {
+              "Department_Route": {
+                "cases": {
+                  "departmentList": {
+                    "case": "departmentList",
+                    "actions": {
+                      "List_department": {
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/departments",
+                          "method": "GET",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON_5": {
+                        "runAfter": {
+                          "List_department": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('List_department')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer"
+                              },
+                              "value": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "department_id": {
+                                      "type": "integer"
+                                    },
+                                    "department_name": {
+                                      "type": "string"
+                                    },
+                                    "created_at": {
+                                      "type": "string"
+                                    },
+                                    "updated_at": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_6": {
+                        "runAfter": {
+                          "Parse_JSON_5": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_5')}"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "departmentInsert": {
+                    "case": "departmentInsert",
+                    "actions": {
+                      "Parse_insert_department": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "department_name": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Insert_department": {
+                        "runAfter": {
+                          "Parse_insert_department": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/departments",
+                          "method": "POST",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "body": {
+                            "department_name": "@body('Parse_insert_department')?['department_name']"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_7": {
+                        "runAfter": {
+                          "Parse_JSON_6": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_6')}"
+                          }
+                        }
+                      },
+                      "Parse_JSON_6": {
+                        "runAfter": {
+                          "Insert_department": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Insert_department')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "object",
+                                "properties": {
+                                  "department_id": {
+                                    "type": "integer"
+                                  },
+                                  "department_name": {
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "type": "string"
+                                  },
+                                  "updated_at": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "default": {
+                  "actions": {}
+                },
+                "expression": "@triggerBody()?['text_2']",
+                "type": "Switch"
+              }
+            }
+          }
+        },
+        "default": {
+          "actions": {}
+        },
+        "expression": "@triggerBody()?['text']",
+        "type": "Switch"
+      }
+    },
+    "description": ""
+  },
+  "connectionReferences": {}
+}

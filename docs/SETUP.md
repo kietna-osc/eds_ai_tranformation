@@ -10,7 +10,8 @@ How to deploy each part of EDS from this repository, and what is not in the repo
 | `api/` | Function App source (`func-eds-dev`, Node.js, Azure Functions v4) |
 | `apim/` | APIM data API definition and policy |
 | `powerplatform/solution/EDSPADelivery/` | Power Automate solution `EDSPADelivery` (5 flows, environment variables, connection references), extracted from the export zip |
-| `powerplatform/canvas-app/` | Canvas app source (`pac canvas unpack` of `EDS-App-Desktop-phase2`) |
+| `powerplatform/flows/EDS-APIManagement1.json` | Definition of the flow `EDS-APIManagement1`, which is not part of the solution |
+| `powerplatform/canvas-app/` | Canvas app source (`pac canvas unpack` of `EDS-App-Desktop-phase2-base64`) |
 | `docs/EDS-APIManagement1.md` | API contract used by the app through the `EDS-APIManagement1` flow |
 | `tools/` | Helper scripts: run SQL batches, generate seed data, build the Function App zip |
 
@@ -20,7 +21,6 @@ These must be created by hand. The repository only contains what is deployed to 
 
 | Missing | What to know |
 |---|---|
-| **Flow `EDS-APIManagement1`** | The app sends every database call (`history`, `employee`, `department`, `ocr_history`) through this flow. It is **not** part of the `EDSPADelivery` solution, so importing the solution does not create it. Its inputs and outputs are described in `docs/EDS-APIManagement1.md`. Without it the app cannot read or write the database, including the History screen. Export it from the current environment and add it here when possible. |
 | **Azure SQL server and database** | No template or script creates them. The current ones are server `sql-eds-dev1` and database `eds-db` (serverless, 60-minute auto-pause, Microsoft Entra-only authentication, firewall allows listed IPs only). Create them first, then run the SQL scripts below. |
 | **Function App resource** | No template or script creates it. The current one is `func-eds-dev`: Linux, Node.js, Functions v4, system-assigned managed identity, inbound traffic restricted to the APIM gateway IP. The app settings it needs are listed in step 2. |
 
@@ -85,12 +85,25 @@ The client secret is stored in plain text in the flow definition. Anyone who can
 ## 5. Canvas app
 
 ```
-pac canvas pack --msapp EDS-App-Desktop-phase2.msapp --sources powerplatform/canvas-app
+pac canvas pack --msapp EDS-App-Desktop-phase2-base64.msapp --sources powerplatform/canvas-app
 ```
 
 Then, in Power Apps Studio: create a blank canvas app → File → Open → Browse → select the `.msapp`. Then File → Save as. Allow the connections, re-point the SharePoint data sources and flows if the environment is new, and publish.
 
 To save app changes back into the repository: download the `.msapp` from Studio, then run `pac canvas unpack --msapp <file> --sources powerplatform/canvas-app`.
+
+## 6. Flow `EDS-APIManagement1`
+
+The app sends every database call (`history`, `employee`, `department`, `ocr_history`) through this flow. Its inputs and outputs are described in `docs/EDS-APIManagement1.md`. Without it the app cannot read or write the database, including the History screen.
+
+It is **not** part of the `EDSPADelivery` solution, so importing the solution does not create it. `powerplatform/flows/EDS-APIManagement1.json` holds its definition as returned by the Power Automate management API (`displayName`, `definition`, `connectionReferences`). There is no import button for a bare definition. Either:
+
+- update an existing flow with `PATCH https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/<env>/flows/<flow id>?api-version=2016-11-01` and the body `{"properties": <file content>}`, using a token for `https://service.flow.microsoft.com/`, or
+- create an instant flow with a Power Apps trigger (inputs `text`, `text_1`, `text_2`) and rebuild the actions by hand from the file.
+
+Before using it, replace `<CLIENT_SECRET>` in `Get_auth_token` with the secret of app registration `53ddbbff-90ae-4085-858e-9923b3c6a3d9`. Never commit the real secret. The current flow is `649050a3-e9fb-484d-bfa1-4351703308c6` in the default environment.
+
+The list routes read the page size from `pageSize`, which is what the app sends. They also accept `page_size` for older callers.
 
 ## Scanned images in the history table
 
