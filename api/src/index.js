@@ -20,9 +20,11 @@ const toHistory = (row) => ({
   sender_name: row.sender_name,
   sender_content: row.sender_content,
   sender_address: row.sender_address,
-  employee_id: row.employee_id,
+  // Coerced like history_id: the EDS-APIManagement1 Parse JSON schema expects integer | null,
+  // and a string here (e.g. a BIGINT or text column, which mssql returns as a string) fails the run.
+  employee_id: intOrNull(row.employee_id),
   recipient_name: row.recipient_name,
-  recipient_department_id: row.recipient_department_id,
+  recipient_department_id: intOrNull(row.recipient_department_id),
   recipient_department_name: row.recipient_department_name,
   status: row.status,
   notified_at: row.notified_at,
