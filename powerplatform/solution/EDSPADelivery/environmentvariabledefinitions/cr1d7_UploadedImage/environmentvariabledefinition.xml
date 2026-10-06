@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_UploadedImage">
+  <defaultvalue>01764771-1f2f-49d2-a795-9f5736793a50</defaultvalue>
+  <displayname default="Uploaded-Image">
+    <label description="Uploaded-Image" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

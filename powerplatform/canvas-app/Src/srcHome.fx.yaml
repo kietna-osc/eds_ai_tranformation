@@ -1,0 +1,587 @@
+srcHome As screen:
+    ContentLanguage: =""
+    Fill: =RGBA(248, 250, 252, 1)
+    LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+    OnVisible: |-
+        =If(IsBlank(gblRoleAt) || !(gblMyRole in ["Owner", "CanEdit"]) || DateDiff(gblRoleAt, Now(), TimeUnit.Seconds) > 60, Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now()););
+        Set(gblIsMobile, App.Width < 768);
+        Set(varActiveTab, "home");
+        Set(varHeaderTitle, "荷物ラベルをスキャン");
+        Set(varHeaderSubtitle, "荷物ラベルの写真を撮影またはアップロードしてください");
+        Set(varError, "");
+        Set(varShowSearchChoice, false);
+        Set(varShowImageZoom, false);
+        Set(varImageZoomScale, 1);
+        ClearCollect(colZoomPanDummy, {n: 1});
+        If(
+            varFromUnknownList,
+            Set(varPackageId, "");
+            Set(varHomeQueueId, "")
+        );
+        Set(varFromUnknownList, false);
+        If(
+            CountRows(colHomeQueue) > 0,
+            With(
+                {
+                    selectedItem: Coalesce(
+                        LookUp(colHomeQueue, id = varHomeSelectedId),
+                        First(colHomeQueue)
+                    )
+                },
+                Set(varHomeSelectedId, selectedItem.id);
+                Set(varImage, Coalesce(selectedItem.image, SampleImage));
+                Set(
+                    varImageUrl,
+                    If(
+                        Text(selectedItem.source) = "sharepoint",
+                        "",
+                        Coalesce(selectedItem.file_url, "")
+                    )
+                );
+                Set(
+                    varImageName,
+                    If(
+                        !IsBlank(selectedItem.path),
+                        "SPPATH|" & selectedItem.path,
+                        Coalesce(selectedItem.name, "label.jpg")
+                    )
+                )
+            ),
+            Set(varHomeSelectedId, "");
+            Set(varImage, Blank());
+            Set(varImageUrl, "");
+            Set(varImageName, "")
+        )
+
+    cmpHeader_Home As cmpHeader:
+        Height: =App.Height * 0.1
+        Width: =App.Width
+        ZIndex: =1
+
+    conHomeQueueStrip As groupContainer.horizontalAutoLayoutContainer:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        Fill: =RGBA(247, 248, 250, 1)
+        Height: =App.Height * 0.13
+        LayoutAlignItems: =LayoutAlignItems.Center
+        LayoutGap: =App.Width * 0.012
+        LayoutMode: =LayoutMode.Auto
+        PaddingBottom: =App.Height * 0.012
+        PaddingLeft: =App.Width * 0.0167
+        PaddingRight: =App.Width * 0.0167
+        PaddingTop: =App.Height * 0.012
+        Visible: =CountRows(colHomeQueue) > 0
+        Width: =App.Width
+        Y: =App.Height * 0.1
+        ZIndex: =2
+
+        lblHomeQueueTitle As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =Parent.Height * 0.4
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            Size: =App.Height * 0.014
+            Text: ="荷物ラベル (" & CountRows(colHomeQueue) & ")"
+            Width: =If(gblIsMobile, App.Width * 0.2, App.Width * 0.1)
+            ZIndex: =1
+
+        "galHomeQueue As gallery.'BrowseLayout_Horizontal_TwoTextOneImageVariant_ver5.0'":
+            BorderColor: =RGBA(0, 0, 0, 0)
+            DelayItemLoading: =true
+            Height: =Parent.Height * 0.92
+            Items: =colHomeQueue
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMinHeight: =App.Height * 0.01
+            LayoutMinWidth: =App.Width * 0.01
+            OnSelect: |-
+                =Set(varHomeSelectedId, Text(ThisItem.id));
+                Set(varImage, Coalesce(ThisItem.image, SampleImage));
+                Set(
+                    varImageUrl,
+                    If(
+                        Text(ThisItem.source) = "sharepoint",
+                        "",
+                        Coalesce(ThisItem.file_url, "")
+                    )
+                );
+                Set(
+                    varImageName,
+                    If(
+                        !IsBlank(ThisItem.path),
+                        "SPPATH|" & ThisItem.path,
+                        Coalesce(ThisItem.name, "label.jpg")
+                    )
+                );
+                Set(varImageZoomScale, 1);
+                Set(varShowImageZoom, false);
+                Clear(varCandidates);
+                Clear(colSelected);
+                Set(varError, "")
+            ShowScrollbar: =false
+            TemplatePadding: =If(gblIsMobile, App.Width * 0.012, App.Width * 0.004)
+            TemplateSize: =If(gblIsMobile, App.Height * 0.09, App.Width * 0.062)
+            Width: =If(gblIsMobile, App.Width * 0.72, 640)
+            ZIndex: =2
+
+            imgHomeQueueThumb As image:
+                BorderColor: |-
+                    =If(
+                        Text(ThisItem.id) = Text(varHomeSelectedId),
+                        RGBA(13, 148, 136, 1),
+                        RGBA(226, 232, 240, 1)
+                    )
+                BorderThickness: =If(Text(ThisItem.id) = Text(varHomeSelectedId), 3, 1)
+                Height: =Parent.TemplateHeight * 0.9
+                Image: |-
+                    =Coalesce(
+                        If(!IsBlank(ThisItem.image) && ThisItem.image <> SampleImage, ThisItem.image, Blank()),
+                        If(
+                            Text(ThisItem.source) <> "sharepoint",
+                            ThisItem.file_url,
+                            Blank()
+                        ),
+                        SampleImage
+                    )
+                ImagePosition: =ImagePosition.Fill
+                OnSelect: =Select(Parent)
+                RadiusBottomLeft: =8
+                RadiusBottomRight: =8
+                RadiusTopLeft: =8
+                RadiusTopRight: =8
+                Width: =Parent.TemplateWidth * 0.88
+                X: =Parent.TemplateWidth * 0.04
+                Y: =Parent.TemplateHeight * 0.05
+                ZIndex: =1
+
+            btnHomeQueueRemove As modernButton:
+                BasePaletteColor: =RGBA(220, 38, 38, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.TemplateHeight * 0.38
+                Icon: ="Dismiss"
+                OnSelect: |-
+                    =With(
+                        {
+                            removedId: Text(ThisItem.id),
+                            wasSelected: Text(ThisItem.id) = Text(varHomeSelectedId)
+                        },
+                        RemoveIf(colHomeQueue, id = removedId);
+                        If(
+                            wasSelected,
+                            If(
+                                CountRows(colHomeQueue) > 0,
+                                With(
+                                    { nextItem: First(colHomeQueue) },
+                                    Set(varHomeSelectedId, nextItem.id);
+                                    Set(varImage, Coalesce(nextItem.image, SampleImage));
+                                    Set(
+                                        varImageUrl,
+                                        If(
+                                            Text(nextItem.source) = "sharepoint",
+                                            "",
+                                            Coalesce(nextItem.file_url, "")
+                                        )
+                                    );
+                                    Set(
+                                        varImageName,
+                                        If(
+                                            !IsBlank(nextItem.path),
+                                            "SPPATH|" & nextItem.path,
+                                            Coalesce(nextItem.name, "label.jpg")
+                                        )
+                                    )
+                                ),
+                                Set(varHomeSelectedId, "");
+                                Set(varImage, Blank());
+                                Set(varImageUrl, "");
+                                Set(varImageName, "")
+                            );
+                            Clear(varCandidates);
+                            Clear(colSelected)
+                        )
+                    )
+                RadiusBottomLeft: =Parent.TemplateHeight * 0.19
+                RadiusBottomRight: =Parent.TemplateHeight * 0.19
+                RadiusTopLeft: =Parent.TemplateHeight * 0.19
+                RadiusTopRight: =Parent.TemplateHeight * 0.19
+                Size: =App.Height * 0.012
+                Text: =""
+                Width: =Parent.TemplateHeight * 0.38
+                X: =Parent.TemplateWidth - Parent.TemplateHeight * 0.4
+                Y: =Parent.TemplateHeight * 0.02
+                ZIndex: =2
+
+    conHomeWorkspace As groupContainer.horizontalAutoLayoutContainer:
+        Fill: =RGBA(248, 250, 252, 1)
+        Height: =App.Height * (0.912 - If(CountRows(colHomeQueue) > 0, 0.23, 0.1)) - If(gblIsMobile, App.Height * 0.37, 0)
+        LayoutAlignItems: =LayoutAlignItems.Stretch
+        LayoutGap: =App.Width * 0.0167
+        LayoutMode: =LayoutMode.Auto
+        PaddingBottom: =App.Height * 0.03
+        PaddingLeft: =App.Width * 0.0167
+        PaddingRight: =App.Width * 0.0167
+        PaddingTop: =App.Height * 0.082
+        Width: =If(gblIsMobile, App.Width, App.Width * 0.6134)
+        Y: =App.Height * If(CountRows(colHomeQueue) > 0, 0.23, 0.1)
+        ZIndex: =3
+
+        conHomePhotoCard As groupContainer.manualLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderStyle: |-
+                =If(
+                    (!IsBlank(varImage) && varImage <> SampleImage)
+                    || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                    || (
+                        Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                        && !IsBlank(varImageUrl)
+                    )
+                    ,
+                    BorderStyle.None,
+                    BorderStyle.Dashed
+                )
+            BorderThickness: =2
+            Fill: |-
+                =If(
+                    (!IsBlank(varImage) && varImage <> SampleImage)
+                    || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                    || (
+                        Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                        && !IsBlank(varImageUrl)
+                    )
+                    ,
+                    RGBA(255, 255, 255, 1),
+                    RGBA(241, 245, 249, 1)
+                )
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            ZIndex: =1
+
+            conHomeImgMask As groupContainer.horizontalAutoLayoutContainer:
+                Height: =Parent.Height
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutMode: =LayoutMode.Auto
+                Width: =Parent.Width
+                ZIndex: =1
+
+                conHomeImgPanHost As groupContainer.manualLayoutContainer:
+                    FillPortions: =0
+                    Height: =conHomePhotoCard.Height
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Width: =conHomePhotoCard.Width
+                    ZIndex: =1
+
+                    imgHomePreview As image:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Height: =conHomePhotoCard.Height * Coalesce(varImageZoomScale, 1)
+                        Image: |-
+                            =Coalesce(
+                                If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                LookUp(colHomeQueue, id = varHomeSelectedId).image,
+                                If(
+                                    Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint",
+                                    varImageUrl,
+                                    Blank()
+                                ),
+                                SampleImage
+                            )
+                        RadiusBottomLeft: =12
+                        RadiusBottomRight: =12
+                        RadiusTopLeft: =12
+                        RadiusTopRight: =12
+                        Visible: |-
+                            =(!IsBlank(varImage) && varImage <> SampleImage)
+                            || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                            || (
+                                Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                                && !IsBlank(varImageUrl)
+                            )
+                        Width: =conHomePhotoCard.Width * Coalesce(varImageZoomScale, 1)
+                        X: =-(conHomePhotoCard.Width * (Coalesce(varImageZoomScale, 1) - 1)) * (sldHomePanX.Value / 100)
+                        Y: =-(conHomePhotoCard.Height * (Coalesce(varImageZoomScale, 1) - 1)) * (sldHomePanY.Value / 100)
+                        ZIndex: =1
+
+            lblHomeEmptyIcon As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(148, 163, 184, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.07
+                Size: =App.Height * 0.05
+                Text: ="◻"
+                Visible: |-
+                    =!(
+                        (!IsBlank(varImage) && varImage <> SampleImage)
+                        || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                        || (
+                            Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                            && !IsBlank(varImageUrl)
+                        )
+                    )
+                Width: =Parent.Width
+                Y: =Parent.Height * 0.36
+                ZIndex: =2
+
+            lblHomeEmpty As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Height: =App.Height * 0.032
+                Size: =App.Height * 0.018
+                Text: ="写真がありません"
+                Visible: |-
+                    =!(
+                        (!IsBlank(varImage) && varImage <> SampleImage)
+                        || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                        || (
+                            Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                            && !IsBlank(varImageUrl)
+                        )
+                    )
+                Width: =Parent.Width
+                Y: =Parent.Height * 0.5
+                ZIndex: =3
+
+            sldHomePanX As slider:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                HandleFill: =RGBA(0, 102, 204, 1)
+                Height: =App.Height * 0.028
+                RailFill: =RGBA(226, 232, 240, 1)
+                ShowValue: =false
+                ValueFill: =RGBA(148, 163, 184, 1)
+                Visible: =Coalesce(varImageZoomScale, 1) > 1
+                Width: =Parent.Width * 0.84
+                X: =Parent.Width * 0.05
+                Y: =Parent.Height - App.Height * 0.04
+                ZIndex: =4
+
+            sldHomePanY As slider:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                HandleFill: =RGBA(0, 102, 204, 1)
+                Height: =Parent.Height * 0.76
+                Layout: =Layout.Vertical
+                RailFill: =RGBA(226, 232, 240, 1)
+                ShowValue: =false
+                ValueFill: =RGBA(148, 163, 184, 1)
+                Visible: =Coalesce(varImageZoomScale, 1) > 1
+                Width: =App.Width * 0.018
+                X: =Parent.Width - App.Width * 0.022
+                Y: =Parent.Height * 0.06
+                ZIndex: =5
+
+    cmpHomeActions_1 As cmpHomeActions:
+        Height: =App.Height * 0.34
+        Width: =If(gblIsMobile, App.Width * 0.9666, App.Width * 0.3667)
+        X: =If(gblIsMobile, App.Width * 0.0167, App.Width * 0.6166)
+        Y: =If(gblIsMobile, App.Height * 0.557, App.Height * (If(CountRows(colHomeQueue) > 0, 0.23, 0.1) + (0.912 - If(CountRows(colHomeQueue) > 0, 0.23, 0.1) - 0.34) / 2))
+        ZIndex: =4
+
+    cmpBottomNav_Home As cmpBottomNav:
+        Height: =App.Height * 0.088
+        Width: =App.Width
+        Y: =App.Height * 0.912
+        ZIndex: =5
+
+    cmpZoomBar_Home As cmpZoomBar:
+        Height: =App.Height * 0.038
+        Visible: |-
+            =(!IsBlank(varImage) && varImage <> SampleImage)
+            || !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image)
+            || (
+                Text(LookUp(colHomeQueue, id = varHomeSelectedId).source) <> "sharepoint"
+                && !IsBlank(varImageUrl)
+            )
+        Width: =If(gblIsMobile, App.Width * 0.26, App.Width * 0.082)
+        X: =If(gblIsMobile, App.Width * 0.7, App.Width * 0.5085)
+        Y: =App.Height * (If(CountRows(colHomeQueue) > 0, 0.23, 0.1) + 0.02)
+        ZIndex: =6
+
+    conHomeContinueOverlay As groupContainer.manualLayoutContainer:
+        Fill: =RGBA(15, 23, 42, 0.5)
+        Height: =App.Height
+        Visible: =varShowContinuePopup
+        Width: =App.Width
+        ZIndex: =7
+
+        conContinueCard As groupContainer.horizontalAutoLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.44
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.018
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMode: =LayoutMode.Auto
+            PaddingBottom: =App.Height * 0.03
+            PaddingLeft: =App.Width * 0.02
+            PaddingRight: =App.Width * 0.02
+            PaddingTop: =App.Height * 0.03
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.33)
+            X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.335)
+            Y: =App.Height * 0.28
+            ZIndex: =1
+
+            conContinueIcon As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                BorderColor: =RGBA(0, 102, 204, 1)
+                BorderThickness: =2
+                Fill: =RGBA(239, 246, 255, 1)
+                FillPortions: =0
+                Height: =App.Height * 0.075
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.0375
+                RadiusBottomRight: =App.Height * 0.0375
+                RadiusTopLeft: =App.Height * 0.0375
+                RadiusTopRight: =App.Height * 0.0375
+                Width: =App.Height * 0.075
+                ZIndex: =1
+
+                lblContinueIcon As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(0, 102, 204, 1)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.06
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.026
+                    Text: ="？"
+                    Width: =App.Height * 0.06
+                    ZIndex: =1
+
+            lblContinueTitle As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.04
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.022
+                Text: ="処理を続けますか？"
+                Width: =Parent.Width
+                ZIndex: =2
+
+            lblContinueBody As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.032
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.015
+                Text: ="次の画像で続行しますか？"
+                Width: =Parent.Width
+                ZIndex: =3
+
+            conContinueBadge As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                Fill: =RGBA(219, 234, 254, 1)
+                FillPortions: =0
+                Height: =App.Height * 0.045
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.0225
+                RadiusBottomRight: =App.Height * 0.0225
+                RadiusTopLeft: =App.Height * 0.0225
+                RadiusTopRight: =App.Height * 0.0225
+                Width: =App.Width * 0.11
+                ZIndex: =4
+
+                lblContinueBadge As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(0, 102, 204, 1)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Semibold
+                    Height: =App.Height * 0.032
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.014
+                    Text: =Text(varBatchTotal) & "件中" & Text(varProcessedCount) & "件完了"
+                    Width: =Parent.Width
+                    ZIndex: =1
+
+            conContinueBtns As groupContainer.horizontalAutoLayoutContainer:
+                FillPortions: =0
+                Height: =App.Height * 0.06
+                LayoutAlignItems: =LayoutAlignItems.Stretch
+                LayoutGap: =App.Width * 0.01
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                Width: =Parent.Width * 0.9
+                ZIndex: =5
+
+                btnContinueCancel As modernButton:
+                    AlignInContainer: =AlignInContainer.Stretch
+                    Appearance: =ButtonAppearance.Secondary
+                    BorderColor: =RGBA(226, 232, 240, 1)
+                    Color: =RGBA(71, 85, 105, 1)
+                    FillPortions: =1
+                    Font: =Font.'Segoe UI'
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    OnSelect: |-
+                        =Set(varShowContinuePopup, false);
+                        Clear(colHomeQueue);
+                        Set(varHomeSelectedId, "");
+                        Set(varImage, Blank());
+                        Set(varImageUrl, "");
+                        Set(varImageName, "");
+                        Set(varBatchTotal, 0);
+                        Set(varProcessedCount, 0)
+                    RadiusBottomLeft: =10
+                    RadiusBottomRight: =10
+                    RadiusTopLeft: =10
+                    RadiusTopRight: =10
+                    Size: =App.Height * 0.015
+                    Text: ="キャンセル"
+                    ZIndex: =1
+
+                btnContinueNext As modernButton:
+                    AlignInContainer: =AlignInContainer.Stretch
+                    BasePaletteColor: =RGBA(0, 102, 204, 1)
+                    BorderStyle: =BorderStyle.None
+                    Color: =RGBA(255, 255, 255, 1)
+                    FillPortions: =1
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Semibold
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    OnSelect: =Set(varShowContinuePopup, false)
+                    RadiusBottomLeft: =10
+                    RadiusBottomRight: =10
+                    RadiusTopLeft: =10
+                    RadiusTopRight: =10
+                    Size: =App.Height * 0.015
+                    Text: ="続行"
+                    ZIndex: =2
+

@@ -1,0 +1,10 @@
+[
+  {
+    "ApiId": "/providers/microsoft.powerapps/apis/shared_logicflows",
+    "FlowNameId": "8b1f97ce-a106-4d98-89aa-17d4d0f344bf",
+    "Name": "EDS-ProcessLabel",
+    "ServiceKind": "ConnectedWadl",
+    "Type": "ServiceInfo",
+    "WorkflowEntityId": "627a7fda-01ac-f111-aaad-70a8a50387b3"
+  }
+]

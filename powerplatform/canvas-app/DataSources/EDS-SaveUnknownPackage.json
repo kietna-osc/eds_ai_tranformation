@@ -1,0 +1,10 @@
+[
+  {
+    "ApiId": "/providers/microsoft.powerapps/apis/shared_logicflows",
+    "FlowNameId": "36e2abcc-9d08-4dff-81ac-c5d45bb8b317",
+    "Name": "EDS-SaveUnknownPackage",
+    "ServiceKind": "ConnectedWadl",
+    "Type": "ServiceInfo",
+    "WorkflowEntityId": "c6f5f6c0-f1a1-f111-b8de-70a8a50387b3"
+  }
+]

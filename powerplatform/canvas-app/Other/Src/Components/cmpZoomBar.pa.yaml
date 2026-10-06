@@ -1,0 +1,78 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+ComponentDefinitions:
+  cmpZoomBar:
+    DefinitionType: CanvasComponent
+    AccessAppScope: true
+    Properties:
+      Height: =44
+      Width: =180
+    Children:
+      - conZoomBarRoot:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            BorderColor: =RGBA(0, 102, 204, 1)
+            BorderThickness: =1
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =Parent.Height - 2
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Horizontal
+            LayoutGap: =Parent.Width * 0.02
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            PaddingLeft: =Parent.Width * 0.03
+            PaddingRight: =Parent.Width * 0.03
+            RadiusBottomLeft: =Parent.Height / 2
+            RadiusBottomRight: =Parent.Height / 2
+            RadiusTopLeft: =Parent.Height / 2
+            RadiusTopRight: =Parent.Height / 2
+            Width: =Parent.Width - 2
+            X: =1
+            Y: =1
+          Children:
+            - btnZoomOutBar:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Subtle
+                  BorderStyle: =
+                  Color: =RGBA(0, 102, 204, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =Parent.Height * 0.8
+                  Icon: ="ZoomOut"
+                  OnSelect: =Set(varImageZoomScale, Max(1, varImageZoomScale - 0.25))
+                  Size: =Parent.Height * 0.3
+                  Text: =""
+                  Width: =Parent.Width * 0.28
+            - lblZoomPctBar:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(0, 102, 204, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Semibold
+                  Height: =Parent.Height * 0.8
+                  Size: =Parent.Height * 0.28
+                  Text: =Round(Coalesce(varImageZoomScale, 1) * 100, 0) & "%"
+                  Width: =Parent.Width * 0.32
+            - btnZoomInBar:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Subtle
+                  BorderStyle: =
+                  Color: =RGBA(0, 102, 204, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =Parent.Height * 0.8
+                  Icon: ="ZoomIn"
+                  OnSelect: =Set(varImageZoomScale, Min(3, varImageZoomScale + 0.25))
+                  Size: =Parent.Height * 0.3
+                  Text: =""
+                  Width: =Parent.Width * 0.28

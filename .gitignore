@@ -107,3 +107,10 @@ employee_name_department.csv
 /host.json
 /package.json
 /package-lock.json
+
+# Power Platform build outputs (the solution zip holds the client secret once filled in)
+*.msapp
+/EDSPADelivery.zip
+
+# Local handover folder: contains secrets and personal data
+/powerapps/

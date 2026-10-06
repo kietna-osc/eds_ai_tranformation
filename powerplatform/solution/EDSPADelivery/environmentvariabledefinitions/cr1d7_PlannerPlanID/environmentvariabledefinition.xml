@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_PlannerPlanID">
+  <defaultvalue>yiKgz9mJbUmRxmNx_gKtg8kAAuHj</defaultvalue>
+  <displayname default="Planner-Plan-ID">
+    <label description="Planner-Plan-ID" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

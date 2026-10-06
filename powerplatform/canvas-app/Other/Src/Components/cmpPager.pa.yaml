@@ -1,0 +1,481 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+ComponentDefinitions:
+  cmpPager:
+    DefinitionType: CanvasComponent
+    AccessAppScope: true
+    Properties:
+      Height: =140
+      Width: =1366
+    Children:
+      - btnPgMPrev:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BasePaletteColor: =RGBA(148, 163, 184, 1)
+            BorderStyle: =
+            Color: =RGBA(51, 65, 85, 1)
+            DisplayMode: =If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.046
+            OnSelect: =If(gblPage > 1, Set(gblPage, gblPage - 1); Select(btnPgFetch))
+            Size: =App.Height * 0.026
+            Text: ="‹"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.11
+            X: =App.Width * 0.185
+            Y: =App.Height * 0.04
+      - btnPgMPage1:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = 1, ButtonAppearance.Primary, ButtonAppearance.Outline)
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =If(gblPage = 1, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
+            DisplayMode: =If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.046
+            OnSelect: =If(1 > 0, Set(gblPage, 1); Select(btnPgFetch))
+            Size: =App.Height * 0.017
+            Text: =If(1 = -1, "…", Text(1))
+            Visible: =gblIsMobile && Value(lblPgPages.Text) >= 1
+            Width: =App.Width * 0.11
+            X: =App.Width * 0.315
+            Y: =App.Height * 0.04
+      - btnPgMPage2:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = 2, ButtonAppearance.Primary, ButtonAppearance.Outline)
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =If(gblPage = 2, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.046
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1)); Select(btnPgFetch))
+            Size: =App.Height * 0.017
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1)))
+            Visible: =gblIsMobile && Value(lblPgPages.Text) >= 2
+            Width: =App.Width * 0.11
+            X: =App.Width * 0.445
+            Y: =App.Height * 0.04
+      - btnPgMPage3:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = 3, ButtonAppearance.Primary, ButtonAppearance.Outline)
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =If(gblPage = 3, RGBA(255, 255, 255, 1), RGBA(71, 85, 105, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.046
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1))); Select(btnPgFetch))
+            Size: =App.Height * 0.017
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1))))
+            Visible: =gblIsMobile && Value(lblPgPages.Text) >= 3
+            Width: =App.Width * 0.11
+            X: =App.Width * 0.575
+            Y: =App.Height * 0.04
+      - btnPgMNext:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BasePaletteColor: =RGBA(148, 163, 184, 1)
+            BorderStyle: =
+            Color: =RGBA(51, 65, 85, 1)
+            DisplayMode: =If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.046
+            OnSelect: =If(gblPage < Value(lblPgPages.Text), Set(gblPage, gblPage + 1); Select(btnPgFetch))
+            Size: =App.Height * 0.026
+            Text: ="›"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.11
+            X: =App.Width * 0.705
+            Y: =App.Height * 0.04
+      - btnPgPrev:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(100, 116, 139, 1)
+            DisplayMode: =If(gblPage > 1, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .032
+            OnSelect: =If(gblPage > 1, Set(gblPage, gblPage - 1); Select(btnPgFetch))
+            Size: =App.Height * 0.018
+            Text: ="‹"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .0194
+            X: =App.Width * .6271
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage1:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = 1, ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = 1, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(1 > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = 1, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(1 > 0, Set(gblPage, 1); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(1 = -1, "…", Text(1))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 1)
+            Width: =App.Width * .026
+            X: =App.Width * 0.6521
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage2:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1)); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 2, -1)))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 2)
+            Width: =App.Width * .026
+            X: =App.Width * 0.6805
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage3:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1))); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1)) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 3, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 4, gblPage - 1))))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 3)
+            Width: =App.Width * .026
+            X: =App.Width * 0.7089
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage4:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage))); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage)) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 4, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 3, gblPage))))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 4)
+            Width: =App.Width * .026
+            X: =App.Width * 0.7373
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage5:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1))); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1)) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7 || gblPage <= 4, 5, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 2, gblPage + 1))))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 5)
+            Width: =App.Width * .026
+            X: =App.Width * 0.7657
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage6:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1)))); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1))) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7, 6, If(gblPage <= 4, -1, If(gblPage >= Value(lblPgPages.Text) - 3, Value(lblPgPages.Text) - 1, -1)))))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 6)
+            Width: =App.Width * .026
+            X: =App.Width * 0.7941
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgPage7:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), ButtonAppearance.Outline, ButtonAppearance.Transparent)
+            BorderStyle: =
+            Color: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            DisplayMode: =If(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPage = If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)), FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .032
+            OnSelect: =If(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)) > 0, Set(gblPage, If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text))); Select(btnPgFetch))
+            Size: =App.Height * 0.015
+            Text: =If(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text)) = -1, "…", Text(If(Value(lblPgPages.Text) <= 7, 7, Value(lblPgPages.Text))))
+            Visible: =!gblIsMobile && (Value(lblPgPages.Text) >= 7)
+            Width: =App.Width * .028
+            X: =App.Width * 0.8225
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgNext:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(100, 116, 139, 1)
+            DisplayMode: =If(gblPage < Value(lblPgPages.Text), DisplayMode.Edit, DisplayMode.Disabled)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .032
+            OnSelect: =If(gblPage < Value(lblPgPages.Text), Set(gblPage, gblPage + 1); Select(btnPgFetch))
+            Size: =App.Height * 0.018
+            Text: ="›"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .0194
+            X: =App.Width * (0.6521 + Min(Value(lblPgPages.Text), 7) * 0.0284)
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - btnPgSize:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BasePaletteColor: =RGBA(100, 116, 139, 1)
+            BorderStyle: =
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Normal
+            Height: =App.Height * .032
+            OnSelect: =Set(varShowPageSize, !varShowPageSize)
+            Size: =App.Height * 0.015
+            Text: =gblPageSize & " / ページ ▾"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .0778
+            X: =App.Width * .8889
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - lblPgTotal:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .02
+            PaddingLeft: =0
+            Size: =App.Height * 0.022
+            Text: |-
+              =// 一覧画面ごとの件数 (サーバーの totalCount)。新しい一覧画面を追加したらここに 1 行追加する
+              Text(
+                  Switch(
+                      varActiveTab,
+                      "history", If(IsBlank(varHistSearch), varHistTotal, CountRows(Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType)))),
+                      "employee", varEmpTotal,
+                      0
+                  ),
+                  "[$-en-US]0"
+              )
+            Visible: =!gblIsMobile && (false)
+            Width: =App.Width * .05
+            X: =App.Width * .03
+      - lblPgPages:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .02
+            PaddingLeft: =0
+            Size: =App.Height * 0.022
+            Text: =Text(Max(1, RoundUp(Value(lblPgTotal.Text) / gblPageSize, 0)), "[$-en-US]0")
+            Visible: =!gblIsMobile && (false)
+            Width: =App.Width * .05
+            X: =App.Width * .09
+      - lblPgMInfo:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.030
+            PaddingLeft: =0
+            Size: =App.Height * 0.016
+            Text: =Text(Min((gblPage - 1) * gblPageSize + 1, Value(lblPgTotal.Text))) & "-" & Text(Min(gblPage * gblPageSize, Value(lblPgTotal.Text))) & " / " & Value(lblPgTotal.Text) & "件"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+      - lblPgInfo:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .032
+            PaddingLeft: =0
+            Size: =App.Height * 0.015
+            Text: =Text(Min((gblPage - 1) * gblPageSize + 1, Value(lblPgTotal.Text))) & "-" & Text(Min(gblPage * gblPageSize, Value(lblPgTotal.Text))) & " / " & Value(lblPgTotal.Text) & "件"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .14
+            X: =App.Width * .0333
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)
+      - recPgSizePanel:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * .164
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0778
+            X: =App.Width * .8889
+      - btnPgSize10:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BasePaletteColor: =If(gblPageSize = 10, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            BorderStyle: =
+            Color: =If(gblPageSize = 10, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPageSize = 10, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .030
+            OnSelect: =Set(gblPageSize, 10);Set(gblPage, 1);Set(varShowPageSize, false);Select(btnPgFetch)
+            Size: =App.Height * 0.014
+            Text: ="10 / ページ"
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0738
+            X: =App.Width * .8909
+            Y: =App.Height * 0.006
+      - btnPgSize20:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BasePaletteColor: =If(gblPageSize = 20, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            BorderStyle: =
+            Color: =If(gblPageSize = 20, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPageSize = 20, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .030
+            OnSelect: =Set(gblPageSize, 20);Set(gblPage, 1);Set(varShowPageSize, false);Select(btnPgFetch)
+            Size: =App.Height * 0.014
+            Text: ="20 / ページ"
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0738
+            X: =App.Width * .8909
+            Y: =App.Height * 0.038
+      - btnPgSize30:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BasePaletteColor: =If(gblPageSize = 30, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            BorderStyle: =
+            Color: =If(gblPageSize = 30, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPageSize = 30, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .030
+            OnSelect: =Set(gblPageSize, 30);Set(gblPage, 1);Set(varShowPageSize, false);Select(btnPgFetch)
+            Size: =App.Height * 0.014
+            Text: ="30 / ページ"
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0738
+            X: =App.Width * .8909
+            Y: =App.Height * 0.07
+      - btnPgSize40:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BasePaletteColor: =If(gblPageSize = 40, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            BorderStyle: =
+            Color: =If(gblPageSize = 40, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPageSize = 40, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .030
+            OnSelect: =Set(gblPageSize, 40);Set(gblPage, 1);Set(varShowPageSize, false);Select(btnPgFetch)
+            Size: =App.Height * 0.014
+            Text: ="40 / ページ"
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0738
+            X: =App.Width * .8909
+            Y: =App.Height * 0.102
+      - btnPgSize50:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BasePaletteColor: =If(gblPageSize = 50, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            BorderStyle: =
+            Color: =If(gblPageSize = 50, RGBA(0, 102, 204, 1), RGBA(100, 116, 139, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(gblPageSize = 50, FontWeight.Semibold, FontWeight.Normal)
+            Height: =App.Height * .030
+            OnSelect: =Set(gblPageSize, 50);Set(gblPage, 1);Set(varShowPageSize, false);Select(btnPgFetch)
+            Size: =App.Height * 0.014
+            Text: ="50 / ページ"
+            Visible: =!gblIsMobile && (varShowPageSize)
+            Width: =App.Width * .0738
+            X: =App.Width * .8909
+            Y: =App.Height * 0.134
+      - btnPgFetch:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .032
+            OnSelect: |-
+              =// ページ / 件数の変更時に現在の一覧を取り直す。新しい一覧画面を追加したらここに 1 行追加する
+              Switch(
+                  varActiveTab,
+                  "history",
+                  // 検索語ありは全件取得済み (画面側ページング) なので取り直さない
+                  If(
+                      IsBlank(varHistSearch),
+                      Set(varHistLoading, true);
+                      Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""));
+                      If(
+                          IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                          Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+                          ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
+                      );
+                      Set(varHistLoading, false)
+                  ),
+                  "employee",
+                  Set(varEmpRaw, Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""));
+                  If(
+                      IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                      Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                      ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+                  )
+              )
+            Size: =App.Height * 0.018
+            Text: ="›"
+            Visible: =false
+            Width: =App.Width * .0194
+            X: =App.Width * (0.6521 + Min(Value(lblPgPages.Text), 7) * 0.0284)
+            Y: =If(varShowPageSize, App.Height * 0.166, 0)

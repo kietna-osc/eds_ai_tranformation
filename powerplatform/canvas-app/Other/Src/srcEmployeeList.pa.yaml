@@ -1,0 +1,667 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+Screens:
+  srcEmployeeList:
+    Properties:
+      Fill: =RGBA(248, 250, 252, 1)
+      LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+      OnVisible: |-
+        =Set(varActiveTab, "employee");Set(varShowPageSize, false);Set(varHeaderTitle, "社員管理");Set(varHeaderSubtitle, "社員情報の管理と編集");Set(gblPage, 1);Set(varShowEmpFilter, false);Set(varEmpQId, "");Set(varEmpQName, "");Set(varEmpQMail, "");Set(varEmpQDept, "");Set(varEmpDDept, "");Set(varShowEmpFDeptList, false);Set(varShowEmpMFDeptList, false);Set(varEmpQCreFrom, "");Set(varEmpQCreTo, "");Set(varEmpQUpdFrom, "");Set(varEmpQUpdTo, "");Set(varEmpQActive, false);Set(varEmpQInactive, false);Set(varEmpDActive, false);Set(varEmpDInactive, false);Set(varEmpDCreFromT, "");Set(varEmpDCreToT, "");Set(varEmpDUpdFromT, "");Set(varEmpDUpdToT, "");Set(varEmpTimeTgt, "");Set(varShowEmpModal, false);Set(varEmpMode, "create");Set(varEmpEditId, "");
+        Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));
+        // 社員一覧の取得 — 絞り込みもページングもサーバー側 (page = gblPage, pageSize = gblPageSize)
+        Set(varEmpRaw, Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""));
+        If(
+            IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+            Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+            ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+        )
+    Children:
+      - cmpHeader_E:
+          Control: CanvasComponent
+          ComponentName: cmpHeader
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * .1
+            Width: =App.Width
+      - lblEmpMTitle:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.04
+            PaddingLeft: =0
+            Size: =App.Height * 0.022
+            Text: ="社員管理"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.6
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.105
+      - lblEmpTitle:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .05
+            PaddingLeft: =0
+            Size: =App.Height * 0.022
+            Text: ="社員一覧"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .08
+            X: =App.Width * .017
+            Y: =App.Height * .115
+      - txtEmpSearch:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .048
+            OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+            Placeholder: ="社員番号・社員氏名・Eメール・部署で検索..."
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =!gblIsMobile
+            Width: =App.Width * .30
+            X: =App.Width * .10
+            Y: =App.Height * .117
+      - btnEmpImport:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .048
+            Size: =App.Height * 0.015
+            Text: ="社員リストインポート"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .135
+            X: =App.Width * .748
+            Y: =App.Height * .117
+      - btnEmpNew:
+          Control: ModernButton@1.0.0
+          Properties:
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .048
+            OnSelect: =Set(varEmpMode, "create");Set(varEmpEditId, "");Set(varEmpFId, "");Set(varEmpFName, "");Set(varEmpFMail, "");Set(varEmpFDept, "");Set(varShowEmpEDeptList, false);Set(varShowEmpMEDeptList, false);Set(varShowEmpModal, true)
+            Size: =App.Height * 0.015
+            Text: ="＋ 新規作成"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .093
+            X: =App.Width * .89
+            Y: =App.Height * .117
+      - txtEmpMSearch:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.052
+            OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+            Placeholder: ="社員番号・社員氏名・Eメール・部署で検索..."
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.70
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.150
+      - recEmpCard:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * .71
+            Visible: =!gblIsMobile
+            Width: =App.Width * .966
+            X: =App.Width * .017
+            Y: =App.Height * .175
+      - btnEmpMNew:
+          Control: ModernButton@1.0.0
+          Properties:
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.048
+            OnSelect: =Set(varEmpMode, "create");Set(varEmpEditId, "");Set(varEmpFId, "");Set(varEmpFName, "");Set(varEmpFMail, "");Set(varEmpFDept, "");Set(varShowEmpEDeptList, false);Set(varShowEmpMEDeptList, false);Set(varShowEmpModal, true)
+            Size: =App.Height * 0.015
+            Text: ="＋ 新規作成"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.212
+      - recEmpHeadBg:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(241, 245, 249, 1)
+            Height: =App.Height * .05
+            Visible: =!gblIsMobile
+            Width: =App.Width * .966
+            X: =App.Width * .017
+            Y: =App.Height * .175
+      - lblEmpH_no:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="No."
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.0367
+            X: =App.Width * (0.017 + 0.008)
+            Y: =App.Height * .183
+      - lblEmpH_empId:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="社員ID"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.0937
+            X: =App.Width * (0.017 + 0.0507)
+            Y: =App.Height * .183
+      - lblEmpH_name:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="名前"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.108
+            X: =App.Width * (0.017 + 0.1505)
+            Y: =App.Height * .183
+      - lblEmpH_email:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="メール"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.1745
+            X: =App.Width * (0.017 + 0.2645)
+            Y: =App.Height * .183
+      - lblEmpH_dept:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="部署"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.184
+            X: =App.Width * (0.017 + 0.445)
+            Y: =App.Height * .183
+      - lblEmpH_created:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="登録日"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.1127
+            X: =App.Width * (0.017 + 0.635)
+            Y: =App.Height * .183
+      - lblEmpH_updated:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="更新日"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.1127
+            X: =App.Width * (0.017 + 0.7538)
+            Y: =App.Height * .183
+      - lblEmpH_action:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .034
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: ="アクション"
+            Visible: =!gblIsMobile
+            Width: =App.Width * 0.0795
+            X: =App.Width * (0.017 + 0.8725)
+            Y: =App.Height * .183
+      - galEmployees:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            DelayItemLoading: =false
+            Height: =App.Height * .60
+            Items: |-
+              =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
+            LoadingSpinner: =LoadingSpinner.None
+            TemplatePadding: =0
+            TemplateSize: =App.Height * .07
+            Visible: =!gblIsMobile
+            Width: =App.Width * .966
+            X: =App.Width * .017
+            Y: =App.Height * .225
+          Children:
+            - recEmpRowLine:
+                Control: Rectangle@2.3.0
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Fill: =RGBA(226, 232, 240, 1)
+                  Height: =1
+                  Width: =App.Width * .966
+                  Y: =App.Height * .069
+            - lblEmpC_no:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =Text(ThisItem.no)
+                  Width: =App.Width * 0.0367
+                  X: =App.Width * 0.008
+                  Y: =App.Height * .018
+            - lblEmpC_empId:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(37, 99, 235, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Semibold
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.empId
+                  Width: =App.Width * 0.0937
+                  X: =App.Width * 0.0507
+                  Y: =App.Height * .018
+            - lblEmpC_name:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.name
+                  Width: =App.Width * 0.108
+                  X: =App.Width * 0.1505
+                  Y: =App.Height * .018
+            - lblEmpC_email:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.email
+                  Width: =App.Width * 0.1745
+                  X: =App.Width * 0.2645
+                  Y: =App.Height * .018
+            - lblEmpC_dept:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.dept
+                  Width: =App.Width * 0.184
+                  X: =App.Width * 0.445
+                  Y: =App.Height * .018
+            - lblEmpC_created:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.created
+                  Width: =App.Width * 0.1127
+                  X: =App.Width * 0.635
+                  Y: =App.Height * .018
+            - lblEmpC_updated:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * .035
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.014
+                  Text: =ThisItem.updated
+                  Width: =App.Width * 0.1127
+                  X: =App.Width * 0.7538
+                  Y: =App.Height * .018
+            - btnEmpRowEdit:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Outline
+                  BorderStyle: =
+                  Color: =RGBA(220, 38, 38, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * .042
+                  OnSelect: =Set(varEmpMode, "edit");Set(varEmpEditId, ThisItem.empId);Set(varEmpFId, ThisItem.empId);Set(varEmpFName, ThisItem.name);Set(varEmpFMail, ThisItem.email);Set(varEmpFDept, ThisItem.dept);Set(varShowEmpEDeptList, false);Set(varShowEmpMEDeptList, false);Set(varShowEmpModal, true)
+                  Size: =App.Height * 0.013
+                  Text: ="編集"
+                  Width: =App.Width * 0.0358
+                  X: =App.Width * 0.8725
+                  Y: =App.Height * .014
+            - btnEmpRowDelete:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Outline
+                  BasePaletteColor: =RGBA(220, 38, 38, 1)
+                  BorderStyle: =
+                  Color: =RGBA(220, 38, 38, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * .042
+                  OnSelect: |-
+                    ='EDS-APIManagement1'.Run("employee", JSON({employee_id:LookUp(colEmployees, empId = ThisItem.empId).no}), "employeeDelete");
+                    // 最終ページの最後の 1 件を消したら前のページへ
+                    Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0))));
+                    Select(btnEmpFetch)
+                  Size: =App.Height * 0.013
+                  Text: ="削除"
+                  Width: =App.Width * 0.0358
+                  X: =App.Width * 0.9163
+                  Y: =App.Height * .014
+      - lblEmpEmpty:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .06
+            PaddingLeft: =0
+            Size: =App.Height * 0.018
+            Text: =If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません")
+            Visible: =!gblIsMobile && IsEmpty(galEmployees.AllItems)
+            Width: =App.Width * .966
+            X: =App.Width * .017
+            Y: =App.Height * .30
+      - galEmpMobile:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            DelayItemLoading: =false
+            Height: =App.Height * 0.50
+            Items: |-
+              =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
+            LoadingSpinner: =LoadingSpinner.None
+            TemplatePadding: =0
+            TemplateSize: =App.Height * 0.125
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.272
+          Children:
+            - recEmpMRow:
+                Control: Rectangle@2.3.0
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  BorderThickness: =1
+                  Fill: =RGBA(255, 255, 255, 1)
+                  Height: =App.Height * 0.116
+                  Width: =App.Width * 0.92
+                  Y: =App.Height * 0.004
+            - lblEmpMId:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(37, 99, 235, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Semibold
+                  Height: =App.Height * 0.022
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.013
+                  Text: =ThisItem.empId
+                  Width: =App.Width * 0.25
+                  X: =App.Width * 0.035
+                  Y: =App.Height * 0.014
+            - lblEmpMName:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * 0.028
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.016
+                  Text: =ThisItem.name
+                  Width: =App.Width * 0.55
+                  X: =App.Width * 0.035
+                  Y: =App.Height * 0.044
+            - lblEmpMDept:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(71, 85, 105, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =App.Height * 0.024
+                  PaddingLeft: =0
+                  Size: =App.Height * 0.0135
+                  Text: |-
+                    ="部署: " & ThisItem.dept
+                  Width: =App.Width * 0.55
+                  X: =App.Width * 0.035
+                  Y: =App.Height * 0.076
+            - btnEmpMEdit:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Outline
+                  BorderStyle: =
+                  Color: =RGBA(220, 38, 38, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * 0.040
+                  OnSelect: =Set(varEmpMode, "edit");Set(varEmpEditId, ThisItem.empId);Set(varEmpFId, ThisItem.empId);Set(varEmpFName, ThisItem.name);Set(varEmpFMail, ThisItem.email);Set(varEmpFDept, ThisItem.dept);Set(varShowEmpEDeptList, false);Set(varShowEmpMEDeptList, false);Set(varShowEmpModal, true)
+                  Size: =App.Height * 0.013
+                  Text: ="編集"
+                  Width: =App.Width * 0.13
+                  X: =App.Width * 0.63
+                  Y: =App.Height * 0.044
+            - btnEmpMDel:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Appearance: =ButtonAppearance.Outline
+                  BasePaletteColor: =RGBA(220, 38, 38, 1)
+                  BorderStyle: =
+                  Color: =RGBA(220, 38, 38, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * 0.040
+                  OnSelect: |-
+                    ='EDS-APIManagement1'.Run("employee", JSON({employee_id:LookUp(colEmployees, empId = ThisItem.empId).no}), "employeeDelete");
+                    // 最終ページの最後の 1 件を消したら前のページへ
+                    Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0))));
+                    Select(btnEmpFetch)
+                  Size: =App.Height * 0.013
+                  Text: ="削除"
+                  Width: =App.Width * 0.13
+                  X: =App.Width * 0.78
+                  Y: =App.Height * 0.044
+      - lblEmpMEmpty:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .06
+            PaddingLeft: =0
+            Size: =App.Height * 0.018
+            Text: =If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません")
+            Visible: =gblIsMobile && IsEmpty(galEmpMobile.AllItems)
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.32
+      - cmpPager_E:
+          Control: CanvasComponent
+          ComponentName: cmpPager
+          Properties:
+            Height: =App.Height * If(gblIsMobile, 0.086, If(varShowPageSize, 0.198, 0.032))
+            Width: =App.Width
+            Y: =App.Height * If(gblIsMobile, 0.772, If(varShowPageSize, 0.672, 0.838))
+      - cmpBottomNav_E:
+          Control: CanvasComponent
+          ComponentName: cmpBottomNav
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * .088
+            Width: =App.Width
+            Y: =App.Height * .912
+      - btnEmpSearch:
+          Control: ModernButton@1.0.0
+          Properties:
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .048
+            OnSelect: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+            Size: =App.Height * 0.015
+            Text: ="検索"
+            Visible: =!gblIsMobile
+            Width: =App.Width * .07
+            X: =App.Width * .405
+            Y: =App.Height * .117
+      - btnEmpMSearch:
+          Control: ModernButton@1.0.0
+          Properties:
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.052
+            OnSelect: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+            Size: =App.Height * 0.015
+            Text: ="検索"
+            Visible: =gblIsMobile
+            Width: =App.Width * 0.20
+            X: =App.Width * 0.76
+            Y: =App.Height * 0.150
+      - cmpEmpModal_E:
+          Control: CanvasComponent
+          ComponentName: cmpEmpModal
+          Properties:
+            Height: =If(gblIsMobile, App.Height * 0.812, App.Height)
+            Visible: =varShowEmpModal
+            Width: =App.Width
+            Y: =If(gblIsMobile, App.Height * 0.1, 0)
+      - btnEmpFetch:
+          Control: ModernButton@1.0.0
+          Properties:
+            BasePaletteColor: =RGBA(0, 102, 204, 1)
+            BorderStyle: =
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .048
+            OnSelect: |-
+              =// 社員一覧の取得 — 絞り込みもページングもサーバー側 (page = gblPage, pageSize = gblPageSize)
+              Set(varEmpRaw, Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""));
+              If(
+                  IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                  Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                  ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+              )
+            Size: =App.Height * 0.015
+            Text: ="検索"
+            Visible: =false
+            Width: =App.Width * .07
+            X: =App.Width * .405
+            Y: =App.Height * .117

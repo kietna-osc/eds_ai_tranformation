@@ -7,6 +7,8 @@ const { fuzzyMatchEmployees } = require('./fuzzyMatch');
    Caller identity (JWT, tenant, app role) is validated by the APIM global policy. */
 
 /* dbo.history schema:
+   image_url NVARCHAR(MAX): base64 data URI ("data:image/...;base64,...") for new rows,
+   a SharePoint URL or relative path for rows saved before the change
    sender_name NVARCHAR(200), sender_content NVARCHAR(1000), sender_address NVARCHAR(500)
    status VARCHAR(20) CHECK (Unknown | Identified), default Unknown */
 const STATUSES = new Set(['Unknown', 'Identified']);
@@ -175,7 +177,8 @@ app.http('historyInsert', {
     }
     const rows = await exec('dbo.sp_history_insert', [
       ['slip_no', sql.NVarChar(100), strOrNull(b.slip_no, 100)],
-      ['image_url', sql.NVarChar(1000), strOrNull(b.image_url, 1000)],
+      // image_url holds the scanned image as a base64 data URI, so it is not length-capped.
+      ['image_url', sql.NVarChar(sql.MAX), strOrNull(b.image_url)],
       ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
       ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
       ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],

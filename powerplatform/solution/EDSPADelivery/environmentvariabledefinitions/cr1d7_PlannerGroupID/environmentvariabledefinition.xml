@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_PlannerGroupID">
+  <defaultvalue>c21aaf6b-d3d0-4af9-99dc-a4dbba9cc69b</defaultvalue>
+  <displayname default="Planner-Group-ID">
+    <label description="Planner-Group-ID" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

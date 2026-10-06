@@ -1,0 +1,181 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+App:
+  Properties:
+    OnStart: |-
+      =// ===== 権限: 起動時に一度だけ取得し、以降は変数を読むだけ =====
+      //   タブの Visible から直接コネクタを呼ぶと画面遷移のたびに API を叩き、
+      //   スロットリング (100回/60秒) に達してタブが消える。
+      Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now());
+      Set(gblIsMobile, App.Width < 768);
+      // 一覧画面の1ページあたりの件数。本番データ投入後は 20 に戻す
+      Set(gblPageSize, 10);
+      // ===== SharePoint 保存先の設定 (ここだけ直せばパスを変更できる) =====
+      //   gblSpBrowseRoot : Power Apps 側の '{Path}' 表記。SharePoint ブラウザ画面の初期フォルダー。
+      //   gblSpCaptureRoot: 撮影画像のパス。Power Automate が保存する場所を colHomeQueue.path に記録する。
+      Set(gblSpBrowseRoot, "Documents/channel receipt/UploadedImage/");
+      Set(gblSpCaptureRoot, "/Documents/channel receipt/UploadedImage/");
+      // ===== 部署マスタ — 部署の追加・変更はここだけを編集する =====
+      //   DB に部署テーブルは無く、社員・履歴は department_name (文字列) のみを持つ。
+      //   ここの名称は DB の department_name と完全一致させること。表示順もこの順。
+      ClearCollect(
+          colDepartments,
+          {name: "第１営業本部"},
+          {name: "第２営業本部"},
+          {name: "第３営業本部"},
+          {name: "第１ソリューション本部第１部門"},
+          {name: "第１ソリューション本部第２部門"},
+          {name: "第１ソリューション本部第３部門"},
+          {name: "第２ソリューション本部第１部門"},
+          {name: "第２ソリューション本部第２部門"},
+          {name: "第３ソリューション本部第１部門"},
+          {name: "第３ソリューション本部第２部門"},
+          {name: "ソリューション企画部門"},
+          {name: "ソリューション推進部門"},
+          {name: "ソリューション営業部門"},
+          {name: "デジタルコンサルティング本部"},
+          {name: "DX推進部"},
+          {name: "経営企画部"},
+          {name: "人事・人財開発部"},
+          {name: "コーポレート本部"}
+      );
+      ClearCollect(
+          colHomeQueue,
+          {
+              id: "",
+              name: "",
+              source: "",
+              image: SampleImage,
+              file_url: "",
+              path: "",
+              folder: "",
+              processed: false
+          }
+      );
+      Clear(colHomeQueue);
+      ClearCollect(colSpSelected, {name: "", path: "", file_url: "", image: SampleImage, folder: ""});
+      Clear(colSpSelected);
+      ClearCollect(colSpAllItems, Filter(Documents, false));
+      ClearCollect(colSpRootFolders, Filter(Documents, false));
+      ClearCollect(colSpFolderFiles, Filter(Documents, false));
+      ClearCollect(colSpAllFolders, []);
+      ClearCollect(colSpParsed, {parentPath: ""});
+      Clear(colSpParsed);
+      ClearCollect(colSpGrouped, {parentPath: ""});
+      Clear(colSpGrouped);
+      ClearCollect(
+          colEmployeeRoster,
+          {
+              Title: "",
+              name: "",
+              department: "",
+              email: ""
+          }
+      );
+      Clear(colEmployeeRoster);
+      Set(varHomeSelectedId, "");
+      Set(varShowImageZoom, false);
+      Set(varImageZoomScale, 1);
+      ClearCollect(colZoomPanDummy, {n: 1});
+      Set(varSpRootPath, "");
+      Set(varSpFolderName, "");
+      Set(varSpFolderPath, "");
+      Set(varSpPickedFolder, "");
+      Set(varHeaderTitle, "");
+      Set(varHeaderSubtitle, "");
+      Set(varActiveTab, "home");
+      Set(varShowContinuePopup, false);
+      Set(varSlipRequiredError, false);
+      Set(varBatchTotal, 0);
+      Set(varProcessedCount, 0);
+      Set(varImageName, "");
+      Set(varImageUrl, "");
+      Set(varBusy, false);
+      Set(varShowSearchChoice, false);
+      Set(varError, "");
+      Set(varMatchStep, 1);
+      Set(varMatchScore, 0);
+      Set(varTier, "");
+      Set(varOcrName, "");
+      Set(varOcrDept, "");
+      Set(varOcrConf, 0);
+      Set(varOcrSenderName, "");
+      Set(varOcrSenderInfo, "");
+      Set(varOcrDeliverySlip, "");
+      Set(varOcrSenderDepartment, "");
+      Set(varSearchText, "");
+      Set(varShowFilter, false);
+      Set(varFilterBy, "Employee Name");
+      Set(varSelectedRecipientId, "");
+      Set(varPackageId, "");
+      Set(varFromUnknownList, false);
+      Set(varHomeQueueId, "");
+      Set(varNotifyJson, "");
+      Set(varShowNotifySuccess, false);
+      Set(varNotifyNavUnknown, false);
+      Set(varFormReset, 0);
+      Set(varShowNotifyFailed, false);
+      Set(varNotifyErrorMessage, "");
+      ClearCollect(
+          varCandidates,
+          {
+              employee_id: "",
+              name: "",
+              department: "",
+              email: "",
+              teams_id: "",
+              score: 0
+          }
+      );
+      Clear(varCandidates);
+      ClearCollect(
+          colSelected,
+          {
+              employee_id: "",
+              name: "",
+              department: "",
+              email: "",
+              teams_id: "",
+              score: 0,
+              is_cc: false
+          }
+      );
+      Clear(colSelected);
+      ClearCollect(
+          colNotifyPayload,
+          {
+              employee_id: "",
+              package_id: "",
+              name: "",
+              department: "",
+              email: "",
+              teams_id: "",
+              score: 0,
+              is_cc: false,
+              content_message: "",
+              image_url: ""
+          }
+      );
+      Clear(colNotifyPayload);
+      ClearCollect(
+          colEmployeeSearch,
+          {
+              employee_id: "",
+              name: "",
+              department: "",
+              email: "",
+              teams_id: "",
+              score: 0
+          }
+      );
+      Clear(colEmployeeSearch);
+      ClearCollect(colHours, ForAll(Sequence(24, 0, 1), {t: Text(Value, "00")}));
+      ClearCollect(colMinutes, ForAll(Sequence(60, 0, 1), {t: Text(Value, "00")}))
+    StartScreen: =srcHome
+    Theme: =PowerAppsTheme

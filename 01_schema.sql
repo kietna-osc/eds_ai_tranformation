@@ -1,4 +1,4 @@
-/* EDS Phase 2 — schema v1.1
+/* EDS Phase 2 — schema v1.2
    Azure SQL Database: eds-db
    Source of truth: EDS_Phase2_DB_Schema_v1.0.xlsx (sheets: employee, history, Index & ràng buộc)
    Convention: snake_case; PK <table>_id; is_* flags; created_at / updated_at in UTC. */
@@ -50,7 +50,7 @@ CREATE TABLE dbo.history
 (
     history_id                 BIGINT          IDENTITY(1,1) NOT NULL,
     slip_no                    NVARCHAR(100)   NULL,
-    image_url                  NVARCHAR(1000)  NULL,
+    image_url                  NVARCHAR(MAX)   NULL,  -- base64 data URI; older rows hold a SharePoint URL/path
     sender_name                NVARCHAR(200)   NULL,
     sender_content             NVARCHAR(1000)  NULL,
     sender_address             NVARCHAR(500)   NULL,
@@ -77,6 +77,11 @@ IF COL_LENGTH('dbo.history', 'sender_content') IS NULL
     ALTER TABLE dbo.history ADD sender_content NVARCHAR(1000) NULL;
 IF COL_LENGTH('dbo.history', 'sender_address') IS NULL
     ALTER TABLE dbo.history ADD sender_address NVARCHAR(500) NULL;
+GO
+
+-- Existing databases created before v1.2: widen image_url to hold the base64 image.
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.history') AND name = 'image_url' AND max_length <> -1)
+    ALTER TABLE dbo.history ALTER COLUMN image_url NVARCHAR(MAX) NULL;
 GO
 
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))

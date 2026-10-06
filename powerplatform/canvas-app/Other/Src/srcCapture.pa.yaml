@@ -1,0 +1,229 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+Screens:
+  srcCapture:
+    Properties:
+      Fill: =RGBA(248, 250, 252, 1)
+      LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+      OnVisible: |-
+        =Set(gblIsMobile, App.Width < 768);
+        Set(varBusy, false);
+        Set(varCaptureTaken, false)
+    Children:
+      - conCaptureRoot:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            Fill: =RGBA(248, 250, 252, 1)
+            Height: =App.Height
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.015
+            PaddingBottom: =App.Height * 0.02
+            PaddingLeft: =App.Width * 0.051
+            PaddingRight: =App.Width * 0.051
+            PaddingTop: =App.Height * 0.02
+            Width: =App.Width
+          Children:
+            - lblCaptureTitle:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(15, 23, 42, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Bold
+                  Height: =App.Height * 0.04
+                  Size: =App.Height * 0.024
+                  Text: ="写真を撮る"
+                  Width: =Parent.Width
+            - camCapture:
+                Control: Camera@2.4.0
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  Camera: =0
+                  Height: =App.Height * 0.72
+                  LayoutMinHeight: =App.Height * 0.01
+                  LayoutMinWidth: =App.Width * 0.01
+                  StreamRate: =100
+                  Visible: =!varCaptureTaken
+                  Width: =Parent.Width
+            - imgCapturePreview:
+                Control: Image@2.2.3
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  Height: =App.Height * 0.72
+                  Image: =varCaptureShot
+                  LayoutMinHeight: =App.Height * 0.01
+                  LayoutMinWidth: =App.Width * 0.01
+                  RadiusBottomLeft: =App.Width * 0.031
+                  RadiusBottomRight: =App.Width * 0.031
+                  RadiusTopLeft: =App.Width * 0.031
+                  RadiusTopRight: =App.Width * 0.031
+                  Visible: =varCaptureTaken
+                  Width: =Parent.Width
+            - conCaptureFooter:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  DropShadow: =DropShadow.None
+                  FillPortions: =0
+                  Height: =App.Height * 0.07
+                  LayoutAlignItems: =LayoutAlignItems.Stretch
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutGap: =App.Width * 0.012
+                  LayoutMinHeight: =App.Height * 0.01
+                  LayoutMinWidth: =App.Width * 0.01
+                  Width: =Parent.Width
+                Children:
+                  - btnCaptureCancel:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        Appearance: =ButtonAppearance.Secondary
+                        BorderColor: =RGBA(226, 232, 240, 1)
+                        Color: =RGBA(15, 23, 42, 1)
+                        DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                        FillPortions: =1
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Height: =Parent.Height
+                        Icon: ="Dismiss"
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        OnSelect: |-
+                          =Set(varCaptureTaken, false);
+                          Navigate(srcHome, ScreenTransition.None)
+                        RadiusBottomLeft: =App.Width * 0.031
+                        RadiusBottomRight: =App.Width * 0.031
+                        RadiusTopLeft: =App.Width * 0.031
+                        RadiusTopRight: =App.Width * 0.031
+                        Size: =App.Height * 0.014
+                        Text: ="キャンセル"
+                        Width: =App.Width * 0.22
+                  - btnCaptureShutter:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        BasePaletteColor: =RGBA(0, 102, 204, 1)
+                        BorderStyle: =BorderStyle.None
+                        Color: =RGBA(255, 255, 255, 1)
+                        DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                        FillPortions: =1
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Height: =Parent.Height
+                        Icon: ="Camera"
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        OnSelect: |-
+                          =Set(varCaptureShot, camCapture.Stream);
+                          Set(varCaptureTaken, true)
+                        RadiusBottomLeft: =App.Width * 0.031
+                        RadiusBottomRight: =App.Width * 0.031
+                        RadiusTopLeft: =App.Width * 0.031
+                        RadiusTopRight: =App.Width * 0.031
+                        Size: =App.Height * 0.014
+                        Text: ="撮影"
+                        Visible: =!varCaptureTaken
+                        Width: =App.Width * 0.22
+                  - btnCaptureUse:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        BasePaletteColor: =RGBA(0, 102, 204, 1)
+                        BorderStyle: =BorderStyle.None
+                        Color: =RGBA(255, 255, 255, 1)
+                        DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                        FillPortions: =1
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Height: =Parent.Height
+                        Icon: ="Checkmark"
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        OnSelect: |-
+                          =With(
+                              { uploadName: "capture-" & Text(Now(), "yyyymmddhhmmss") & ".jpg" },
+                              Set(varImage, imgCapturePreview.Image);
+                              Set(varImageName, uploadName);
+                              Set(varImageUrl, "");
+                              ClearCollect(
+                                  colHomeQueue,
+                                  {
+                                      id: Text(GUID()),
+                                      name: uploadName,
+                                      source: "capture",
+                                      image: imgCapturePreview.Image,
+                                      file_url: "",
+                                      path: "",
+                                      folder: "",
+                                      processed: false
+                                  }
+                              );
+                              Set(varHomeSelectedId, First(colHomeQueue).id);
+                              Clear(varCandidates);
+                              Clear(colSelected);
+                              Set(varCaptureTaken, false);
+                              Navigate(srcHome, ScreenTransition.None)
+                          )
+                        RadiusBottomLeft: =App.Width * 0.031
+                        RadiusBottomRight: =App.Width * 0.031
+                        RadiusTopLeft: =App.Width * 0.031
+                        RadiusTopRight: =App.Width * 0.031
+                        Size: =App.Height * 0.014
+                        Text: ="この写真を使う"
+                        Visible: =varCaptureTaken
+                        Width: =App.Width * 0.22
+                  - btnCaptureUpload:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        BasePaletteColor: =RGBA(242, 140, 0, 1)
+                        BorderStyle: =BorderStyle.None
+                        Color: =RGBA(255, 255, 255, 1)
+                        DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                        FillPortions: =1
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Height: =Parent.Height
+                        Icon: ="Share"
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        OnSelect: |-
+                          =Set(varBusy, true);
+                          With(
+                              {uploadName: Lower(GUID()) & ".jpg"},
+                              IfError(
+                                  'EDS-UploadCaptureImage'.Run(
+                                      {
+                                          contentBytes: imgCapturePreview.Image,
+                                          name: uploadName
+                                      },
+                                      uploadName
+                                  );
+                                  Set(varImageName, uploadName);
+                                  Notify("SharePointに保存しました", NotificationType.Success);
+                                  Set(varBusy, false);
+                                  Set(varCaptureTaken, false);
+                                  Navigate(srcHome, ScreenTransition.None),
+                                  Notify(
+                                      "アップロードに失敗しました: " & Coalesce(FirstError.Message, "もう一度お試しください。"),
+                                      NotificationType.Error
+                                  );
+                                  Set(varBusy, false)
+                              )
+                          )
+                        RadiusBottomLeft: =App.Width * 0.031
+                        RadiusBottomRight: =App.Width * 0.031
+                        RadiusTopLeft: =App.Width * 0.031
+                        RadiusTopRight: =App.Width * 0.031
+                        Size: =App.Height * 0.014
+                        Text: =If(varBusy, "保存中...", "SharePointに保存")
+                        Visible: =varCaptureTaken
+                        Width: =App.Width * 0.22

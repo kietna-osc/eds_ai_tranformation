@@ -1,0 +1,466 @@
+srcMatchResult As screen:
+    ContentLanguage: =""
+    Fill: =RGBA(248, 250, 252, 1)
+    LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+    OnVisible: |-
+        =Set(gblIsMobile, App.Width < 768);
+        If(IsBlank(varMatchStep), Set(varMatchStep, 1));
+        Set(varActiveTab, "match");
+        Set(varHeaderTitle, If(Coalesce(varMatchStep, 1) = 2, "CCを選択", "照合結果"));
+        Set(varHeaderSubtitle, If(Coalesce(varMatchStep, 1) = 2, "Teamsで通知する社員を選択してください", "OCR結果を確認し、受取人を選択してください"));
+        Set(varShowImageZoom, false);
+        Set(varImageZoomScale, 1);
+        If(CountRows(colZoomPanDummy) = 0, ClearCollect(colZoomPanDummy, {n: 1}));
+        Set(varSearchText, "");
+        Reset(cmpMatchPanel_1)
+
+    cmpHeader_Match As cmpHeader:
+        Height: =App.Height * 0.1
+        Width: =App.Width
+        ZIndex: =1
+
+    conMatchWorkspace As groupContainer.horizontalAutoLayoutContainer:
+        Fill: =RGBA(248, 250, 252, 1)
+        Height: =If(gblIsMobile, App.Height * 0.20, App.Height * 0.812)
+        LayoutAlignItems: =LayoutAlignItems.Stretch
+        LayoutGap: =App.Width * 0.0167
+        LayoutMode: =LayoutMode.Auto
+        PaddingBottom: =App.Height * 0.02
+        PaddingLeft: =App.Width * 0.0167
+        PaddingRight: =App.Width * 0.0167
+        PaddingTop: =App.Height * 0.072
+        Width: =If(gblIsMobile, App.Width, App.Width * 0.6134)
+        Y: =App.Height * 0.1
+        ZIndex: =2
+
+        conMatchPhotoCard As groupContainer.manualLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            ZIndex: =1
+
+            conMatchImgMask As groupContainer.horizontalAutoLayoutContainer:
+                Height: =Parent.Height * 0.95
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutMode: =LayoutMode.Auto
+                Width: =Parent.Width * 0.97
+                X: =Parent.Width * 0.015
+                Y: =Parent.Height * 0.025
+                ZIndex: =1
+
+                conMatchImgPanHost As groupContainer.manualLayoutContainer:
+                    FillPortions: =0
+                    Height: =conMatchPhotoCard.Height * 0.95
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Width: =conMatchPhotoCard.Width * 0.97
+                    ZIndex: =1
+
+                    imgMatchThumb As image:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Height: =conMatchPhotoCard.Height * 0.95 * Coalesce(varImageZoomScale, 1)
+                        Image: |-
+                            =If(
+                                varFromUnknownList,
+                                With(
+                                    {
+                                        imageFileName: Last(
+                                            Split(First(Split(Text(Coalesce(varImageUrl, "")), "?")).Value, "/")
+                                        ).Value
+                                    },
+                                    Coalesce(
+                                        LookUp(
+                                            Documents,
+                                            'File name with extension' = imageFileName
+                                        ).Thumbnail.Large,
+                                        LookUp(
+                                            Documents,
+                                            'File name with extension' = Text(varPackageId) & ".jpg"
+                                        ).Thumbnail.Large,
+                                        LookUp(
+                                            Documents,
+                                            'File name with extension' = imageFileName
+                                        ).Thumbnail.Large,
+                                        If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                        SampleImage
+                                    )
+                                ),
+                                Coalesce(
+                                    If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                    LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).image,
+                                    If(
+                                        Text(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).source) <> "sharepoint",
+                                        varImageUrl,
+                                        Blank()
+                                    ),
+                                    SampleImage
+                                )
+                            )
+                        RadiusBottomLeft: =12
+                        RadiusBottomRight: =12
+                        RadiusTopLeft: =12
+                        RadiusTopRight: =12
+                        Width: =conMatchPhotoCard.Width * 0.97 * Coalesce(varImageZoomScale, 1)
+                        X: =-(conMatchPhotoCard.Width * 0.97 * (Coalesce(varImageZoomScale, 1) - 1)) * (sldMatchPanX.Value / 100)
+                        Y: =-(conMatchPhotoCard.Height * 0.95 * (Coalesce(varImageZoomScale, 1) - 1)) * (sldMatchPanY.Value / 100)
+                        ZIndex: =1
+
+            sldMatchPanX As slider:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                HandleFill: =RGBA(0, 102, 204, 1)
+                Height: =App.Height * 0.028
+                RailFill: =RGBA(226, 232, 240, 1)
+                ShowValue: =false
+                ValueFill: =RGBA(148, 163, 184, 1)
+                Visible: =Coalesce(varImageZoomScale, 1) > 1
+                Width: =Parent.Width * 0.84
+                X: =Parent.Width * 0.05
+                Y: =Parent.Height - App.Height * 0.04
+                ZIndex: =3
+
+            sldMatchPanY As slider:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                HandleFill: =RGBA(0, 102, 204, 1)
+                Height: =Parent.Height * 0.76
+                Layout: =Layout.Vertical
+                RailFill: =RGBA(226, 232, 240, 1)
+                ShowValue: =false
+                ValueFill: =RGBA(148, 163, 184, 1)
+                Visible: =Coalesce(varImageZoomScale, 1) > 1
+                Width: =App.Width * 0.018
+                X: =Parent.Width - App.Width * 0.022
+                Y: =Parent.Height * 0.06
+                ZIndex: =4
+
+    cmpMatchPanel_1 As cmpMatchPanel:
+        Height: =If(gblIsMobile, App.Height * 0.59, App.Height * 0.772)
+        Width: =If(gblIsMobile, App.Width * 0.9666, App.Width * 0.3667)
+        X: =If(gblIsMobile, App.Width * 0.0167, App.Width * 0.6166)
+        Y: =If(gblIsMobile, App.Height * 0.32, App.Height * 0.12)
+        ZIndex: =4
+
+    cmpZoomBar_Match As cmpZoomBar:
+        Height: =App.Height * 0.038
+        Visible: |-
+            =varFromUnknownList
+            || (!IsBlank(varImage) && varImage <> SampleImage)
+            || !IsBlank(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).image)
+            || (
+                Text(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).source) <> "sharepoint"
+                && !IsBlank(varImageUrl)
+            )
+        Width: =If(gblIsMobile, App.Width * 0.26, App.Width * 0.082)
+        X: =If(gblIsMobile, App.Width * 0.7, App.Width * 0.5085)
+        Y: =App.Height * 0.116
+        ZIndex: =5
+
+    cmpBottomNav_Match As cmpBottomNav:
+        Height: =App.Height * 0.088
+        Width: =App.Width
+        Y: =App.Height * 0.912
+        ZIndex: =6
+
+    conNotifySuccessOverlay As groupContainer.manualLayoutContainer:
+        Fill: =RGBA(0, 0, 0, 0.4)
+        Height: =App.Height
+        Visible: =varShowNotifySuccess || varShowNotifyFailed
+        Width: =App.Width
+        ZIndex: =7
+
+        conNotifySuccessCard As groupContainer.horizontalAutoLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.42
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.018
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMode: =LayoutMode.Auto
+            PaddingBottom: =App.Height * 0.028
+            PaddingLeft: =App.Width * 0.02
+            PaddingRight: =App.Width * 0.02
+            PaddingTop: =App.Height * 0.028
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            Visible: =varShowNotifySuccess
+            Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+            X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+            Y: =App.Height * 0.28
+            ZIndex: =1
+
+            conNotifySuccessIcon As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                BorderColor: =RGBA(13, 148, 136, 1)
+                BorderThickness: =2
+                Fill: =RGBA(230, 244, 241, 1)
+                FillPortions: =0
+                Height: =App.Height * 0.08
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.04
+                RadiusBottomRight: =App.Height * 0.04
+                RadiusTopLeft: =App.Height * 0.04
+                RadiusTopRight: =App.Height * 0.04
+                Width: =App.Height * 0.08
+                ZIndex: =1
+
+                lblNotifySuccessIcon As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(13, 148, 136, 1)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.06
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.028
+                    Text: ="✓"
+                    Width: =App.Height * 0.06
+                    ZIndex: =1
+
+            lblNotifySuccessTitle As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.038
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.021
+                Text: ="通知を送信しました"
+                Width: =Parent.Width
+                ZIndex: =2
+
+            lblNotifySuccessBody As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.05
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingBottom: =6
+                PaddingTop: =6
+                Size: =App.Height * 0.015
+                Text: ="メッセージが正常に送信されました。"
+                Width: =Parent.Width
+                ZIndex: =3
+
+            btnNotifySuccessOk As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(13, 148, 136, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.055
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =Set(varShowNotifySuccess, false);
+                    Set(varMatchStep, 1);
+                    Clear(varCandidates);
+                    Clear(colSelected);
+                    Set(varTier, "");
+                    Set(varMatchScore, 0);
+                    Set(varOcrName, "");
+                    Set(varOcrDept, "");
+                    Set(varOcrConf, 0);
+                    Set(varOcrSenderName, "");
+                    Set(varOcrSenderInfo, "");
+                    Set(varOcrDeliverySlip, "");
+                    Set(varOcrSenderDepartment, "");
+                    Set(varSelectedRecipientId, "");
+                    Set(varPackageId, "");
+                    Set(varFromUnknownList, false);
+                    If(
+                        varNotifyNavUnknown,
+                        Set(varNotifyNavUnknown, false);
+                        Set(varHomeQueueId, "");
+                        Set(varImage, Blank());
+                        Set(varImageName, "");
+                        Set(varImageUrl, "");
+                        Navigate(srcHistory, ScreenTransition.None),
+                        If(
+                            !IsBlank(varHomeQueueId),
+                            RemoveIf(colHomeQueue, id = varHomeQueueId)
+                        );
+                        Set(varHomeQueueId, "");
+                        If(
+                            CountRows(colHomeQueue) > 0,
+                            With(
+                                { nextItem: First(colHomeQueue) },
+                                Set(varHomeSelectedId, nextItem.id);
+                                Set(varImage, Coalesce(nextItem.image, SampleImage));
+                                Set(
+                                    varImageUrl,
+                                    If(
+                                        Text(nextItem.source) = "sharepoint",
+                                        "",
+                                        Coalesce(nextItem.file_url, "")
+                                    )
+                                );
+                                Set(
+                                    varImageName,
+                                    If(
+                                        !IsBlank(nextItem.path),
+                                        "SPPATH|" & nextItem.path,
+                                        Coalesce(nextItem.name, "label.jpg")
+                                    )
+                                )
+                            ),
+                            Set(varHomeSelectedId, "");
+                            Set(varImage, Blank());
+                            Set(varImageName, "");
+                            Set(varImageUrl, "")
+                        );
+                        Set(varNotifyNavUnknown, false);
+                        Set(varProcessedCount, varProcessedCount + 1);
+                        Set(
+                            varShowContinuePopup,
+                            varBatchTotal > 0 && CountRows(colHomeQueue) > 0
+                        );
+                        Navigate(srcHome, ScreenTransition.None)
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.016
+                Text: ="OK"
+                Width: =Parent.Width * 0.9
+                ZIndex: =4
+
+        conNotifyFailedCard As groupContainer.horizontalAutoLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.42
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.018
+            LayoutGridColumnMinWidth: =0
+            LayoutGridColumns: =6
+            LayoutGridRowMinHeight: =0
+            LayoutGridRows: =6
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMode: =LayoutMode.Auto
+            PaddingBottom: =App.Height * 0.028
+            PaddingLeft: =App.Width * 0.02
+            PaddingRight: =App.Width * 0.02
+            PaddingTop: =App.Height * 0.028
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            Visible: =varShowNotifyFailed
+            Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+            X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+            Y: =App.Height * 0.28
+            ZIndex: =5
+
+            conNotifyFailedIcon As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                BorderColor: =RGBA(220, 38, 38, 1)
+                BorderThickness: =2
+                Fill: =RGBA(254, 226, 226, 1)
+                FillPortions: =0
+                Height: =App.Height * 0.08
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutGridColumnMinWidth: =0
+                LayoutGridColumns: =6
+                LayoutGridRowMinHeight: =0
+                LayoutGridRows: =6
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.04
+                RadiusBottomRight: =App.Height * 0.04
+                RadiusTopLeft: =App.Height * 0.04
+                RadiusTopRight: =App.Height * 0.04
+                Width: =App.Height * 0.08
+                ZIndex: =1
+
+                lblNotifyFailedIcon As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0,0,0,0)
+                    Color: =RGBA(220, 38, 38, 1)
+                    Fill: =RGBA(0, 0, 0 ,0)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.06
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.028
+                    Text: ="x"
+                    Width: =App.Height * 0.06
+                    ZIndex: =1
+
+            lblNotifyFailedTitle As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.038
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.021
+                Text: ="通知に失敗しました"
+                Width: =Parent.Width
+                ZIndex: =2
+
+            lblNotifyFailedBody As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.1
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingBottom: =6
+                PaddingTop: =6
+                Size: =App.Height * 0.015
+                Text: ="メッセージの送信に失敗しました。時間をおいて再度お試しください。"
+                Width: =Parent.Width
+                ZIndex: =3
+
+            btnNotifyFailedOk As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(220, 38, 38, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.055
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =Set(varShowNotifyFailed, false);
+                    Set(varNotifyErrorMessage, "");
+                    Set(varError, "")
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.016
+                Text: ="OK"
+                Width: =Parent.Width * 0.9
+                ZIndex: =4
+

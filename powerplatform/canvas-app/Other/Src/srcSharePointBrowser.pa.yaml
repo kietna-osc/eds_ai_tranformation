@@ -1,0 +1,1022 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+Screens:
+  srcSharePointBrowser:
+    Properties:
+      Fill: =RGBA(248, 250, 252, 1)
+      LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+      OnVisible: |-
+        =Set(gblIsMobile, App.Width < 768);
+        Set(varActiveTab, "home");
+        Set(varHeaderTitle, "EDS-PackagesImagesUpload");
+        Set(varHeaderSubtitle, "SharePointリポジトリからフォルダを選択");
+        Set(varSpPickedFolder, "");
+        Set(varSpPickedPath, "");
+        ClearCollect(colSpNavStack, {path: ""});
+        Clear(colSpNavStack);
+        ClearCollect(colSpSelected, []);
+        Clear(colSpFolderFiles);
+        Set(varSpFolderName, "");
+        Set(varSpFolderPath, "");
+        Refresh(Documents);
+        ClearCollect(colSpAllItems, Documents);
+        Set(
+            varSpRootPath,
+            Coalesce(
+                With(
+                    LookUp(
+                        colSpAllItems As spItem,
+                        spItem.'Is folder' = true && EndsWith(Text(spItem.'Folder path') & Text(spItem.Name) & "/", gblSpBrowseRoot)
+                    ),
+                    If(!IsBlank(Name), If(Right(Text('Folder path'), 1) = "/", Text('Folder path'), Text('Folder path') & "/") & Text(Name) & "/")
+                ),
+                With(
+                    LookUp(
+                        colSpAllItems As spItem,
+                        spItem.'Is folder' = true && Text(spItem.Name) = "UploadedImage"
+                    ),
+                    If(!IsBlank(Name), If(Right(Text('Folder path'), 1) = "/", Text('Folder path'), Text('Folder path') & "/") & Text(Name) & "/")
+                ),
+                With(
+                    {minLen: Min(colSpAllItems, Len(Text('Folder path')))},
+                    First(
+                        Filter(
+                            colSpAllItems As spItem,
+                            Len(Text(spItem.'Folder path')) = minLen
+                        )
+                    ).'Folder path'
+                )
+            )
+        );
+        Set(varSpCurrentPath, varSpRootPath);
+        ClearCollect(
+            colSpRootFolders,
+            Filter(
+                colSpAllItems As spItem,
+                spItem.'Is folder' = true && Text(spItem.'Folder path') = varSpCurrentPath
+            )
+        );
+        ClearCollect(colSpAllFolders, colSpRootFolders)
+    Children:
+      - cmpHeader_Sp:
+          Control: CanvasComponent
+          ComponentName: cmpHeader
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.1
+            Width: =App.Width
+      - conSpWorkspace:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(248, 250, 252, 1)
+            Height: =App.Height * 0.812
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutDirection: =If(gblIsMobile, LayoutDirection.Vertical, LayoutDirection.Horizontal)
+            LayoutGap: =If(gblIsMobile, App.Height * 0.012, App.Width * 0.0167)
+            PaddingBottom: =App.Height * 0.03
+            PaddingLeft: =App.Width * 0.0167
+            PaddingRight: =App.Width * 0.0167
+            PaddingTop: =App.Height * 0.03
+            RadiusBottomLeft: =0
+            RadiusBottomRight: =0
+            RadiusTopLeft: =0
+            RadiusTopRight: =0
+            Width: =App.Width
+            Y: =App.Height * 0.1
+          Children:
+            - conSpListCard:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  BorderThickness: =1
+                  DropShadow: =DropShadow.None
+                  Fill: =RGBA(255, 255, 255, 1)
+                  LayoutAlignItems: =LayoutAlignItems.Stretch
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutGap: =App.Height * 0.012
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =32
+                  PaddingBottom: =App.Height * 0.018
+                  PaddingLeft: =App.Width * 0.011
+                  PaddingRight: =App.Width * 0.011
+                  PaddingTop: =App.Height * 0.018
+                  RadiusBottomLeft: =16
+                  RadiusBottomRight: =16
+                  RadiusTopLeft: =16
+                  RadiusTopRight: =16
+                Children:
+                  - conSpFilterWrap:
+                      Control: GroupContainer@1.5.0
+                      Variant: ManualLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        FillPortions: =0
+                        Height: =App.Height * 0.058
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =0
+                        RadiusBottomRight: =0
+                        RadiusTopLeft: =0
+                        RadiusTopRight: =0
+                        Visible: =IsBlank(varSpFolderName)
+                      Children:
+                        - txtSpFilter:
+                            Control: ModernTextInput@1.1.2
+                            Properties:
+                              Appearance: =
+                              BorderStyle: =
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.Height
+                              Placeholder: ="フォルダーを検索..."
+                              Required: =
+                              TriggerOutput: =
+                              Type: =TextInputType.Search
+                              ValidationState: =
+                              Width: =Parent.Width
+                        - btnSpFilterClear:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              Appearance: =ButtonAppearance.Transparent
+                              BorderStyle: =
+                              Color: =RGBA(148, 163, 184, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Bold
+                              Height: =Parent.Height
+                              OnSelect: =Reset(txtSpFilter)
+                              Size: =App.Height * 0.018
+                              Text: ="×"
+                              Visible: =!IsBlank(txtSpFilter.Text)
+                              Width: =Parent.Height * 1.1
+                              X: =Parent.Width - Parent.Height * 1.1 - 2
+                  - lblSpNoImages:
+                      Control: Label@2.5.1
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(220, 38, 38, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Height: =App.Height * 0.04
+                        Size: =App.Height * 0.016
+                        Text: ="このフォルダに画像はありません。"
+                        Visible: |-
+                          =// 開いたフォルダーに画像が 1 枚も無いときだけ表示
+                          !IsBlank(varSpFolderName) && IsEmpty(colSpFolderFiles)
+                        Width: =Parent.Width
+                  - conSpFilesHead:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        FillPortions: =0
+                        Height: =App.Height * 0.04
+                        LayoutAlignItems: =LayoutAlignItems.Center
+                        LayoutDirection: =LayoutDirection.Horizontal
+                        LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =0
+                        RadiusBottomRight: =0
+                        RadiusTopLeft: =0
+                        RadiusTopRight: =0
+                        Visible: =!IsBlank(varSpFolderName)
+                      Children:
+                        - lblSpFilesCount:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(15, 23, 42, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =Parent.Height
+                              Size: =App.Height * 0.016
+                              Text: |-
+                                ="ファイル: " & CountRows(colSpFolderFiles) & " · 選択済み " & CountRows(colSpSelected)
+                              Width: =Parent.Width * 0.55
+                        - lblSpRepo:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Right
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(100, 116, 139, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.Height
+                              Size: =App.Height * 0.014
+                              Text: |-
+                                ="リポジトリ: SharePoint"
+                              Width: =Parent.Width * 0.4
+                  - galSpFolders:
+                      Control: Gallery@2.15.0
+                      Variant: Vertical
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Fill: =RGBA(255, 255, 255, 1)
+                        Items: |-
+                          =If(
+                              IsBlank(Trim(txtSpFilter.Text)),
+                              colSpRootFolders,
+                              Filter(
+                                  colSpRootFolders As folderRow,
+                                  Lower(Trim(txtSpFilter.Text)) in Lower(Text(folderRow.Name))
+                              )
+                          )
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        LoadingSpinner: =LoadingSpinner.None
+                        OnSelect: |-
+                          =Set(varSpPickedFolder, IfError(Text(ThisItem.Name), ""));
+                          Set(varSpPickedPath, If(Right(Text(ThisItem.'Folder path'), 1) = "/", Text(ThisItem.'Folder path'), Text(ThisItem.'Folder path') & "/") & Text(ThisItem.Name) & "/")
+                        TemplatePadding: =App.Height * 0.006
+                        TemplateSize: =App.Height * 0.1
+                        Visible: =IsBlank(varSpFolderName)
+                      Children:
+                        - conSpFolderCard:
+                            Control: GroupContainer@1.5.0
+                            Variant: ManualLayout
+                            Properties:
+                              BorderColor: |-
+                                =If(
+                                    Text(ThisItem.Name) = varSpPickedFolder,
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(226, 232, 240, 1)
+                                )
+                              BorderThickness: =If(Text(ThisItem.Name) = varSpPickedFolder, 2, 1)
+                              DropShadow: =DropShadow.None
+                              Fill: |-
+                                =If(
+                                    Text(ThisItem.Name) = varSpPickedFolder,
+                                    RGBA(239, 246, 255, 1),
+                                    RGBA(255, 255, 255, 1)
+                                )
+                              Height: =Parent.TemplateHeight * 0.92
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Width: =Parent.TemplateWidth
+                              Y: =Parent.TemplateHeight * 0.04
+                        - imgSpFolderIcon:
+                            Control: Image@2.2.3
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              DisabledBorderColor: =RGBA(56, 56, 56, 1)
+                              DisabledFill: =RGBA(119, 119, 119, 1)
+                              Height: =Parent.TemplateHeight * 0.42
+                              Image: |-
+                                ="data:image/svg+xml;utf8," &
+                                EncodeUrl(
+                                    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" &
+                                    "<path fill='#F4B400' d='M4 14c0-3 2-5 5-5h17l6 7h23c3 0 5 2 5 5v29c0 3-2 5-5 5H9c-3 0-5-2-5-5z'/>" &
+                                    "<path fill='#FFD666' d='M4 23h56v27c0 3-2 5-5 5H9c-3 0-5-2-5-5z'/>" &
+                                    "</svg>"
+                                )
+                              OnSelect: =Select(Parent)
+                              Width: =Parent.TemplateHeight * 0.42
+                              X: =Parent.TemplateWidth * 0.018
+                              Y: =Parent.TemplateHeight * 0.29
+                        - lblSpFolderName:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: |-
+                                =If(
+                                    Text(ThisItem.Name) = varSpPickedFolder,
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(15, 23, 42, 1)
+                                )
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =Parent.TemplateHeight * 0.4
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.017
+                              Text: =IfError(Text(ThisItem.Name), "")
+                              Width: =If(gblIsMobile, Parent.TemplateWidth * 0.62, Parent.TemplateWidth * 0.5)
+                              X: =If(gblIsMobile, Parent.TemplateWidth * 0.018 + Parent.TemplateHeight * 0.5, Parent.TemplateWidth * 0.075)
+                              Y: =Parent.TemplateHeight * 0.12
+                        - lblSpFolderCount:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(100, 116, 139, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.TemplateHeight * 0.34
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.013
+                              Text: |-
+                                =With(
+                                    {
+                                        fp: If(Right(Text(ThisItem.'Folder path'), 1) = "/", Text(ThisItem.'Folder path'), Text(ThisItem.'Folder path') & "/") & Text(ThisItem.Name) & "/"
+                                    },
+                                    "画像 " & CountRows(
+                                        Filter(
+                                            colSpAllItems As spItem,
+                                            !spItem.'Is folder' && Text(spItem.'Folder path') = fp && Lower(Last(Split(Coalesce(Text(spItem.'File name with extension'), Text(spItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]
+                                        )
+                                    ) & " 枚"
+                                )
+                              Width: =If(gblIsMobile, Parent.TemplateWidth * 0.62, Parent.TemplateWidth * 0.5)
+                              X: =If(gblIsMobile, Parent.TemplateWidth * 0.018 + Parent.TemplateHeight * 0.5, Parent.TemplateWidth * 0.075)
+                              Y: =Parent.TemplateHeight * 0.52
+                        - lblSpFolderHint:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Right
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(0, 102, 204, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.TemplateHeight * 0.4
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.013
+                              Text: ="タップして選択"
+                              Visible: =(Text(ThisItem.Name) = varSpPickedFolder) && !gblIsMobile
+                              Width: =Parent.TemplateWidth * 0.3
+                              X: =Parent.TemplateWidth * 0.66
+                              Y: =Parent.TemplateHeight * 0.3
+                        - lblSpFolderHit:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(0, 0, 0, 0)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Open Sans'
+                              Height: =Parent.TemplateHeight
+                              OnSelect: =Select(Parent)
+                              Size: =14
+                              Text: =""
+                              Width: =Parent.TemplateWidth
+                  - galSpFiles:
+                      Control: Gallery@2.15.0
+                      Variant: Vertical
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Fill: =RGBA(255, 255, 255, 1)
+                        Items: =colSpFolderFiles
+                        LayoutMinHeight: =App.Height * 0.01
+                        LayoutMinWidth: =App.Width * 0.01
+                        LoadingSpinner: =LoadingSpinner.None
+                        OnSelect: |-
+                          =If(
+                              (IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])),
+                              false,
+                              With(
+                                  {
+                                      selectedName: Coalesce(
+                                          Text(ThisItem.'File name with extension'),
+                                          Text(ThisItem.Name)
+                                      ),
+                                      selectedPath: If(
+                                          Right(Text(ThisItem.'Folder path'), 1) = "/",
+                                          Text(ThisItem.'Folder path') & Coalesce(
+                                              Text(ThisItem.'File name with extension'),
+                                              Text(ThisItem.Name)
+                                          ),
+                                          Text(ThisItem.'Folder path') & "/" & Coalesce(
+                                              Text(ThisItem.'File name with extension'),
+                                              Text(ThisItem.Name)
+                                          )
+                                      ),
+                                      selectedUrl: Coalesce(Text(ThisItem.'Link to item'), Substitute(Text(ThisItem.'Full Path'), " ", "%20")),
+                                      selectedThumb: IfError(ThisItem.Thumbnail.Large, SampleImage)
+                                  },
+                                  If(
+                                      CountRows(Filter(colSpSelected As selectedRow, selectedRow.path = selectedPath)) > 0,
+                                      RemoveIf(colSpSelected, ThisRecord.path = selectedPath),
+                                      Collect(
+                                          colSpSelected,
+                                          {
+                                              name: selectedName,
+                                              path: selectedPath,
+                                              file_url: selectedUrl,
+                                              image: selectedThumb,
+                                              folder: varSpFolderName
+                                          }
+                                      )
+                                  )
+                              )
+                          )
+                        TemplatePadding: =App.Height * 0.005
+                        TemplateSize: =App.Height * 0.105
+                        Visible: =!IsBlank(varSpFolderName)
+                      Children:
+                        - conSpFileCard:
+                            Control: GroupContainer@1.5.0
+                            Variant: ManualLayout
+                            Properties:
+                              BorderColor: |-
+                                =If(
+                                    CountRows(
+                                        Filter(
+                                            colSpSelected As selectedRow,
+                                            selectedRow.name = Coalesce(
+                                                Text(ThisItem.'File name with extension'),
+                                                Text(ThisItem.Name)
+                                            )
+                                        )
+                                    ) > 0,
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(226, 232, 240, 1)
+                                )
+                              BorderThickness: |-
+                                =If(
+                                    CountRows(
+                                        Filter(
+                                            colSpSelected As selectedRow,
+                                            selectedRow.name = Coalesce(
+                                                Text(ThisItem.'File name with extension'),
+                                                Text(ThisItem.Name)
+                                            )
+                                        )
+                                    ) > 0,
+                                    2,
+                                    1
+                                )
+                              DropShadow: =DropShadow.None
+                              Fill: |-
+                                =If(
+                                    CountRows(
+                                        Filter(
+                                            colSpSelected As selectedRow,
+                                            selectedRow.name = Coalesce(
+                                                Text(ThisItem.'File name with extension'),
+                                                Text(ThisItem.Name)
+                                            )
+                                        )
+                                    ) > 0,
+                                    RGBA(239, 246, 255, 1),
+                                    RGBA(255, 255, 255, 1)
+                                )
+                              Height: =Parent.TemplateHeight * 0.92
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Width: =Parent.TemplateWidth
+                              Y: =Parent.TemplateHeight * 0.04
+                        - lblSpFileCheck:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Center
+                              BorderColor: |-
+                                =If(
+                                    (IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])),
+                                    RGBA(203, 213, 225, 1),
+                                    RGBA(0, 102, 204, 1)
+                                )
+                              BorderThickness: =2
+                              Color: =RGBA(255, 255, 255, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Fill: |-
+                                =If(
+                                    (IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])),
+                                    RGBA(241, 245, 249, 1),
+                                    If(
+                                        CountRows(
+                                            Filter(
+                                                colSpSelected As selectedRow,
+                                                selectedRow.name = Coalesce(
+                                                    Text(ThisItem.'File name with extension'),
+                                                    Text(ThisItem.Name)
+                                                )
+                                            )
+                                        ) > 0,
+                                        RGBA(0, 102, 204, 1),
+                                        RGBA(255, 255, 255, 1)
+                                    )
+                                )
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Bold
+                              Height: =App.Height * 0.032
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.015
+                              Text: |-
+                                =If(
+                                    (IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])),
+                                    "",
+                                    If(
+                                        CountRows(
+                                            Filter(
+                                                colSpSelected As selectedRow,
+                                                selectedRow.name = Coalesce(
+                                                    Text(ThisItem.'File name with extension'),
+                                                    Text(ThisItem.Name)
+                                                )
+                                            )
+                                        ) > 0,
+                                        "✓",
+                                        ""
+                                    )
+                                )
+                              Width: =App.Height * 0.032
+                              X: =Parent.TemplateWidth * 0.02
+                              Y: =(Parent.TemplateHeight - App.Height * 0.032) / 2
+                        - imgSpFileThumb:
+                            Control: Image@2.2.3
+                            Properties:
+                              BorderColor: =RGBA(226, 232, 240, 1)
+                              BorderThickness: =1
+                              DisabledBorderColor: =RGBA(56, 56, 56, 1)
+                              DisabledFill: =RGBA(119, 119, 119, 1)
+                              Height: =Parent.TemplateHeight * 0.72
+                              Image: =IfError(ThisItem.Thumbnail.Large, SampleImage)
+                              ImagePosition: =ImagePosition.Fill
+                              OnSelect: =Select(Parent)
+                              RadiusBottomLeft: =8
+                              RadiusBottomRight: =8
+                              RadiusTopLeft: =8
+                              RadiusTopRight: =8
+                              Width: =If(gblIsMobile, Parent.TemplateHeight * 0.72, Parent.TemplateWidth * 0.1)
+                              X: =If(gblIsMobile, Parent.TemplateWidth * 0.02 + App.Height * 0.038, Parent.TemplateWidth * 0.075)
+                              Y: =Parent.TemplateHeight * 0.14
+                        - lblSpFileName:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(15, 23, 42, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =Parent.TemplateHeight * 0.4
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.015
+                              Text: |-
+                                =Coalesce(
+                                    Text(ThisItem.'File name with extension'),
+                                    Text(ThisItem.Name)
+                                )
+                              Width: =If(gblIsMobile, Parent.TemplateWidth * 0.55, Parent.TemplateWidth * 0.42)
+                              X: =If(gblIsMobile, Parent.TemplateWidth * 0.02 + App.Height * 0.038 + Parent.TemplateHeight * 0.72 + 6, Parent.TemplateWidth * 0.2)
+                              Y: =Parent.TemplateHeight * 0.14
+                        - lblSpFileDate:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: |-
+                                =If(
+                                    (IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])),
+                                    RGBA(220, 38, 38, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.TemplateHeight * 0.42
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.012
+                              Text: |-
+                                =If(
+                                    IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024,
+                                    "画像のサイズが4MBを超えています。",
+                                    !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]),
+                                    "画像ファイル以外は選択できません。",
+                                    "アップロード: " & IfError(Text(ThisItem.Modified, DateTimeFormat.ShortDateTime), "-")
+                                )
+                              Width: =If(gblIsMobile, Parent.TemplateWidth * 0.55, Parent.TemplateWidth * 0.42)
+                              X: =If(gblIsMobile, Parent.TemplateWidth * 0.02 + App.Height * 0.038 + Parent.TemplateHeight * 0.72 + 6, Parent.TemplateWidth * 0.2)
+                              Y: =Parent.TemplateHeight * 0.52
+                        - lblSpFileHint:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Right
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: |-
+                                =If(
+                                    CountRows(
+                                        Filter(
+                                            colSpSelected As selectedRow,
+                                            selectedRow.name = Coalesce(
+                                                Text(ThisItem.'File name with extension'),
+                                                Text(ThisItem.Name)
+                                            )
+                                        )
+                                    ) > 0,
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =Parent.TemplateHeight * 0.4
+                              OnSelect: =Select(Parent)
+                              Size: =App.Height * 0.013
+                              Text: |-
+                                =If(
+                                    CountRows(
+                                        Filter(
+                                            colSpSelected As selectedRow,
+                                            selectedRow.name = Coalesce(
+                                                Text(ThisItem.'File name with extension'),
+                                                Text(ThisItem.Name)
+                                            )
+                                        )
+                                    ) > 0,
+                                    "選択済み",
+                                    "タップして選択"
+                                )
+                              Visible: =!(IfError(Value(ThisItem.FileSizeBytes), 0) > 4 * 1024 * 1024 || !(Lower(Last(Split(Coalesce(Text(ThisItem.'File name with extension'), Text(ThisItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"])) && !gblIsMobile
+                              Width: =Parent.TemplateWidth * 0.28
+                              X: =Parent.TemplateWidth * 0.69
+                              Y: =Parent.TemplateHeight * 0.3
+                        - lblSpFileHit:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(0, 0, 0, 0)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Open Sans'
+                              Height: =Parent.TemplateHeight
+                              OnSelect: =Select(Parent)
+                              Size: =14
+                              Text: =""
+                              Width: =Parent.TemplateWidth
+            - conSpPanelWrap:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  DropShadow: =DropShadow.None
+                  FillPortions: =0
+                  Height: =If(gblIsMobile, App.Height * If(IsBlank(varSpFolderName), 0.35, 0.4), 200)
+                  LayoutAlignItems: =LayoutAlignItems.Stretch
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutJustifyContent: =LayoutJustifyContent.Center
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =32
+                  RadiusBottomLeft: =0
+                  RadiusBottomRight: =0
+                  RadiusTopLeft: =0
+                  RadiusTopRight: =0
+                  Width: =App.Width * 0.3667
+                Children:
+                  - conSpPanelCard:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        BorderColor: =RGBA(226, 232, 240, 1)
+                        BorderThickness: =1
+                        DropShadow: =DropShadow.None
+                        Fill: =RGBA(255, 255, 255, 1)
+                        FillPortions: =0
+                        Height: =If(gblIsMobile, App.Height * If(IsBlank(varSpFolderName), 0.34, 0.39), App.Height * If(IsBlank(varSpFolderName), 0.32, 0.37))
+                        LayoutAlignItems: =LayoutAlignItems.Stretch
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutGap: =App.Height * 0.016
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        LayoutOverflowY: =LayoutOverflow.Scroll
+                        PaddingBottom: =App.Height * 0.026
+                        PaddingLeft: =App.Width * 0.015
+                        PaddingRight: =App.Width * 0.015
+                        PaddingTop: =App.Height * 0.026
+                        RadiusBottomLeft: =16
+                        RadiusBottomRight: =16
+                        RadiusTopLeft: =16
+                        RadiusTopRight: =16
+                      Children:
+                        - lblSpPanelTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(15, 23, 42, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Bold
+                              Height: =App.Height * 0.04
+                              PaddingLeft: =0
+                              Size: =If(gblIsMobile, App.Height * 0.014, App.Height * 0.019)
+                              Text: ="コントロールパネル"
+                        - btnSpTakeFolder:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              AlignInContainer: =AlignInContainer.Stretch
+                              BasePaletteColor: =RGBA(13, 148, 136, 1)
+                              BorderStyle: =BorderStyle.None
+                              Color: =RGBA(255, 255, 255, 1)
+                              DisplayMode: |-
+                                =If(
+                                    IsBlank(varSpPickedFolder) || CountRows(Filter(
+                                        colSpAllItems As spItem,
+                                        !spItem.'Is folder'
+                                        && Text(spItem.'Folder path') = varSpPickedPath
+                                        && IfError(Value(spItem.FileSizeBytes), 0) <= 4 * 1024 * 1024
+                                        && Lower(Last(Split(Coalesce(Text(spItem.'File name with extension'), Text(spItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]
+                                    )) = 0,
+                                    DisplayMode.Disabled,
+                                    DisplayMode.Edit
+                                )
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =App.Height * 0.064
+                              OnSelect: |-
+                                =ClearCollect(
+                                    colSpFolderFiles,
+                                    Filter(
+                                        colSpAllItems As spItem,
+                                        !spItem.'Is folder'
+                                        && Text(spItem.'Folder path') = varSpPickedPath
+                                        && IfError(Value(spItem.FileSizeBytes), 0) <= 4 * 1024 * 1024
+                                        && Lower(Last(Split(Coalesce(Text(spItem.'File name with extension'), Text(spItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]
+                                    )
+                                );
+                                Set(varBatchTotal, CountRows(colSpFolderFiles));
+                                Set(varProcessedCount, 0);
+                                ClearCollect(
+                                    colHomeQueue,
+                                    ForAll(
+                                        colSpFolderFiles As f,
+                                        With(
+                                            {
+                                                fname: Coalesce(Text(f.'File name with extension'), Text(f.Name)),
+                                                fdir: If(Right(Text(f.'Folder path'), 1) = "/", Text(f.'Folder path'), Text(f.'Folder path') & "/")
+                                            },
+                                            With(
+                                                { full: If(Left(fdir, 1) = "/", fdir, "/" & fdir) & fname },
+                                                {
+                                                    id: Text(GUID()),
+                                                    name: fname,
+                                                    source: "sharepoint",
+                                                    image: IfError(f.Thumbnail.Large, SampleImage),
+                                                    path: full,
+                                                    file_url: Substitute(full, " ", "%20"),
+                                                    folder: varSpPickedFolder,
+                                                    processed: false
+                                                }
+                                            )
+                                        )
+                                    )
+                                );
+                                With(
+                                    { nextItem: First(colHomeQueue) },
+                                    Set(varHomeSelectedId, nextItem.id);
+                                    Set(varImage, Coalesce(nextItem.image, SampleImage));
+                                    Set(varImageUrl, "");
+                                    Set(varImageName, If(!IsBlank(nextItem.path), "SPPATH|" & nextItem.path, Coalesce(nextItem.name, "label.jpg")))
+                                );
+                                ClearCollect(varCandidates, []);
+                                ClearCollect(colSelected, []);
+                                ClearCollect(colSpSelected, []);
+                                Clear(colSpFolderFiles);
+                                Set(varSpFolderName, "");
+                                Set(varSpFolderPath, "");
+                                Set(varSpPickedFolder, "");
+                                Set(varSpPickedPath, "");
+                                Set(varError, "");
+                                Navigate(srcHome, ScreenTransition.None)
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Size: =App.Height * 0.016
+                              Text: |-
+                                =If(
+                                    IsBlank(varSpPickedFolder),
+                                    "選択",
+                                    "選択 (" & CountRows(Filter(
+                                            colSpAllItems As spItem,
+                                            !spItem.'Is folder'
+                                            && Text(spItem.'Folder path') = varSpPickedPath
+                                            && IfError(Value(spItem.FileSizeBytes), 0) <= 4 * 1024 * 1024
+                                            && Lower(Last(Split(Coalesce(Text(spItem.'File name with extension'), Text(spItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]
+                                        )) & ")"
+                                )
+                              Visible: =IsBlank(varSpFolderName)
+                        - btnSpSelectFolder:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              AlignInContainer: =AlignInContainer.Stretch
+                              BasePaletteColor: =RGBA(0, 102, 204, 1)
+                              BorderStyle: =BorderStyle.None
+                              Color: =RGBA(255, 255, 255, 1)
+                              DisplayMode: |-
+                                =If(
+                                    IsBlank(varSpPickedFolder),
+                                    DisplayMode.Disabled,
+                                    DisplayMode.Edit
+                                )
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =App.Height * 0.064
+                              OnSelect: |-
+                                =If(
+                                    !IsBlank(varSpPickedFolder),
+                                    Collect(colSpNavStack, {path: varSpCurrentPath});
+                                    Set(varSpCurrentPath, varSpPickedPath);
+                                    ClearCollect(
+                                        colSpFolderFiles,
+                                        Filter(
+                                            colSpAllItems As spItem,
+                                            !spItem.'Is folder' && Text(spItem.'Folder path') = varSpCurrentPath && Lower(Last(Split(Coalesce(Text(spItem.'File name with extension'), Text(spItem.Name)), ".")).Value) in ["jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "heic", "heif", "webp"]
+                                        )
+                                    );
+                                    ClearCollect(
+                                        colSpRootFolders,
+                                        Filter(
+                                            colSpAllItems As spItem,
+                                            spItem.'Is folder' = true && Text(spItem.'Folder path') = varSpCurrentPath
+                                        )
+                                    );
+                                    ClearCollect(colSpSelected, []);
+                                    // 日付フォルダーが最下層: 開いたら常にファイル一覧（画像のみ）を表示し、サブフォルダーは出さない。
+                                    //   画像が 0 枚なら lblSpNoImages が「このフォルダに画像はありません。」を表示する。
+                                    Set(varSpFolderName, varSpPickedFolder);
+                                    Set(varSpFolderPath, varSpCurrentPath);
+                                    Set(varHeaderTitle, "フォルダー: " & varSpPickedFolder);
+                                    Set(varHeaderSubtitle, "取り込む荷物ラベルを選択");
+                                    Set(varSpPickedFolder, "");
+                                    Set(varSpPickedPath, "")
+                                )
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Size: =App.Height * 0.016
+                              Text: ="開く"
+                              Visible: =IsBlank(varSpFolderName)
+                        - btnSpCancel:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              AlignInContainer: =AlignInContainer.Stretch
+                              Appearance: =ButtonAppearance.Secondary
+                              BorderColor: =RGBA(226, 232, 240, 1)
+                              BorderStyle: =
+                              Color: =RGBA(71, 85, 105, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =App.Height * 0.064
+                              OnSelect: |-
+                                =ClearCollect(colSpSelected, []);
+                                Clear(colSpFolderFiles);
+                                Set(varSpFolderName, "");
+                                Set(varSpFolderPath, "");
+                                Set(varSpPickedFolder, "");
+                                Navigate(srcHome, ScreenTransition.None)
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Size: =App.Height * 0.016
+                              Text: ="キャンセル"
+                              Visible: =IsBlank(varSpFolderName)
+                        - btnSpAccept:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              AlignInContainer: =AlignInContainer.Stretch
+                              BasePaletteColor: =RGBA(13, 148, 136, 1)
+                              BorderStyle: =BorderStyle.None
+                              Color: =RGBA(255, 255, 255, 1)
+                              DisplayMode: =If(CountRows(colSpSelected) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =App.Height * 0.064
+                              OnSelect: |-
+                                =Set(varBatchTotal, CountRows(colSpSelected));
+                                Set(varProcessedCount, 0);
+                                ClearCollect(
+                                    colHomeQueue,
+                                    ForAll(
+                                        colSpSelected As selectedFile,
+                                        {
+                                            id: Text(GUID()),
+                                            name: Text(selectedFile.name),
+                                            source: "sharepoint",
+                                            image: selectedFile.image,
+                                            path: With(
+                                                { rawPath: Text(selectedFile.path) },
+                                                If(Left(rawPath, 1) = "/", rawPath, "/" & rawPath)
+                                            ),
+                                            file_url: With(
+                                                { rawPath: Text(selectedFile.path) },
+                                                If(
+                                                    !IsBlank(rawPath),
+                                                    Substitute(
+                                                        If(Left(rawPath, 1) = "/", rawPath, "/" & rawPath),
+                                                        " ",
+                                                        "%20"
+                                                    ),
+                                                    Text(selectedFile.file_url)
+                                                )
+                                            ),
+                                            folder: Text(selectedFile.folder),
+                                            processed: false
+                                        }
+                                    )
+                                );
+                                With(
+                                    { nextItem: First(colHomeQueue) },
+                                    Set(varHomeSelectedId, nextItem.id);
+                                    Set(varImage, Coalesce(nextItem.image, SampleImage));
+                                    Set(varImageUrl, "");
+                                    Set(varImageName, If(!IsBlank(nextItem.path), "SPPATH|" & nextItem.path, Coalesce(nextItem.name, "label.jpg")))
+                                );
+                                ClearCollect(varCandidates, []);
+                                ClearCollect(colSelected, []);
+                                ClearCollect(colSpSelected, []);
+                                Clear(colSpFolderFiles);
+                                Set(varSpFolderName, "");
+                                Set(varSpFolderPath, "");
+                                Set(varSpPickedFolder, "");
+                                Set(varError, "");
+                                Navigate(srcHome, ScreenTransition.None)
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Size: =App.Height * 0.016
+                              Text: =If(CountRows(colSpSelected) = 0, "選択", "選択 (" & CountRows(colSpSelected) & ")")
+                              Visible: =!IsBlank(varSpFolderName)
+                        - conSpRowSelClear:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              DropShadow: =DropShadow.None
+                              FillPortions: =0
+                              Height: =App.Height * 0.064
+                              LayoutAlignItems: =LayoutAlignItems.Stretch
+                              LayoutDirection: =LayoutDirection.Horizontal
+                              LayoutGap: =App.Width * 0.01
+                              LayoutMinHeight: =32
+                              LayoutMinWidth: =32
+                              RadiusBottomLeft: =0
+                              RadiusBottomRight: =0
+                              RadiusTopLeft: =0
+                              RadiusTopRight: =0
+                              Visible: =!IsBlank(varSpFolderName)
+                            Children:
+                              - btnSpClear:
+                                  Control: ModernButton@1.0.0
+                                  Properties:
+                                    AlignInContainer: =AlignInContainer.Stretch
+                                    Appearance: =ButtonAppearance.Secondary
+                                    BorderColor: =RGBA(226, 232, 240, 1)
+                                    BorderStyle: =
+                                    Color: =RGBA(71, 85, 105, 1)
+                                    DisplayMode: =If(CountRows(colSpSelected) > 0, DisplayMode.Edit, DisplayMode.Disabled)
+                                    FillPortions: =1
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    OnSelect: =ClearCollect(colSpSelected, [])
+                                    RadiusBottomLeft: =10
+                                    RadiusBottomRight: =10
+                                    RadiusTopLeft: =10
+                                    RadiusTopRight: =10
+                                    Size: =App.Height * 0.016
+                                    Text: =If(CountRows(colSpSelected) = 0, "選択をクリア", "選択をクリア (" & CountRows(colSpSelected) & ")")
+                        - btnSpBack:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              AlignInContainer: =AlignInContainer.Stretch
+                              Appearance: =ButtonAppearance.Secondary
+                              BorderColor: =RGBA(226, 232, 240, 1)
+                              BorderStyle: =
+                              Color: =RGBA(71, 85, 105, 1)
+                              Font: =Font.'Segoe UI'
+                              Height: =App.Height * 0.064
+                              OnSelect: |-
+                                =If(
+                                    !IsBlank(varSpFolderName) || !IsEmpty(colSpNavStack),
+                                    If(
+                                        !IsEmpty(colSpNavStack),
+                                        Set(varSpCurrentPath, Last(colSpNavStack).path);
+                                        Remove(colSpNavStack, Last(colSpNavStack)),
+                                        Set(varSpCurrentPath, varSpRootPath)
+                                    );
+                                    Set(varSpFolderName, "");
+                                    Set(varSpFolderPath, "");
+                                    Set(varSpPickedFolder, "");
+                                    Set(varSpPickedPath, "");
+                                    Set(varHeaderTitle, "EDS-PackagesImagesUpload");
+                                    Set(varHeaderSubtitle, "SharePointリポジトリからフォルダを選択");
+                                    ClearCollect(colSpSelected, []);
+                                    Clear(colSpFolderFiles);
+                                    ClearCollect(
+                                        colSpRootFolders,
+                                        Filter(
+                                            colSpAllItems As spItem,
+                                            spItem.'Is folder' = true && Text(spItem.'Folder path') = varSpCurrentPath
+                                        )
+                                    )
+                                )
+                              RadiusBottomLeft: =10
+                              RadiusBottomRight: =10
+                              RadiusTopLeft: =10
+                              RadiusTopRight: =10
+                              Size: =App.Height * 0.016
+                              Text: ="戻る"
+                              Visible: =!IsBlank(varSpFolderName) || !IsEmpty(colSpNavStack)
+      - cmpBottomNav_Sp:
+          Control: CanvasComponent
+          ComponentName: cmpBottomNav
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.088
+            Width: =App.Width
+            Y: =App.Height * 0.912

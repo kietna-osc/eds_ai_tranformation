@@ -101,7 +101,10 @@
                 "type": "object",
                 "properties": {
                   "slip_no": { "type": "string" },
-                  "image_url": { "type": "string" },
+                  "image_url": {
+                    "type": "string",
+                    "description": "Scanned image as a base64 data URI (data:image/jpeg;base64,...). Not length-capped. Older rows hold a SharePoint URL or path."
+                  },
                   "sender_name": { "type": "string" },
                   "sender_content": { "type": "string" },
                   "sender_address": { "type": "string" },

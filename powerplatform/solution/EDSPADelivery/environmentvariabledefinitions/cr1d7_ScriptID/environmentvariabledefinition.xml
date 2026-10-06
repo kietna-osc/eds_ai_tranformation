@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_ScriptID">
+  <defaultvalue>ms-officescript%3A%2F%2Fonedrive_business_itemlink%2F01XX2QPSHPSMZRFB46TFDK3RAUOFRKIQBU</defaultvalue>
+  <displayname default="Script-ID">
+    <label description="Script-ID" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

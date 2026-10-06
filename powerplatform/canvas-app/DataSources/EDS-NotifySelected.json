@@ -1,0 +1,10 @@
+[
+  {
+    "ApiId": "/providers/microsoft.powerapps/apis/shared_logicflows",
+    "FlowNameId": "f0ed3f0e-ff71-4f8d-921a-ab5f7354902f",
+    "Name": "EDS-NotifySelected",
+    "ServiceKind": "ConnectedWadl",
+    "Type": "ServiceInfo",
+    "WorkflowEntityId": "7da7a2cc-efa1-f111-b8de-70a8a50387b3"
+  }
+]

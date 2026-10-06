@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_ScriptLibrary">
+  <defaultvalue>b!ZMgAMITHXEOh1YWIy-1ZObWAYY8iKv5It4vmJJbo9VWeOyzya5EMRZSUhkXTTm6S</defaultvalue>
+  <displayname default="Script-Library">
+    <label description="Script-Library" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

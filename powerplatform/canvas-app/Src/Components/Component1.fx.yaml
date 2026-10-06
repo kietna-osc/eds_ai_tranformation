@@ -1,0 +1,11 @@
+Component1 As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =640
+    Visible: =true
+    Width: =640
+    X: =0
+    Y: =0
+

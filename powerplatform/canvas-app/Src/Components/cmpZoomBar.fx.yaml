@@ -1,0 +1,73 @@
+cmpZoomBar As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =44
+    Visible: =true
+    Width: =180
+    X: =0
+    Y: =0
+
+    conZoomBarRoot As groupContainer.horizontalAutoLayoutContainer:
+        BorderColor: =RGBA(0, 102, 204, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =Parent.Height - 2
+        LayoutAlignItems: =LayoutAlignItems.Center
+        LayoutGap: =Parent.Width * 0.02
+        LayoutJustifyContent: =LayoutJustifyContent.Center
+        LayoutMode: =LayoutMode.Auto
+        PaddingLeft: =Parent.Width * 0.03
+        PaddingRight: =Parent.Width * 0.03
+        RadiusBottomLeft: =Parent.Height / 2
+        RadiusBottomRight: =Parent.Height / 2
+        RadiusTopLeft: =Parent.Height / 2
+        RadiusTopRight: =Parent.Height / 2
+        Width: =Parent.Width - 2
+        X: =1
+        Y: =1
+        ZIndex: =1
+
+        btnZoomOutBar As modernButton:
+            Appearance: =ButtonAppearance.Subtle
+            Color: =RGBA(0, 102, 204, 1)
+            Font: =Font.'Segoe UI'
+            Height: =Parent.Height * 0.8
+            Icon: ="ZoomOut"
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnSelect: =Set(varImageZoomScale, Max(1, varImageZoomScale - 0.25))
+            Size: =Parent.Height * 0.3
+            Text: =""
+            Width: =Parent.Width * 0.28
+            ZIndex: =1
+
+        lblZoomPctBar As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(0, 102, 204, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =Parent.Height * 0.8
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            Size: =Parent.Height * 0.28
+            Text: =Round(Coalesce(varImageZoomScale, 1) * 100, 0) & "%"
+            Width: =Parent.Width * 0.32
+            ZIndex: =2
+
+        btnZoomInBar As modernButton:
+            Appearance: =ButtonAppearance.Subtle
+            Color: =RGBA(0, 102, 204, 1)
+            Font: =Font.'Segoe UI'
+            Height: =Parent.Height * 0.8
+            Icon: ="ZoomIn"
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnSelect: =Set(varImageZoomScale, Min(3, varImageZoomScale + 0.25))
+            Size: =Parent.Height * 0.3
+            Text: =""
+            Width: =Parent.Width * 0.28
+            ZIndex: =3
+

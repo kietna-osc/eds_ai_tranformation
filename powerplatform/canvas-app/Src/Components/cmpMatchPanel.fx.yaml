@@ -1,0 +1,1355 @@
+cmpMatchPanel As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =620
+    OnReset: |-
+        =Reset(txtSearch);
+        Reset(txtDeliverySlip);
+        Reset(txtSenderCompany);
+        Reset(txtSenderName);
+        Reset(txtPackageContents);
+        Set(varSearchText, "");
+        Set(varSlipRequiredError, false)
+    Visible: =true
+    Width: =500
+    X: =0
+    Y: =0
+
+    conMatchPanelRoot As groupContainer.horizontalAutoLayoutContainer:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =Parent.Height
+        LayoutAlignItems: =LayoutAlignItems.Stretch
+        LayoutDirection: =LayoutDirection.Vertical
+        LayoutGap: =App.Height * 0.004
+        LayoutMode: =LayoutMode.Auto
+        LayoutOverflowY: =LayoutOverflow.Scroll
+        PaddingBottom: =App.Height * 0.016
+        PaddingLeft: =App.Width * 0.012
+        PaddingRight: =App.Width * 0.012
+        PaddingTop: =App.Height * 0.016
+        RadiusBottomLeft: =16
+        RadiusBottomRight: =16
+        RadiusTopLeft: =16
+        RadiusTopRight: =16
+        Width: =Parent.Width
+        ZIndex: =1
+
+        lblMatchPanelTitle As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.03
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.016
+            Text: =If(varMatchStep = 1, "コントロールパネル", "CC受信者を選択")
+            ZIndex: =1
+
+        conSlipLabelWrap As groupContainer.manualLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.017
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            ZIndex: =2
+
+            lblFieldSlip As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Height: =Parent.Height
+                PaddingLeft: =0
+                Size: =App.Height * 0.011
+                Text: ="伝票番号"
+                Width: =App.Height * 0.066
+                ZIndex: =1
+
+            lblSlipStar As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(220, 38, 38, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                PaddingLeft: =0
+                Size: =App.Height * 0.013
+                Text: ="*"
+                Width: =App.Height * 0.016
+                X: =App.Height * 0.067
+                ZIndex: =2
+
+        txtDeliverySlip As modernTextInput:
+            Default: =If(varFormReset >= 0, varOcrDeliverySlip)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.036
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnChange: =Set(varOcrDeliverySlip, Self.Text)
+            Placeholder: ="テキストを入力"
+            ZIndex: =3
+
+        lblSlipRequired As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.02
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.011
+            Text: ="伝票番号は必須です"
+            Visible: =varSlipRequiredError && IsBlank(Trim(Coalesce(txtDeliverySlip.Text, "")))
+            ZIndex: =4
+
+        lblFieldContents As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.017
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.011
+            Text: ="荷物内容"
+            ZIndex: =5
+
+        txtSenderCompany As modernTextInput:
+            Default: =If(varFormReset >= 0, varOcrSenderInfo)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.036
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnChange: =Set(varOcrSenderInfo, Self.Text)
+            Placeholder: ="テキストを入力"
+            ZIndex: =6
+
+        lblFieldSender As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.017
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.011
+            Text: ="差出人名"
+            ZIndex: =7
+
+        txtSenderName As modernTextInput:
+            Default: =If(varFormReset >= 0, varOcrSenderName)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.036
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnChange: =Set(varOcrSenderName, Self.Text)
+            Placeholder: ="テキストを入力"
+            ZIndex: =8
+
+        lblFieldDept As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.017
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.011
+            Text: ="差出人部署"
+            ZIndex: =9
+
+        txtPackageContents As modernTextInput:
+            Default: =If(varFormReset >= 0, varOcrSenderDepartment)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.036
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            OnChange: =Set(varOcrSenderDepartment, Self.Text)
+            Placeholder: ="テキストを入力"
+            ZIndex: =10
+
+        lblAssignRecipient As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(100, 116, 139, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.017
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.011
+            Text: =If(varMatchStep = 1, "受取人を選択", "社員を検索")
+            ZIndex: =11
+
+        conSearchWrap As groupContainer.manualLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.036
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            ZIndex: =12
+
+            txtSearch As modernTextInput:
+                Font: =Font.'Segoe UI'
+                Height: =Parent.Height
+                OnChange: |-
+                    =If(
+                        IsBlank(Trim(Self.Text)),
+                        Clear(colEmployeeSearch);
+                        Set(varSearchText, ""),
+                        Set(varSearchText, Trim(Self.Text));
+                        Set(
+                            varEmpApi,
+                            'EDS-APIManagement1'.Run(
+                                "employee",
+                                JSON({page_size:10000, page:1, search_keyword:Trim(Self.Text)}),
+                                "employeeList"
+                            )
+                        );
+                        ClearCollect(
+                            colEmployeeSearch,
+                            ForAll(
+                                Table(ParseJSON(Substitute(varEmpApi.response, ":null", ":""""")).value) As emp,
+                                {
+                                    employee_id: Text(emp.Value.employee_id),
+                                    name: Text(emp.Value.full_name),
+                                    department: Text(emp.Value.department_name),
+                                    email: Text(emp.Value.email),
+                                    teams_id: "",
+                                    score: 0
+                                }
+                            )
+                        )
+                    )
+                Placeholder: ="氏名・メール・部署・IDで検索"
+                TriggerOutput: =TriggerOutput.Keypress
+                Type: =TextInputType.Search
+                Width: =Parent.Width
+                ZIndex: =1
+
+            btnClearSearch As modernButton:
+                Appearance: =ButtonAppearance.Transparent
+                Color: =RGBA(148, 163, 184, 1)
+                DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                OnSelect: |-
+                    =Set(varSearchText, "");
+                    Clear(colEmployeeSearch);
+                    Reset(txtSearch)
+                Size: =App.Height * 0.016
+                Text: ="×"
+                Visible: =!IsBlank(txtSearch.Text)
+                Width: =Parent.Height * 1.2
+                X: =Parent.Width - Parent.Height * 1.2 - 2
+                ZIndex: =2
+
+            lblSearchCompact As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                BorderStyle: =BorderStyle.None
+                BorderThickness: =2
+                Color: =RGBA(50, 49, 48, 1)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                FocusedBorderThickness: =4
+                Font: =Font.'Segoe UI'
+                Size: =13
+                Text: |-
+                    =Substitute(
+                        Substitute(
+                            Substitute(
+                                Substitute(Trim(txtSearch.Text), " ", ""),
+                                "　",
+                                ""
+                            ),
+                            Char(10),
+                            ""
+                        ),
+                        Char(13),
+                        ""
+                    )
+                Visible: =false
+                X: =40
+                Y: =28
+                ZIndex: =3
+
+            lblSearchSp1 As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                BorderStyle: =BorderStyle.None
+                BorderThickness: =2
+                Color: =RGBA(50, 49, 48, 1)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                FocusedBorderThickness: =4
+                Font: =Font.'Segoe UI'
+                Size: =13
+                Text: =If(Len(lblSearchCompact.Text) < 1, lblSearchCompact.Text, Left(lblSearchCompact.Text, 1) & " " & Mid(lblSearchCompact.Text, 2, 80))
+                Visible: =false
+                X: =60
+                Y: =28
+                ZIndex: =18
+
+            lblSearchSp2 As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                BorderStyle: =BorderStyle.None
+                BorderThickness: =2
+                Color: =RGBA(50, 49, 48, 1)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                FocusedBorderThickness: =4
+                Font: =Font.'Segoe UI'
+                Size: =13
+                Text: =If(Len(lblSearchCompact.Text) < 2, lblSearchCompact.Text, Left(lblSearchCompact.Text, 2) & " " & Mid(lblSearchCompact.Text, 3, 80))
+                Visible: =false
+                X: =80
+                Y: =28
+                ZIndex: =19
+
+            lblSearchSp3 As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                BorderStyle: =BorderStyle.None
+                BorderThickness: =2
+                Color: =RGBA(50, 49, 48, 1)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                FocusedBorderThickness: =4
+                Font: =Font.'Segoe UI'
+                Size: =13
+                Text: =If(Len(lblSearchCompact.Text) < 3, lblSearchCompact.Text, Left(lblSearchCompact.Text, 3) & " " & Mid(lblSearchCompact.Text, 4, 80))
+                Visible: =false
+                X: =100
+                Y: =28
+                ZIndex: =20
+
+            lblSearchFw2 As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                BorderStyle: =BorderStyle.None
+                BorderThickness: =2
+                Color: =RGBA(50, 49, 48, 1)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                FocusedBorderThickness: =4
+                Font: =Font.'Segoe UI'
+                Height: =0
+                Size: =13
+                Text: =If(Len(lblSearchCompact.Text) < 2, lblSearchCompact.Text, Left(lblSearchCompact.Text, 2) & "　" & Mid(lblSearchCompact.Text, 3, 80))
+                Visible: =false
+                X: =120
+                Y: =28
+                ZIndex: =21
+
+        conTableHeader As groupContainer.horizontalAutoLayoutContainer:
+            Fill: =RGBA(241, 245, 249, 1)
+            FillPortions: =0
+            Height: =App.Height * 0.03
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            PaddingLeft: =App.Width * 0.008
+            PaddingRight: =App.Width * 0.008
+            RadiusBottomLeft: =6
+            RadiusBottomRight: =6
+            RadiusTopLeft: =6
+            RadiusTopRight: =6
+            ZIndex: =13
+
+            lblColName As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.011
+                Text: ="氏名"
+                Width: =Parent.Width * 0.2
+                ZIndex: =1
+
+            lblColDept As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.011
+                Text: ="部署"
+                Width: =Parent.Width * 0.33
+                ZIndex: =2
+
+            lblColEmail As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.011
+                Text: ="メール"
+                Width: =Parent.Width * 0.29
+                ZIndex: =3
+
+            lblColScore As label:
+                Align: =Align.Right
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =Parent.Height
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.011
+                Text: =If(varMatchStep = 1, "スコア", "")
+                Width: =Parent.Width * 0.14
+                ZIndex: =4
+
+        conTableWrap As groupContainer.manualLayoutContainer:
+            Height: =If(gblIsMobile, App.Height * 0.24, 200)
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            ZIndex: =14
+
+            galCandidates As gallery.galleryVertical:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                DelayItemLoading: =true
+                Fill: =RGBA(255, 255, 255, 1)
+                Height: =If(gblIsMobile, Parent.Height, Min( Parent.Height, Max(CountRows(Self.AllItems), 1) * (App.Height * 0.1) ))
+                Items: |-
+                    =With(
+                        {
+                            selectedForStep: Filter(
+                                colSelected,
+                                is_cc = (varMatchStep = 2)
+                                && !IsBlank(employee_id)
+                            )
+                        },
+                        Filter(
+                            If(
+                                IsBlank(lblSearchCompact.Text),
+                                If(
+                                    varMatchStep = 1,
+                                    If(
+                                        CountRows(selectedForStep) = 0,
+                                        Filter(
+                                            varCandidates,
+                                            !IsBlank(employee_id)
+                                            || !IsBlank(name)
+                                            || !IsBlank(email)
+                                            || !IsBlank(department)
+                                        ),
+                                        Ungroup(
+                                            Table(
+                                                {
+                                                    data: ForAll(
+                                                        selectedForStep As selectedEmp,
+                                                        {
+                                                            employee_id: Text(selectedEmp.employee_id),
+                                                            name: Text(selectedEmp.name),
+                                                            department: Text(selectedEmp.department),
+                                                            email: Text(selectedEmp.email),
+                                                            teams_id: Text(selectedEmp.teams_id),
+                                                            score: Coalesce(selectedEmp.score, 0)
+                                                        }
+                                                    )
+                                                },
+                                                {
+                                                    data: Filter(
+                                                        varCandidates,
+                                                        (
+                                                            !IsBlank(employee_id)
+                                                            || !IsBlank(name)
+                                                            || !IsBlank(email)
+                                                            || !IsBlank(department)
+                                                        )
+                                                        && CountRows(
+                                                            Filter(
+                                                                selectedForStep,
+                                                                employee_id = varCandidates[@employee_id]
+                                                                || (
+                                                                    !IsBlank(varCandidates[@email])
+                                                                    && email = varCandidates[@email]
+                                                                )
+                                                            )
+                                                        ) = 0
+                                                    )
+                                                }
+                                            ),
+                                            data
+                                        )
+                                    ),
+                                    selectedForStep
+                                ),
+                                colEmployeeSearch
+                            ),
+                            !IsBlank(employee_id)
+                            || !IsBlank(name)
+                            || !IsBlank(email)
+                            || !IsBlank(department)
+                        )
+                    )
+                Layout: =Layout.Vertical
+                OnSelect: |-
+                    =If(
+                        varMatchStep <> 1 || IsBlank(Text(ThisItem.employee_id)),
+                        false,
+                        With(
+                            {
+                                selectedId: Text(ThisItem.employee_id),
+                                selectedEmail: Text(ThisItem.email)
+                            },
+                            If(
+                                CountRows(
+                                    Filter(
+                                        colSelected,
+                                        (employee_id = selectedId || (!IsBlank(selectedEmail) && email = selectedEmail))
+                                        && is_cc = false
+                                    )
+                                ) > 0,
+                                RemoveIf(
+                                    colSelected,
+                                    (employee_id = selectedId || (!IsBlank(selectedEmail) && email = selectedEmail))
+                                    && is_cc = false
+                                );
+                                Set(varSelectedRecipientId, ""),
+                                RemoveIf(colSelected, is_cc = false);
+                                Set(varSelectedRecipientId, selectedId);
+                                Collect(
+                                    colSelected,
+                                    {
+                                        employee_id: selectedId,
+                                        name: Text(ThisItem.name),
+                                        department: Text(ThisItem.department),
+                                        email: selectedEmail,
+                                        teams_id: Text(ThisItem.teams_id),
+                                        score: Coalesce(Value(ThisItem.score), 0),
+                                        is_cc: false
+                                    }
+                                );
+                                Set(varSearchText, "");
+                                Reset(txtSearch)
+                            )
+                        )
+                    )
+                Selectable: =varMatchStep = 1
+                TemplateFill: |-
+                    =If(
+                        !IsBlank(Coalesce(ThisItem.employee_id, ThisItem.email))
+                        && CountRows(
+                            Filter(
+                                colSelected,
+                                (employee_id = Text(ThisItem.employee_id)
+                                || (!IsBlank(ThisItem.email) && email = Text(ThisItem.email)))
+                                && is_cc = (varMatchStep = 2)
+                            )
+                        ) > 0,
+                        RGBA(230, 244, 241, 1),
+                        RGBA(255, 255, 255, 1)
+                    )
+                TemplatePadding: =App.Height * 0.003
+                TemplateSize: =App.Height * 0.1
+                Width: =Parent.Width
+                ZIndex: =1
+
+                recRowSelectedBar As rectangle:
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Fill: |-
+                        =If(
+                            !IsBlank(Coalesce(ThisItem.employee_id, ThisItem.email))
+                            && CountRows(
+                                Filter(
+                                    colSelected,
+                                    (employee_id = Text(ThisItem.employee_id)
+                                    || (!IsBlank(ThisItem.email) && email = Text(ThisItem.email)))
+                                    && is_cc = (varMatchStep = 2)
+                                )
+                            ) > 0,
+                            RGBA(16, 185, 129, 1),
+                            RGBA(0, 0, 0, 0)
+                        )
+                    Height: =Parent.TemplateHeight * 0.9
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    Width: =Parent.TemplateWidth * 0.012
+                    Y: =Parent.TemplateHeight * 0.05
+                    ZIndex: =1
+
+                recRowBorder As rectangle:
+                    BorderColor: |-
+                        =If(
+                            !IsBlank(Coalesce(ThisItem.employee_id, ThisItem.email))
+                            && CountRows(
+                                Filter(
+                                    colSelected,
+                                    (employee_id = Text(ThisItem.employee_id)
+                                    || (!IsBlank(ThisItem.email) && email = Text(ThisItem.email)))
+                                    && is_cc = (varMatchStep = 2)
+                                )
+                            ) > 0,
+                            RGBA(16, 185, 129, 1),
+                            RGBA(226, 232, 240, 1)
+                        )
+                    BorderThickness: =1
+                    Fill: =RGBA(0, 0, 0, 0)
+                    Height: =Parent.TemplateHeight * 0.9
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    Width: =Parent.TemplateWidth
+                    Y: =Parent.TemplateHeight * 0.05
+                    ZIndex: =2
+
+                lblRowName As label:
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(15, 23, 42, 1)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Semibold
+                    Height: =Parent.TemplateHeight * 0.8
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    Size: =App.Height * 0.011
+                    Text: =ThisItem.name
+                    Width: =Parent.TemplateWidth * 0.17
+                    X: =Parent.TemplateWidth * 0.025
+                    Y: =Parent.TemplateHeight * 0.1
+                    ZIndex: =3
+
+                lblRowDept As label:
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(15, 23, 42, 1)
+                    Font: =Font.'Segoe UI'
+                    Height: =Parent.TemplateHeight * 0.88
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    PaddingBottom: =0
+                    PaddingTop: =0
+                    Size: |-
+                        =If(
+                            Len(Coalesce(Text(ThisItem.department), "")) > 34,
+                            App.Height * 0.0095,
+                            App.Height * 0.011
+                        )
+                    Text: =ThisItem.department
+                    Width: =Parent.TemplateWidth * 0.33
+                    X: =Parent.TemplateWidth * 0.195
+                    Y: =Parent.TemplateHeight * 0.06
+                    ZIndex: =4
+
+                lblRowEmail As label:
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(15, 23, 42, 1)
+                    Font: =Font.'Segoe UI'
+                    Height: =Parent.TemplateHeight * 0.8
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    Size: =App.Height * 0.01
+                    Text: =ThisItem.email
+                    Width: =Parent.TemplateWidth * 0.31
+                    X: =Parent.TemplateWidth * 0.52
+                    Y: =Parent.TemplateHeight * 0.1
+                    ZIndex: =5
+
+                lblRowScore As label:
+                    Align: =Align.Right
+                    BorderColor: =RGBA(0, 0, 0, 0)
+                    Color: =RGBA(16, 185, 129, 1)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =Parent.TemplateHeight * 0.7
+                    OnSelect: =If(varMatchStep = 1, Select(Parent))
+                    Size: =App.Height * 0.012
+                    Text: =If(IsBlank(ThisItem.score), "", Text(ThisItem.score) & "%")
+                    Visible: =varMatchStep = 1
+                    Width: =Parent.TemplateWidth * 0.14
+                    X: =Parent.TemplateWidth * 0.84
+                    Y: =Parent.TemplateHeight * 0.15
+                    ZIndex: =6
+
+                btnRowAdd As modernButton:
+                    BasePaletteColor: =RGBA(16, 185, 129, 1)
+                    BorderStyle: =BorderStyle.None
+                    Color: =RGBA(255, 255, 255, 1)
+                    DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.034
+                    Icon: ="Add"
+                    OnSelect: |-
+                        =With(
+                            {
+                                selectedId: Text(ThisItem.employee_id),
+                                selectedEmail: Text(ThisItem.email),
+                                selectingCc: varMatchStep = 2
+                            },
+                            If(
+                                CountRows(
+                                    Filter(
+                                        colSelected,
+                                        (employee_id = selectedId || (!IsBlank(selectedEmail) && email = selectedEmail))
+                                        && is_cc = selectingCc
+                                    )
+                                ) = 0,
+                                If(
+                                    !selectingCc,
+                                    RemoveIf(colSelected, is_cc = false);
+                                    Set(varSelectedRecipientId, selectedId)
+                                );
+                                Collect(
+                                    colSelected,
+                                    {
+                                        employee_id: selectedId,
+                                        name: Text(ThisItem.name),
+                                        department: Text(ThisItem.department),
+                                        email: selectedEmail,
+                                        teams_id: Text(ThisItem.teams_id),
+                                        score: Coalesce(Value(ThisItem.score), 0),
+                                        is_cc: selectingCc
+                                    }
+                                );
+                                Set(varSearchText, "");
+                                Reset(txtSearch)
+                            )
+                        )
+                    RadiusBottomLeft: =6
+                    RadiusBottomRight: =6
+                    RadiusTopLeft: =6
+                    RadiusTopRight: =6
+                    Size: =App.Height * 0.012
+                    Text: =""
+                    Visible: =varMatchStep = 2
+                    Width: =App.Height * 0.038
+                    X: =Parent.TemplateWidth * 0.84
+                    Y: =(Parent.TemplateHeight - App.Height * 0.034) / 2
+                    ZIndex: =7
+
+                btnRowRemove As modernButton:
+                    BasePaletteColor: =RGBA(220, 38, 38, 1)
+                    BorderStyle: =BorderStyle.None
+                    Color: =RGBA(255, 255, 255, 1)
+                    DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.034
+                    Icon: ="Subtract"
+                    OnSelect: |-
+                        =With(
+                            {
+                                selectedId: Text(ThisItem.employee_id),
+                                selectedEmail: Text(ThisItem.email),
+                                selectingCc: varMatchStep = 2
+                            },
+                            If(
+                                CountRows(
+                                    Filter(
+                                        colSelected,
+                                        (employee_id = selectedId || (!IsBlank(selectedEmail) && email = selectedEmail))
+                                        && is_cc = selectingCc
+                                    )
+                                ) > 0,
+                                RemoveIf(
+                                    colSelected,
+                                    (employee_id = selectedId || (!IsBlank(selectedEmail) && email = selectedEmail))
+                                    && is_cc = selectingCc
+                                );
+                                If(!selectingCc, Set(varSelectedRecipientId, ""))
+                            )
+                        )
+                    RadiusBottomLeft: =6
+                    RadiusBottomRight: =6
+                    RadiusTopLeft: =6
+                    RadiusTopRight: =6
+                    Size: =App.Height * 0.012
+                    Text: =""
+                    Visible: =varMatchStep = 2
+                    Width: =App.Height * 0.038
+                    X: =Parent.TemplateWidth * 0.915
+                    Y: =(Parent.TemplateHeight - App.Height * 0.034) / 2
+                    ZIndex: =8
+
+            lblEmptyCC As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.026
+                Size: =App.Height * 0.013
+                Text: ="Teamsで通知する社員を選択してください"
+                Visible: =varMatchStep = 2 && CountRows(Filter(colSelected, is_cc = true)) = 0 && IsBlank(Trim(txtSearch.Text))
+                Width: =Parent.Width
+                Y: =Parent.Height * 0.45
+                ZIndex: =2
+
+        conMatchBtnRow As groupContainer.horizontalAutoLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.052
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutGap: =App.Width * 0.006
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            Visible: =varMatchStep = 1
+            ZIndex: =16
+
+            btnUnknown As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(13, 148, 136, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        IsBlank(Trim(Coalesce(txtDeliverySlip.Text, ""))),
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =If(
+                        IsBlank(Trim(Coalesce(txtDeliverySlip.Text, ""))),
+                        Set(varSlipRequiredError, true);
+                        Notify("伝票番号を入力してください", NotificationType.Error),
+                        Set(varBusy, true);
+                        Set(varError, "");
+                        Set(varPackageId, Text(GUID()));
+                        With(
+                            {
+                                isSharePoint: Lower(Text(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).source)) = "sharepoint",
+                                remoteUrl: Coalesce(
+                                    LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).file_url,
+                                    varImageUrl,
+                                    ""
+                                ),
+                                fileBytes: Coalesce(
+                                    If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                    LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).image,
+                                    If(
+                                        !IsBlank(imgMatchThumb.Image) && imgMatchThumb.Image <> SampleImage,
+                                        imgMatchThumb.Image,
+                                        Blank()
+                                    )
+                                ),
+                                saveName: Text(varPackageId) & ".jpg",
+                                ocrName: If(IsBlank(Trim(Coalesce(varOcrName, ""))), "不明", Trim(varOcrName)),
+                                ocrDept: If(IsBlank(Trim(Coalesce(varOcrDept, ""))), "不明", Trim(varOcrDept)),
+                                ocrConf: Coalesce(varOcrConf, 0),
+                                matchScore: Coalesce(varMatchScore, 0),
+                                tierVal: Coalesce(varTier, "low"),
+                                candidatesJson: JSON(varCandidates, JSONFormat.IgnoreBinaryData),
+                                slipNo: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, "")),
+                                packageContent: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, "")),
+                                senderName: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, "")),
+                                senderAddress: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, "")),
+                                sharepointUrl: If(
+                                    Lower(Text(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).source)) = "sharepoint",
+                                    Coalesce(
+                                        LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).file_url,
+                                        varImageUrl,
+                                        ""
+                                    ),
+                                    ""
+                                ),
+                                packageDetails: Concat(
+                                    Filter(
+                                        Table(
+                                            {
+                                                label: "伝票番号",
+                                                value: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, ""))
+                                            },
+                                            {
+                                                label: "荷物内容",
+                                                value: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, ""))
+                                            },
+                                            {
+                                                label: "差出人名",
+                                                value: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, ""))
+                                            },
+                                            {
+                                                label: "差出人部署",
+                                                value: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, ""))
+                                            }
+                                        ),
+                                        !IsBlank(value)
+                                    ),
+                                    label & ": " & value,
+                                    Char(10) & Char(10)
+                                )
+                            },
+                            If(
+                                isSharePoint && IsBlank(remoteUrl),
+                                Set(varBusy, false);
+                                Set(varError, "SharePointの画像URLがありません");
+                                Notify("SharePointの画像URLがありません", NotificationType.Error),
+                    
+                                !isSharePoint && IsBlank(fileBytes),
+                                Set(varBusy, false);
+                                Set(varError, "保存する画像がありません");
+                                Notify("保存する画像がありません", NotificationType.Error),
+                    
+                                IfError(
+                                    Set(
+                                        varSaveUnknownResult,
+                                        'EDS-SaveUnknownPackage'.Run(
+                                            {
+                                                contentBytes: fileBytes,
+                                                name: saveName
+                                            },
+                                            ocrName,
+                                            ocrDept,
+                                            ocrConf,
+                                            matchScore,
+                                            tierVal,
+                                            candidatesJson,
+                                            Text(varPackageId),
+                                            slipNo,
+                                            packageContent,
+                                            senderName,
+                                            senderAddress,
+                                            sharepointUrl
+                                        )
+                                    );
+                                    Set(varImageUrl, Coalesce(Text(varSaveUnknownResult.image_url), sharepointUrl, remoteUrl));
+                                    ClearCollect(
+                                        colNotifyPayload,
+                                        {
+                                            employee_id: "",
+                                            package_id: Text(varPackageId),
+                                            name: "不明",
+                                            department: "宛先不明！！！！！",
+                                            email: "",
+                                            teams_id: "",
+                                            score: 0,
+                                            is_cc: false,
+                                            content_message:
+                                                If(
+                                                    IsBlank(packageDetails),
+                                                    "新しい、正体不明の小包があります。",
+                                                    "新しい、正体不明の小包があります。" & Char(10) & Char(10) & "詳細:" & Char(10) & Char(10) & packageDetails
+                                                ),
+                                            image_url: Coalesce(varImageUrl, ""),
+                                            slip_no: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, "")),
+                                            sender_info: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, "")),
+                                            sender_address: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, "")),
+                                            senderName: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, ""))
+                                        }
+                                    );
+                                    Set(varNotifyJson, JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData));
+                                    Set(
+                                        varNotifyResult,
+                                        'EDS-NotifySelected'.Run(
+                                            {
+                                                text_5: varNotifyJson
+                                            }
+                                        )
+                                    );
+                                    Set(varBusy, false);
+                                    Refresh(PackageSlipLog);
+                                    Set(varMatchStep, 1);
+                                    Clear(varCandidates);
+                                    Clear(colSelected);
+                                    Set(varTier, "");
+                                    Set(varMatchScore, 0);
+                                    Set(varOcrName, "");
+                                    Set(varOcrDept, "");
+                                    Set(varOcrConf, 0);
+                                    Set(varOcrSenderName, "");
+                                    Set(varOcrSenderInfo, "");
+                                    Set(varOcrDeliverySlip, "");
+                                    Set(varOcrSenderDepartment, "");
+                                    Set(varSelectedRecipientId, "");
+                                    Set(varPackageId, "");
+                                    Set(varFromUnknownList, false);
+                                    If(
+                                        !IsBlank(varHomeQueueId),
+                                        RemoveIf(colHomeQueue, id = varHomeQueueId)
+                                    );
+                                    Set(varHomeQueueId, "");
+                                    If(
+                                        CountRows(colHomeQueue) > 0,
+                                        With(
+                                            { nextItem: First(colHomeQueue) },
+                                            Set(varHomeSelectedId, nextItem.id);
+                                            Set(varImage, Coalesce(nextItem.image, SampleImage));
+                                            Set(
+                                                varImageUrl,
+                                                If(
+                                                    Text(nextItem.source) = "sharepoint",
+                                                    "",
+                                                    Coalesce(nextItem.file_url, "")
+                                                )
+                                            );
+                                            Set(
+                                                varImageName,
+                                                If(
+                                                    !IsBlank(nextItem.path),
+                                                    "SPPATH|" & nextItem.path,
+                                                    Coalesce(nextItem.name, "label.jpg")
+                                                )
+                                            )
+                                        ),
+                                        Set(varHomeSelectedId, "");
+                                        Set(varImage, Blank());
+                                        Set(varImageName, "");
+                                        Set(varImageUrl, "")
+                                    );
+                                    Set(varProcessedCount, varProcessedCount + 1);
+                                    Set(
+                                        varShowContinuePopup,
+                                        varBatchTotal > 0 && CountRows(colHomeQueue) > 0
+                                    );
+                                    Notify("不明荷物として登録しました", NotificationType.Success);
+                                    Navigate(srcHome, ScreenTransition.None),
+                    
+                                    Set(varBusy, false);
+                                    Set(varError, "不明登録に失敗しました。もう一度お試しください。");
+                                    Notify(
+                                        "不明登録に失敗しました: " & Coalesce(FirstError.Message, "もう一度お試しください。"),
+                                        NotificationType.Error
+                                    )
+                                )
+                            )
+                        )
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.014
+                Text: ="不明として登録"
+                Visible: =!varFromUnknownList
+                ZIndex: =1
+
+            btnStartOver As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(15, 23, 42, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =Set(varMatchStep, 1);
+                    Set(varSelectedRecipientId, "");
+                    Set(varPackageId, "");
+                    Set(varHomeQueueId, "");
+                    Set(varFromUnknownList, false);
+                    Clear(varCandidates);
+                    Clear(colSelected);
+                    Set(varTier, "");
+                    Set(varMatchScore, 0);
+                    Set(varOcrName, "");
+                    Set(varOcrDept, "");
+                    Set(varOcrConf, 0);
+                    Set(varOcrSenderName, "");
+                    Set(varOcrSenderInfo, "");
+                    Set(varOcrDeliverySlip, "");
+                    Set(varOcrSenderDepartment, "");
+                    If(
+                        CountRows(colHomeQueue) > 0,
+                        With(
+                            {
+                                cur: Coalesce(
+                                    LookUp(colHomeQueue, id = varHomeSelectedId),
+                                    First(colHomeQueue)
+                                )
+                            },
+                            Set(varHomeSelectedId, cur.id);
+                            Set(varImage, Coalesce(cur.image, SampleImage));
+                            Set(
+                                varImageUrl,
+                                If(
+                                    Text(cur.source) = "sharepoint",
+                                    "",
+                                    Coalesce(cur.file_url, "")
+                                )
+                            );
+                            Set(
+                                varImageName,
+                                If(
+                                    !IsBlank(cur.path),
+                                    "SPPATH|" & cur.path,
+                                    Coalesce(cur.name, "label.jpg")
+                                )
+                            )
+                        ),
+                        Set(varHomeSelectedId, "");
+                        Set(varImage, Blank());
+                        Set(varImageName, "");
+                        Set(varImageUrl, "")
+                    );
+                    Navigate(srcHome, ScreenTransition.None)
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.014
+                Text: ="やり直す"
+                ZIndex: =2
+
+            btnNext As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(0, 102, 204, 1)
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        !varFromUnknownList && CountRows(
+                            Filter(
+                                colSelected,
+                                is_cc = false && !IsBlank(employee_id)
+                            )
+                        ) = 0,
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =If(
+                        IsBlank(Trim(Coalesce(txtDeliverySlip.Text, ""))),
+                        Set(varSlipRequiredError, true),
+                        Set(varSlipRequiredError, false);
+                        Set(varMatchStep, 2);
+                        Set(varHeaderTitle, "CCを選択");
+                        Set(varHeaderSubtitle, "Teamsで通知する社員を選択してください");
+                        Set(varSearchText, "");
+                        Reset(txtSearch)
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.014
+                Text: ="次へ"
+                ZIndex: =3
+
+        conCCBtnRow As groupContainer.horizontalAutoLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.052
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutGap: =App.Width * 0.006
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            Visible: =varMatchStep = 2
+            ZIndex: =17
+
+            btnBack As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(0, 102, 204, 1)
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =RemoveIf(colSelected, is_cc = true);
+                    Set(varMatchStep, 1);
+                    Set(varHeaderTitle, "照合結果");
+                    Set(varHeaderSubtitle, "OCR結果を確認し、受取人を選択してください");
+                    Set(varSearchText, "");
+                    Reset(txtSearch)
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.014
+                Text: ="戻る"
+                ZIndex: =2
+
+            btnRegister As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(48, 136, 161, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        varBusy
+                        || IsBlank(Trim(Coalesce(varOcrDeliverySlip, "")))
+                        || CountRows(
+                            Filter(
+                                colSelected,
+                                is_cc = false && !IsBlank(employee_id)
+                            )
+                        ) = 0,
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =If(
+                        IsBlank(Trim(Coalesce(txtDeliverySlip.Text, ""))),
+                        Set(varSlipRequiredError, true);
+                        Notify("伝票番号を入力してください", NotificationType.Error),
+                        !varFromUnknownList && CountRows(Filter(colSelected, is_cc = false && !IsBlank(employee_id))) = 0,
+                        Notify("受取人を選択してください", NotificationType.Error),
+                        Set(varBusy, true);
+                        Set(varError, "");
+                        Set(varNotifyErrorMessage, "");
+                        If(IsBlank(varPackageId), Set(varPackageId, Text(GUID())));
+                        With(
+                            {
+                                packageDetails: Concat(
+                                    Filter(
+                                        Table(
+                                            {
+                                                label: "伝票番号",
+                                                value: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, ""))
+                                            },
+                                            {
+                                                label: "荷物内容",
+                                                value: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, ""))
+                                            },
+                                            {
+                                                label: "差出人名",
+                                                value: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, ""))
+                                            },
+                                            {
+                                                label: "差出人部署",
+                                                value: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, ""))
+                                            }
+                                        ),
+                                        !IsBlank(value)
+                                    ),
+                                    label & ": " & value,
+                                    Char(10) & Char(10)
+                                ),
+                                absoluteImageUrl: With(
+                                    {
+                                        siteHost: "https://smartosc0.sharepoint.com",
+                                        sitePath: "/sites/Teamresponsibleforreceivingexpressshipments",
+                                        queueRow: LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId))
+                                    },
+                                    With(
+                                        {
+                                            raw: Trim(
+                                                Coalesce(
+                                                    If(Left(Lower(Coalesce(varImageUrl, "")), 4) = "http", varImageUrl, Blank()),
+                                                    If(Left(Lower(Coalesce(queueRow.file_url, "")), 4) = "http", queueRow.file_url, Blank()),
+                                                    queueRow.file_url,
+                                                    queueRow.path,
+                                                    varImageUrl,
+                                                    ""
+                                                )
+                                            )
+                                        },
+                                        With(
+                                            {
+                                                normalized: Substitute(
+                                                    If(
+                                                        Left(raw, 11) = "/Documents/",
+                                                        "/Shared Documents/" & Mid(raw, 12, 2000),
+                                                        Left(raw, 10) = "Documents/",
+                                                        "/Shared Documents/" & Mid(raw, 11, 2000),
+                                                        raw
+                                                    ),
+                                                    " ",
+                                                    "%20"
+                                                )
+                                            },
+                                            If(
+                                                Left(Lower(normalized), 4) = "http",
+                                                normalized,
+                                                Left(normalized, 6) = "/sites",
+                                                siteHost & normalized,
+                                                !IsBlank(normalized),
+                                                siteHost & sitePath & If(Left(normalized, 1) = "/", normalized, "/" & normalized),
+                                                ""
+                                            )
+                                        )
+                                    )
+                                )
+                            },
+                            ClearCollect(
+                                colNotifyPayload,
+                                ForAll(
+                                    colSelected As selectedEmp,
+                                    {
+                                        employee_id: Text(selectedEmp.employee_id),
+                                        package_id: Text(varPackageId),
+                                        name: Text(selectedEmp.name),
+                                        department: Text(selectedEmp.department),
+                                        email: Text(selectedEmp.email),
+                                        teams_id: Text(selectedEmp.teams_id),
+                                        score: Coalesce(selectedEmp.score, 0),
+                                        is_cc: Coalesce(selectedEmp.is_cc, false),
+                                        slip_no: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, "")),
+                                        sender_info: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, "")),
+                                        sender_name: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, "")),
+                                        sender_address: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, "")),
+                                        content_message:
+                                            Text(selectedEmp.name) &
+                                            "（部署: " &
+                                            Text(selectedEmp.department) &
+                                            If(
+                                                IsBlank(packageDetails),
+                                                "）に新しい荷物があります。",
+                                                "）に新しい荷物があります。" & Char(10) & Char(10) & "詳細:" & Char(10) & Char(10) & packageDetails
+                                            ),
+                                        image_url: Coalesce(absoluteImageUrl, "")
+                                    }
+                                )
+                            )
+                        );
+                        Set(
+                            varNotifyJson,
+                            JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData)
+                        );
+                        IfError(
+                            Set(
+                                varNotifyResult,
+                                'EDS-NotifySelected'.Run(
+                                    {
+                                        text_5: varNotifyJson
+                                    }
+                                )
+                            );
+                            Set(varBusy, false);
+                            If(
+                                Lower(Text(Coalesce(varNotifyResult.success, ""))) <> "true",
+                                Set(varShowNotifyFailed, true),
+                                Set(varNotifyNavUnknown, varFromUnknownList && !IsBlank(varPackageId));
+                                If(
+                                    varNotifyNavUnknown,
+                                    Patch(
+                                        PackageSlipLog,
+                                        LookUp(PackageSlipLog, PackageId = varPackageId),
+                                        {
+                                            IsUnknown: false,
+                                            Status: {Value: "Resolved"},
+                                            SelectedRecipientsJson: JSON(colSelected, JSONFormat.IgnoreBinaryData)
+                                        }
+                                    );
+                                    Refresh(PackageSlipLog)
+                                );
+                                Set(varShowNotifySuccess, true)
+                            ),
+                            Set(varBusy, false);
+                            Set(varShowNotifyFailed, true)
+                        )
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.014
+                Text: ="登録"
+                ZIndex: =3
+

@@ -1,0 +1,464 @@
+cmpEmpModal As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =768
+    Visible: =true
+    Width: =1366
+    X: =0
+    Y: =0
+
+    recEmpModalMask As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(15, 23, 42, 0.45)
+        Height: =App.Height
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width
+        ZIndex: =1
+
+    recEmpModalCard As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.555
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .33
+        X: =App.Width * .335
+        Y: =App.Height * .155
+        ZIndex: =2
+
+    recEmpE_DeptPanel As rectangle:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.26
+        Visible: =!gblIsMobile && varShowEmpModal && varShowEmpEDeptList
+        Width: =App.Width * 0.29
+        X: =App.Width * 0.355
+        Y: =App.Height * 0.5570
+        ZIndex: =3
+
+    btnEmpModalClose As modernButton:
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(220, 38, 38, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .045
+        OnSelect: =Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: ="✕"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .028
+        X: =App.Width * .622
+        Y: =App.Height * .172
+        ZIndex: =4
+
+    lblEmpModalTitle As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .045
+        PaddingLeft: =0
+        Size: =App.Height * 0.018
+        Text: =If(varEmpMode = "create", "社員登録", "社員編集")
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .20
+        X: =App.Width * .355
+        Y: =App.Height * .175
+        ZIndex: =5
+
+    txtEmpME_Id As modernTextInput:
+        Default: =varEmpFId
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.046
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.101
+        ZIndex: =6
+
+    lblEmpF_FId As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .026
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="社員ID"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .25
+        X: =App.Width * .355
+        Y: =App.Height * .225
+        ZIndex: =7
+
+    txtEmpFId As modernTextInput:
+        Default: =varEmpFId
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .048
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .29
+        X: =App.Width * .355
+        Y: =App.Height * .252
+        ZIndex: =8
+
+    txtEmpME_Name As modernTextInput:
+        Default: =varEmpFName
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.046
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.186
+        ZIndex: =9
+
+    lblEmpF_FName As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .026
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="名前"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .25
+        X: =App.Width * .355
+        Y: =App.Height * .310
+        ZIndex: =10
+
+    txtEmpFName As modernTextInput:
+        Default: =varEmpFName
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .048
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .29
+        X: =App.Width * .355
+        Y: =App.Height * .337
+        ZIndex: =11
+
+    txtEmpME_Mail As modernTextInput:
+        Default: =varEmpFMail
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.046
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.271
+        ZIndex: =12
+
+    lblEmpF_FMail As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .026
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="メール"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .25
+        X: =App.Width * .355
+        Y: =App.Height * .395
+        ZIndex: =13
+
+    txtEmpFMail As modernTextInput:
+        Default: =varEmpFMail
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .048
+        Placeholder: =""
+        Type: =TextInputType.Search
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .29
+        X: =App.Width * .355
+        Y: =App.Height * .422
+        ZIndex: =14
+
+    btnEmpME_Dept As modernButton:
+        Align: =Align.Left
+        Appearance: =ButtonAppearance.Outline
+        Color: =If(IsBlank(varEmpFDept), RGBA(71, 85, 105, 1), RGBA(15, 23, 42, 1))
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.046
+        OnSelect: =Set(varShowEmpMEDeptList, !varShowEmpMEDeptList)
+        Size: =App.Height * 0.014
+        Text: =If(IsBlank(varEmpFDept), "部署を選択してください  ▾", varEmpFDept & "  ▾")
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.356
+        ZIndex: =15
+
+    lblEmpF_FDept As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .026
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="部署"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .25
+        X: =App.Width * .355
+        Y: =App.Height * .480
+        ZIndex: =16
+
+    btnEmpE_Dept As modernButton:
+        Align: =Align.Left
+        Appearance: =ButtonAppearance.Outline
+        Color: =If(IsBlank(varEmpFDept), RGBA(71, 85, 105, 1), RGBA(15, 23, 42, 1))
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.048
+        OnSelect: =Set(varShowEmpEDeptList, !varShowEmpEDeptList)
+        Size: =App.Height * 0.013
+        Text: =If(IsBlank(varEmpFDept), "部署を選択してください  ▾", varEmpFDept & "  ▾")
+        Visible: =!gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.29
+        X: =App.Width * 0.355
+        Y: =App.Height * 0.507
+        ZIndex: =17
+
+    btnEmpModalCancel As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        Color: =RGBA(220, 38, 38, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .05
+        OnSelect: =Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: ="キャンセル"
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .10
+        X: =App.Width * .355
+        Y: =App.Height * 0.615
+        ZIndex: =18
+
+    btnEmpModalSave As modernButton:
+        Color: =RGBA(220, 38, 38, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .05
+        OnSelect: |-
+            =If(varEmpMode = "create",Collect(colEmployees, {no: CountRows(colEmployees) + 1, empId: txtEmpFId.Text, name: txtEmpFName.Text, email: txtEmpFMail.Text, dept: varEmpFDept, status: "Active", created: "2026/09/15 09:00", updated: "2026/09/15 09:00"}),Patch(colEmployees, LookUp(colEmployees, empId = varEmpEditId), {empId: txtEmpFId.Text, name: txtEmpFName.Text, email: txtEmpFMail.Text, dept: varEmpFDept, updated: "2026/09/15 09:00"}));Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: =If(varEmpMode = "create", "登録", "更新")
+        Visible: =!gblIsMobile && (varShowEmpModal)
+        Width: =App.Width * .10
+        X: =App.Width * .545
+        Y: =App.Height * 0.615
+        ZIndex: =19
+
+    btnEmpMECancel As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        Color: =RGBA(220, 38, 38, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.05
+        OnSelect: =Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: ="キャンセル"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.44
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.675
+        ZIndex: =20
+
+    btnEmpMESave As modernButton:
+        Color: =RGBA(220, 38, 38, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.05
+        OnSelect: |-
+            =If(varEmpMode = "create",Collect(colEmployees, {no: CountRows(colEmployees) + 1, empId: txtEmpME_Id.Text, name: txtEmpME_Name.Text, email: txtEmpME_Mail.Text, dept: varEmpFDept, status: "Active", created: Text(Now(), "yyyy/mm/dd hh:mm"), updated: Text(Now(), "yyyy/mm/dd hh:mm")}),Patch(colEmployees, LookUp(colEmployees, empId = varEmpEditId), {empId: txtEmpME_Id.Text, name: txtEmpME_Name.Text, email: txtEmpME_Mail.Text, dept: varEmpFDept, updated: Text(Now(), "yyyy/mm/dd hh:mm")}));Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: =If(varEmpMode = "create", "登録", "更新")
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.44
+        X: =App.Width * 0.52
+        Y: =App.Height * 0.675
+        ZIndex: =21
+
+    recEmpMEBg As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.812
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width
+        ZIndex: =22
+
+    lblEmpMETitle As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.042
+        PaddingLeft: =0
+        Size: =App.Height * 0.019
+        Text: =If(varEmpMode = "create", "社員登録", "社員編集")
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.44
+        X: =App.Width * 0.28
+        Y: =App.Height * 0.012
+        ZIndex: =23
+
+    recEmpME_DeptPanel As rectangle:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.30
+        Visible: =gblIsMobile && varShowEmpModal && varShowEmpMEDeptList
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.404
+        ZIndex: =24
+
+    btnEmpMEBack As modernButton:
+        Align: =Align.Left
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(37, 99, 235, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: =Set(varShowEmpModal, false)
+        Size: =App.Height * 0.015
+        Text: ="←  戻る"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.22
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.012
+        ZIndex: =25
+
+    lblEmpME_Id As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.022
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="社員ID"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.6
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.075
+        ZIndex: =26
+
+    lblEmpME_Name As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.022
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="氏名"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.6
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.16
+        ZIndex: =27
+
+    lblEmpME_Mail As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.022
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="メール"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.6
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.245
+        ZIndex: =28
+
+    lblEmpME_Dept As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.022
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="部署"
+        Visible: =gblIsMobile && varShowEmpModal
+        Width: =App.Width * 0.6
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.33
+        ZIndex: =29
+
+    galEmpME_Dept As gallery.galleryVertical:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.2940
+        Items: =colDepartments
+        Layout: =Layout.Vertical
+        TemplateFill: =If(ThisItem.name = varEmpFDept, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.042
+        Visible: =gblIsMobile && varShowEmpModal && varShowEmpMEDeptList
+        Width: =App.Width * 0.9140
+        X: =App.Width * 0.0430
+        Y: =App.Height * 0.407
+        ZIndex: =30
+
+        btnEmpME_DeptItem As modernButton:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Transparent
+            Color: =If(ThisItem.name = varEmpFDept, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(ThisItem.name = varEmpFDept, FontWeight.Bold, FontWeight.Normal)
+            Height: =App.Height * 0.0400
+            OnSelect: =Set(varEmpFDept, ThisItem.name);Set(varShowEmpMEDeptList, false)
+            Size: =App.Height * 0.017
+            Text: =ThisItem.name
+            Width: =App.Width * 0.9140
+            ZIndex: =22
+
+    galEmpE_Dept As gallery.galleryVertical:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.2540
+        Items: =colDepartments
+        Layout: =Layout.Vertical
+        TemplateFill: =If(ThisItem.name = varEmpFDept, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.034
+        Visible: =!gblIsMobile && varShowEmpModal && varShowEmpEDeptList
+        Width: =App.Width * 0.2840
+        X: =App.Width * 0.3580
+        Y: =App.Height * 0.5600
+        ZIndex: =31
+
+        btnEmpE_DeptItem As modernButton:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Transparent
+            Color: =If(ThisItem.name = varEmpFDept, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(ThisItem.name = varEmpFDept, FontWeight.Bold, FontWeight.Normal)
+            Height: =App.Height * 0.0320
+            OnSelect: =Set(varEmpFDept, ThisItem.name);Set(varShowEmpEDeptList, false)
+            Size: =App.Height * 0.016
+            Text: =ThisItem.name
+            Width: =App.Width * 0.2840
+            ZIndex: =22
+

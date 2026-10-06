@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_List_Employee">
+  <defaultvalue>217d5fbc-ff86-4675-bf25-bb3dbc3fb431</defaultvalue>
+  <displayname default="List_Employee">
+    <label description="List_Employee" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,525 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+ComponentDefinitions:
+  cmpEmpModal:
+    DefinitionType: CanvasComponent
+    AccessAppScope: true
+    Properties:
+      Height: =768
+      Width: =1366
+    Children:
+      - recEmpModalMask:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Fill: =RGBA(15, 23, 42, 0.45)
+            Height: =App.Height
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width
+      - recEmpModalCard:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.555
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .33
+            X: =App.Width * .335
+            Y: =App.Height * .155
+      - recEmpE_DeptPanel:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(203, 213, 225, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.26
+            Visible: =!gblIsMobile && varShowEmpModal && varShowEmpEDeptList
+            Width: =App.Width * 0.29
+            X: =App.Width * 0.355
+            Y: =App.Height * 0.5570
+      - btnEmpModalClose:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Transparent
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .045
+            OnSelect: =Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: ="✕"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .028
+            X: =App.Width * .622
+            Y: =App.Height * .172
+      - lblEmpModalTitle:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .045
+            PaddingLeft: =0
+            Size: =App.Height * 0.018
+            Text: =If(varEmpMode = "create", "社員登録", "社員編集")
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .20
+            X: =App.Width * .355
+            Y: =App.Height * .175
+      - txtEmpME_Id:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFId
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.046
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.101
+      - lblEmpF_FId:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .026
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="社員ID"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .25
+            X: =App.Width * .355
+            Y: =App.Height * .225
+      - txtEmpFId:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFId
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .048
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .29
+            X: =App.Width * .355
+            Y: =App.Height * .252
+      - txtEmpME_Name:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFName
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.046
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.186
+      - lblEmpF_FName:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .026
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="名前"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .25
+            X: =App.Width * .355
+            Y: =App.Height * .310
+      - txtEmpFName:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFName
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .048
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .29
+            X: =App.Width * .355
+            Y: =App.Height * .337
+      - txtEmpME_Mail:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFMail
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.046
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.271
+      - lblEmpF_FMail:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .026
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="メール"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .25
+            X: =App.Width * .355
+            Y: =App.Height * .395
+      - txtEmpFMail:
+          Control: ModernTextInput@1.1.2
+          Properties:
+            Appearance: =
+            BorderStyle: =
+            Default: =varEmpFMail
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .048
+            Placeholder: =""
+            Required: =
+            TriggerOutput: =
+            Type: =TextInputType.Search
+            ValidationState: =
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .29
+            X: =App.Width * .355
+            Y: =App.Height * .422
+      - btnEmpME_Dept:
+          Control: ModernButton@1.0.0
+          Properties:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =If(IsBlank(varEmpFDept), RGBA(71, 85, 105, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.046
+            OnSelect: =Set(varShowEmpMEDeptList, !varShowEmpMEDeptList)
+            Size: =App.Height * 0.014
+            Text: =If(IsBlank(varEmpFDept), "部署を選択してください  ▾", varEmpFDept & "  ▾")
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.356
+      - lblEmpF_FDept:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .026
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="部署"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .25
+            X: =App.Width * .355
+            Y: =App.Height * .480
+      - btnEmpE_Dept:
+          Control: ModernButton@1.0.0
+          Properties:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =If(IsBlank(varEmpFDept), RGBA(71, 85, 105, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.048
+            OnSelect: =Set(varShowEmpEDeptList, !varShowEmpEDeptList)
+            Size: =App.Height * 0.013
+            Text: =If(IsBlank(varEmpFDept), "部署を選択してください  ▾", varEmpFDept & "  ▾")
+            Visible: =!gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.29
+            X: =App.Width * 0.355
+            Y: =App.Height * 0.507
+      - btnEmpModalCancel:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .05
+            OnSelect: =Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: ="キャンセル"
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .10
+            X: =App.Width * .355
+            Y: =App.Height * 0.615
+      - btnEmpModalSave:
+          Control: ModernButton@1.0.0
+          Properties:
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * .05
+            OnSelect: |-
+              =If(varEmpMode = "create",Collect(colEmployees, {no: CountRows(colEmployees) + 1, empId: txtEmpFId.Text, name: txtEmpFName.Text, email: txtEmpFMail.Text, dept: varEmpFDept, status: "Active", created: "2026/09/15 09:00", updated: "2026/09/15 09:00"}),Patch(colEmployees, LookUp(colEmployees, empId = varEmpEditId), {empId: txtEmpFId.Text, name: txtEmpFName.Text, email: txtEmpFMail.Text, dept: varEmpFDept, updated: "2026/09/15 09:00"}));Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: =If(varEmpMode = "create", "登録", "更新")
+            Visible: =!gblIsMobile && (varShowEmpModal)
+            Width: =App.Width * .10
+            X: =App.Width * .545
+            Y: =App.Height * 0.615
+      - btnEmpMECancel:
+          Control: ModernButton@1.0.0
+          Properties:
+            Appearance: =ButtonAppearance.Outline
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.05
+            OnSelect: =Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: ="キャンセル"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.44
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.675
+      - btnEmpMESave:
+          Control: ModernButton@1.0.0
+          Properties:
+            BorderStyle: =
+            Color: =RGBA(220, 38, 38, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.05
+            OnSelect: |-
+              =If(varEmpMode = "create",Collect(colEmployees, {no: CountRows(colEmployees) + 1, empId: txtEmpME_Id.Text, name: txtEmpME_Name.Text, email: txtEmpME_Mail.Text, dept: varEmpFDept, status: "Active", created: Text(Now(), "yyyy/mm/dd hh:mm"), updated: Text(Now(), "yyyy/mm/dd hh:mm")}),Patch(colEmployees, LookUp(colEmployees, empId = varEmpEditId), {empId: txtEmpME_Id.Text, name: txtEmpME_Name.Text, email: txtEmpME_Mail.Text, dept: varEmpFDept, updated: Text(Now(), "yyyy/mm/dd hh:mm")}));Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: =If(varEmpMode = "create", "登録", "更新")
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.44
+            X: =App.Width * 0.52
+            Y: =App.Height * 0.675
+      - recEmpMEBg:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.812
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width
+      - lblEmpMETitle:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.042
+            PaddingLeft: =0
+            Size: =App.Height * 0.019
+            Text: =If(varEmpMode = "create", "社員登録", "社員編集")
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.44
+            X: =App.Width * 0.28
+            Y: =App.Height * 0.012
+      - recEmpME_DeptPanel:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(203, 213, 225, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.30
+            Visible: =gblIsMobile && varShowEmpModal && varShowEmpMEDeptList
+            Width: =App.Width * 0.92
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.404
+      - btnEmpMEBack:
+          Control: ModernButton@1.0.0
+          Properties:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Transparent
+            BorderStyle: =
+            Color: =RGBA(37, 99, 235, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.042
+            OnSelect: =Set(varShowEmpModal, false)
+            Size: =App.Height * 0.015
+            Text: ="←  戻る"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.22
+            X: =App.Width * 0.03
+            Y: =App.Height * 0.012
+      - lblEmpME_Id:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.022
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="社員ID"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.6
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.075
+      - lblEmpME_Name:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.022
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="氏名"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.6
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.16
+      - lblEmpME_Mail:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.022
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="メール"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.6
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.245
+      - lblEmpME_Dept:
+          Control: Label@2.5.1
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            DisabledColor: =RGBA(186, 186, 186, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.022
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: ="部署"
+            Visible: =gblIsMobile && varShowEmpModal
+            Width: =App.Width * 0.6
+            X: =App.Width * 0.04
+            Y: =App.Height * 0.33
+      - galEmpME_Dept:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            BorderColor: =RGBA(203, 213, 225, 1)
+            BorderThickness: =1
+            DelayItemLoading: =false
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.2940
+            Items: =colDepartments
+            LoadingSpinner: =LoadingSpinner.None
+            TemplateFill: =If(ThisItem.name = varEmpFDept, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+            TemplatePadding: =0
+            TemplateSize: =App.Height * 0.042
+            Visible: =gblIsMobile && varShowEmpModal && varShowEmpMEDeptList
+            Width: =App.Width * 0.9140
+            X: =App.Width * 0.0430
+            Y: =App.Height * 0.407
+          Children:
+            - btnEmpME_DeptItem:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Align: =Align.Left
+                  Appearance: =ButtonAppearance.Transparent
+                  BorderStyle: =
+                  Color: =If(ThisItem.name = varEmpFDept, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =If(ThisItem.name = varEmpFDept, FontWeight.Bold, FontWeight.Normal)
+                  Height: =App.Height * 0.0400
+                  OnSelect: =Set(varEmpFDept, ThisItem.name);Set(varShowEmpMEDeptList, false)
+                  Size: =App.Height * 0.017
+                  Text: =ThisItem.name
+                  Width: =App.Width * 0.9140
+      - galEmpE_Dept:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            BorderColor: =RGBA(203, 213, 225, 1)
+            BorderThickness: =1
+            DelayItemLoading: =false
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.2540
+            Items: =colDepartments
+            LoadingSpinner: =LoadingSpinner.None
+            TemplateFill: =If(ThisItem.name = varEmpFDept, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+            TemplatePadding: =0
+            TemplateSize: =App.Height * 0.034
+            Visible: =!gblIsMobile && varShowEmpModal && varShowEmpEDeptList
+            Width: =App.Width * 0.2840
+            X: =App.Width * 0.3580
+            Y: =App.Height * 0.5600
+          Children:
+            - btnEmpE_DeptItem:
+                Control: ModernButton@1.0.0
+                Properties:
+                  Align: =Align.Left
+                  Appearance: =ButtonAppearance.Transparent
+                  BorderStyle: =
+                  Color: =If(ThisItem.name = varEmpFDept, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =If(ThisItem.name = varEmpFDept, FontWeight.Bold, FontWeight.Normal)
+                  Height: =App.Height * 0.0320
+                  OnSelect: =Set(varEmpFDept, ThisItem.name);Set(varShowEmpEDeptList, false)
+                  Size: =App.Height * 0.016
+                  Text: =ThisItem.name
+                  Width: =App.Width * 0.2840

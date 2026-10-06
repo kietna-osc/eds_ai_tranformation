@@ -1,0 +1,1133 @@
+srcHistory As screen:
+    ContentLanguage: =""
+    Fill: =RGBA(248, 250, 252, 1)
+    LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
+    OnVisible: |-
+        =Set(varActiveTab, "history");Set(varHeaderTitle, "履歴一覧");Set(varHeaderSubtitle, "処理済みパッケージラベルの表示と追跡");Set(gblPage, 1);Set(varShowHistFilter, false);Set(varShowPageSize, false);Set(varHistFSlip, "");Set(varHistFRecipient, "");Set(varHistFRecvFrom, "");Set(varHistFRecvTo, "");Set(varHistFDlvFrom, "");Set(varHistFDlvTo, "");Set(varHistFDept, "");Set(varHistDDept, "");Set(varShowHistFDeptList, false);Set(varShowHistMFDeptList, false);Set(varHistFSt1, false);Set(varHistFSt2, false);Set(varHistFDt1, false);Set(varHistFDt2, false);Set(varHistDSt1, false);Set(varHistDSt2, false);Set(varHistDDt1, false);Set(varHistDDt2, false);Set(varHistDDlvFromT, "");Set(varHistDDlvToT, "");Set(varHistDRecvFromT, "");Set(varHistDRecvToT, "");Set(varHistTimeTgt, "");IfError(ClearCollect(colSpAllItems, Documents), Notify("画像一覧の取得に失敗しました", NotificationType.Warning));
+        Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));
+        // 履歴の取得
+        //   検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
+        //   検索語あり: historyList にキーワード条件が無いため、全ページ (200 件ずつ) を取得して画面側で絞り込み・ページング
+        Set(varHistLoading, true);
+        If(
+            IsBlank(varHistSearch),
+            Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""));
+            If(
+                IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+                ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
+            ),
+            Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":1,""pageSize"":200}", "historyList").response, ":null", ":"""""));
+            If(
+                IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory),
+                ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)}));
+                ForAll(
+                    Sequence(Max(0, Value(ParseJSON(varHistRaw).totalPages) - 1), 2) As pg,
+                    With(
+                        {pageRaw: Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & pg.Value & ",""pageSize"":200}", "historyList").response, ":null", ":""""")},
+                        If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colHistory, ForAll(Table(ParseJSON(pageRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)})))
+                    )
+                )
+            )
+        );
+        Set(varHistLoading, false);
+        
+        // ===== kiểm tra quyền — để CUỐI cùng =====
+        //   Nếu connector PowerAppsforMakers chưa kết nối, chỉ khối này hỏng,
+        //   dữ liệu và biến phía trên vẫn nạp bình thường.
+        If(IsBlank(gblRoleAt) || !(gblMyRole in ["Owner", "CanEdit"]) || DateDiff(gblRoleAt, Now(), TimeUnit.Seconds) > 60, Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now());)
+
+    cmpHeader_H As cmpHeader:
+        Height: =App.Height * .1
+        Width: =App.Width
+        ZIndex: =1
+
+    lblHistMTitle As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.022
+        Text: ="履歴一覧"
+        Visible: =gblIsMobile
+        Width: =App.Width * 0.6
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.105
+        ZIndex: =2
+
+    lblHistMDTitle As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.042
+        PaddingLeft: =0
+        Size: =App.Height * 0.019
+        Text: ="履歴詳細"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.40
+        X: =App.Width * 0.30
+        Y: =App.Height * 0.112
+        ZIndex: =3
+
+    lblHistTitle As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .05
+        PaddingLeft: =0
+        Size: =App.Height * 0.022
+        Text: ="配送ログ"
+        Visible: =!gblIsMobile
+        Width: =App.Width * .08
+        X: =App.Width * .017
+        Y: =App.Height * .115
+        ZIndex: =4
+
+    txtHistSearch As modernTextInput:
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .048
+        OnChange: =Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));Set(gblPage, 1);Select(btnHistFetch)
+        Placeholder: ="伝票番号・受取人・処理状態・データ区分・通知日時で検索..."
+        Type: =TextInputType.Search
+        Visible: =!gblIsMobile
+        Width: =App.Width * .30
+        X: =App.Width * .10
+        Y: =App.Height * .117
+        ZIndex: =5
+
+    btnHistDownload As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .048
+        Size: =App.Height * 0.015
+        Text: ="ダウンロード"
+        Visible: =!gblIsMobile
+        Width: =App.Width * .095
+        X: =App.Width * .888
+        Y: =App.Height * .117
+        ZIndex: =6
+
+    txtHistMSearch As modernTextInput:
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.052
+        OnChange: =Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));Set(gblPage, 1);Select(btnHistFetch)
+        Placeholder: ="伝票番号・受取人・処理状態・データ区分・通知日時で検索..."
+        Type: =TextInputType.Search
+        Visible: =gblIsMobile
+        Width: =App.Width * 0.70
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.150
+        ZIndex: =7
+
+    recHistMDCard As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.700
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.168
+        ZIndex: =8
+
+    recHistCard As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * .71
+        Visible: =!gblIsMobile
+        Width: =App.Width * .966
+        X: =App.Width * .017
+        Y: =App.Height * .175
+        ZIndex: =9
+
+    lblHistMDSlip As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.034
+        PaddingLeft: =0
+        Size: =App.Height * 0.024
+        Text: =Text(varHistSel.slip)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.208
+        ZIndex: =10
+
+    btnHistMDownload As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.048
+        Size: =App.Height * 0.015
+        Text: ="ダウンロード"
+        Visible: =gblIsMobile
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.212
+        ZIndex: =11
+
+    recHistHeadBg As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(241, 245, 249, 1)
+        Height: =App.Height * .05
+        Visible: =!gblIsMobile
+        Width: =App.Width * .966
+        X: =App.Width * .017
+        Y: =App.Height * .175
+        ZIndex: =12
+
+    lblHistH_no As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="No."
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.026
+        X: =App.Width * (0.017 + 0.006)
+        Y: =App.Height * .183
+        ZIndex: =13
+
+    lblHistH_img As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="スキャン画像"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.066
+        X: =App.Width * (0.017 + 0.036)
+        Y: =App.Height * .183
+        ZIndex: =14
+
+    lblHistH_slip As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="伝票番号"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.05
+        X: =App.Width * 0.136
+        Y: =App.Height * .183
+        ZIndex: =15
+
+    lblHistH_status As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="処理状況"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.078
+        X: =App.Width * 0.209
+        Y: =App.Height * .183
+        ZIndex: =16
+
+    lblHistH_dataType As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="データ区分"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.06
+        X: =App.Width * 0.29
+        Y: =App.Height * .183
+        ZIndex: =17
+
+    lblHistH_recipient As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="受取人"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.066
+        X: =App.Width * 0.365
+        Y: =App.Height * .183
+        ZIndex: =18
+
+    lblHistH_dept As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="受取部署"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.09
+        X: =App.Width * 0.46
+        Y: =App.Height * .183
+        ZIndex: =19
+
+    lblHistH_item As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="品名"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.03
+        X: =App.Width * 0.6
+        Y: =App.Height * .183
+        ZIndex: =20
+
+    lblHistH_sender As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="送り主"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.062
+        X: =App.Width * 0.68
+        Y: =App.Height * .183
+        ZIndex: =21
+
+    lblHistH_senderAddr As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="送り主住所"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.084
+        X: =App.Width * (0.017 + 0.74)
+        Y: =App.Height * .183
+        ZIndex: =22
+
+    lblHistH_deliveredAt As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="通知日時"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.07
+        X: =App.Width * (0.017 + 0.825)
+        Y: =App.Height * .183
+        ZIndex: =23
+
+    lblHistH_receivedAt As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .034
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: ="受取日時"
+        Visible: =!gblIsMobile
+        Width: =App.Width * 0.07
+        X: =App.Width * (0.017 + 0.888)
+        Y: =App.Height * .183
+        ZIndex: =24
+
+    galHistory As gallery.galleryVertical:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * .60
+        Items: |-
+            =If(
+                IsBlank(varHistSearch),
+                // サーバー側ページング: colHistory は現在のページ分だけ
+                ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})),
+                // 検索語あり: 全件から絞り込んで画面側でページング
+                With({rows: Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize))
+            )
+        Layout: =Layout.Vertical
+        TemplatePadding: =0
+        TemplateSize: =App.Height * .11
+        Visible: =!gblIsMobile
+        Width: =App.Width * .966
+        X: =App.Width * .017
+        Y: =App.Height * .225
+        ZIndex: =25
+
+        recHistRowLine As rectangle:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Fill: =RGBA(226, 232, 240, 1)
+            Height: =1
+            Width: =App.Width * .966
+            Y: =App.Height * .109
+            ZIndex: =4
+
+        imgHistScan As image:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Height: =App.Height * .08
+            Image: |-
+                =With({fname:Last(Split(Substitute(ThisItem.imageUrl, "%20", " "), "/")).Value}, If(IsBlank(ThisItem.imageUrl), Blank(), StartsWith(ThisItem.imageUrl, "data:"), ThisItem.imageUrl, IfError(LookUp(colSpAllItems, !'Is folder' && Coalesce(Text('File name with extension'), Text(Name)) = fname).Thumbnail.Large, Blank())))
+            ImagePosition: =ImagePosition.Fill
+            OnSelect: =Select(Parent)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Width: =App.Width * 0.066
+            X: =App.Width * 0.036
+            Y: =App.Height * .015
+            ZIndex: =5
+
+        lblHistC_no As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(37, 99, 235, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.014
+            Text: =Text(ThisItem.no)
+            Width: =App.Width * 0.026
+            X: =App.Width * 0.006
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_slip As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(37, 200, 205, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.014
+            Text: =ThisItem.slip
+            Width: =App.Width * 0.09
+            X: =App.Width * 0.106
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_dataType As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.01
+            Text: =ThisItem.dataType
+            Width: =App.Width * 0.04
+            X: =App.Width * 0.279
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_recipient As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.012
+            Text: =ThisItem.recipient
+            Width: =App.Width * 0.06
+            X: =App.Width * 0.335
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_dept As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.011
+            Text: =ThisItem.dept
+            Width: =App.Width * 0.13
+            X: =App.Width * 0.41
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_item As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.011
+            Text: =ThisItem.item
+            Width: =App.Width * 0.097
+            X: =App.Width * 0.55
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_sender As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.012
+            Text: =ThisItem.sender
+            Width: =App.Width * 0.064
+            X: =App.Width * 0.65
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_senderAddr As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.011
+            Text: =ThisItem.senderAddr
+            Width: =App.Width * 0.084
+            X: =App.Width * 0.726
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_deliveredAt As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.014
+            Text: =ThisItem.deliveredAt
+            Width: =App.Width * 0.07
+            X: =App.Width * 0.814
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_receivedAt As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .078
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.014
+            Text: =ThisItem.receivedAt
+            Width: =App.Width * 0.07
+            X: =App.Width * 0.888
+            Y: =App.Height * .016
+            ZIndex: =5
+
+        lblHistC_status As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =If(ThisItem.status = "荷物受取済み", RGBA(5, 122, 85, 1), ThisItem.status = "不明として保存", RGBA(180, 97, 15, 1), RGBA(13, 110, 103, 1))
+            Fill: =If(ThisItem.status = "荷物受取済み", RGBA(222, 247, 236, 1), ThisItem.status = "不明として保存", RGBA(254, 236, 220, 1), RGBA(213, 245, 241, 1))
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * .042
+            PaddingLeft: =4
+            PaddingRight: =6
+            Size: =App.Height * 0.014
+            Text: =ThisItem.status
+            Width: =App.Width * 0.06
+            X: =App.Width * 0.2
+            Y: =App.Height * .034
+            ZIndex: =5
+
+    lblHistEmpty As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(100, 116, 139, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .06
+        PaddingLeft: =0
+        Size: =App.Height * 0.018
+        Text: =If(IsBlank(varHistSearch), "データがありません", "検索条件に一致するデータがありません")
+        Visible: =!gblIsMobile && IsEmpty(galHistory.AllItems) && !varHistLoading
+        Width: =App.Width * .966
+        X: =App.Width * .017
+        Y: =App.Height * .30
+        ZIndex: =26
+
+    galHistMobile As gallery.galleryVertical:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * 0.50
+        Items: |-
+            =If(
+                IsBlank(varHistSearch),
+                // サーバー側ページング: colHistory は現在のページ分だけ
+                ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})),
+                // 検索語あり: 全件から絞り込んで画面側でページング
+                With({rows: Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize))
+            )
+        Layout: =Layout.Vertical
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.155
+        Visible: =gblIsMobile
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.272
+        ZIndex: =27
+
+        recHistMRow As rectangle:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.145
+            OnSelect: =Set(varHistSel, ThisItem);Set(varShowHistDetail, true)
+            Width: =App.Width * 0.92
+            Y: =App.Height * 0.005
+            ZIndex: =2
+
+        recHistMBadge As rectangle:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Fill: =If(ThisItem.status = "荷物受取済み", RGBA(230, 250, 242, 1), RGBA(219, 234, 254, 1))
+            Height: =App.Height * 0.026
+            Width: =App.Width * 0.22
+            X: =App.Width * 0.665
+            Y: =App.Height * 0.019
+            ZIndex: =4
+
+        lblHistMSlip As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(37, 99, 235, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.026
+            PaddingLeft: =0
+            Size: =App.Height * 0.017
+            Text: =ThisItem.slip
+            Width: =App.Width * 0.45
+            X: =App.Width * 0.035
+            Y: =App.Height * 0.018
+            ZIndex: =5
+
+        lblHistMStatus As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =If(ThisItem.status = "荷物受取済み", RGBA(13, 148, 136, 1), RGBA(37, 99, 235, 1))
+            Fill: =If(ThisItem.status = "荷物受取済み", RGBA(222, 247, 236, 1), ThisItem.status = "不明として保存", RGBA(254, 236, 220, 1), RGBA(213, 245, 241, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.023
+            PaddingLeft: =0
+            Size: =App.Height * 0.0115
+            Text: =ThisItem.status
+            Width: =App.Width * 0.22
+            X: =App.Width * 0.665
+            Y: =App.Height * 0.0205
+            ZIndex: =5
+
+        lblHistML1 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.0135
+            Text: ="通知日時"
+            Width: =App.Width * 0.20
+            X: =App.Width * 0.035
+            Y: =App.Height * 0.056
+            ZIndex: =5
+
+        lblHistMV1 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: =ThisItem.deliveredAt
+            Width: =App.Width * 0.64
+            X: =App.Width * 0.245
+            Y: =App.Height * 0.056
+            ZIndex: =5
+
+        lblHistML2 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.0135
+            Text: ="受取人"
+            Width: =App.Width * 0.20
+            X: =App.Width * 0.035
+            Y: =App.Height * 0.086
+            ZIndex: =5
+
+        lblHistMV2 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: =ThisItem.recipient & If(IsBlank(ThisItem.dept), "", " (" & ThisItem.dept & ")")
+            Width: =App.Width * 0.64
+            X: =App.Width * 0.245
+            Y: =App.Height * 0.086
+            ZIndex: =5
+
+        lblHistML3 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(71, 85, 105, 1)
+            Font: =Font.'Segoe UI'
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.0135
+            Text: ="データ区分"
+            Width: =App.Width * 0.20
+            X: =App.Width * 0.035
+            Y: =App.Height * 0.116
+            ZIndex: =5
+
+        lblHistMV3 As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.024
+            PaddingLeft: =0
+            Size: =App.Height * 0.014
+            Text: =ThisItem.dataType
+            Width: =App.Width * 0.64
+            X: =App.Width * 0.245
+            Y: =App.Height * 0.116
+            ZIndex: =5
+
+    lblHistMEmpty As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(100, 116, 139, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .06
+        PaddingLeft: =0
+        Size: =App.Height * 0.018
+        Text: =If(IsBlank(varHistSearch), "データがありません", "検索条件に一致するデータがありません")
+        Visible: =gblIsMobile && IsEmpty(galHistMobile.AllItems) && !varHistLoading
+        Width: =App.Width * 0.92
+        X: =App.Width * 0.04
+        Y: =App.Height * 0.32
+        ZIndex: =28
+
+    cmpPager_H As cmpPager:
+        Height: =App.Height * If(gblIsMobile, 0.086, If(varShowPageSize, 0.198, 0.032))
+        Width: =App.Width
+        Y: =App.Height * If(gblIsMobile, 0.772, If(varShowPageSize, 0.672, 0.838))
+        ZIndex: =29
+
+    cmpBottomNav_H As cmpBottomNav:
+        Height: =App.Height * .088
+        Width: =App.Width
+        Y: =App.Height * .912
+        ZIndex: =30
+
+    recHistMDBg As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        Fill: =RGBA(248, 250, 252, 1)
+        Height: =App.Height * 0.812
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width
+        Y: =App.Height * 0.10
+        ZIndex: =31
+
+    btnHistMDBack As modernButton:
+        Align: =Align.Left
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(37, 99, 235, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: =Set(varShowHistDetail, false)
+        Size: =App.Height * 0.015
+        Text: ="←  戻る"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.22
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.112
+        ZIndex: =32
+
+    lblHistMDSlipLbl As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.020
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="伝票番号"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.5
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.186
+        ZIndex: =33
+
+    recHistMDLine As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(226, 232, 240, 1)
+        Height: =1
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.250
+        ZIndex: =34
+
+    lblHistMDL0 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="通知日時"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.266
+        ZIndex: =35
+
+    lblHistMDV0 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.deliveredAt)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.286
+        ZIndex: =36
+
+    lblHistMDL1 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="受取人"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.338
+        ZIndex: =37
+
+    lblHistMDV1 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.recipient)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.358
+        ZIndex: =38
+
+    lblHistMDL2 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="受取人部署"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.410
+        ZIndex: =39
+
+    lblHistMDV2 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.dept)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.430
+        ZIndex: =40
+
+    lblHistMDL3 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="差出人"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.482
+        ZIndex: =41
+
+    lblHistMDV3 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.sender)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.502
+        ZIndex: =42
+
+    lblHistMDL4 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="差出人住所"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.554
+        ZIndex: =43
+
+    lblHistMDV4 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.senderAddr)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.574
+        ZIndex: =44
+
+    lblHistMDL5 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="処理状況"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.626
+        ZIndex: =45
+
+    lblHistMDV5 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.status)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.646
+        ZIndex: =46
+
+    lblHistMDL6 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="データ区分"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.698
+        ZIndex: =47
+
+    lblHistMDV6 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.dataType)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.718
+        ZIndex: =48
+
+    lblHistMDL7 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.018
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="品名"
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.770
+        ZIndex: =49
+
+    lblHistMDV7 As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.026
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: =Text(varHistSel.item)
+        Visible: =gblIsMobile && varShowHistDetail
+        Width: =App.Width * 0.85
+        X: =App.Width * 0.075
+        Y: =App.Height * 0.790
+        ZIndex: =50
+
+    btnHistSearch As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .048
+        OnSelect: =Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));Set(gblPage, 1);Select(btnHistFetch)
+        Size: =App.Height * 0.015
+        Text: ="検索"
+        Visible: =!gblIsMobile
+        Width: =App.Width * .07
+        X: =App.Width * .405
+        Y: =App.Height * .117
+        ZIndex: =51
+
+    btnHistMSearch As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.052
+        OnSelect: =Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));Set(gblPage, 1);Select(btnHistFetch)
+        Size: =App.Height * 0.015
+        Text: ="検索"
+        Visible: =gblIsMobile
+        Width: =App.Width * 0.20
+        X: =App.Width * 0.76
+        Y: =App.Height * 0.150
+        ZIndex: =52
+
+    btnHistFetch As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * .048
+        OnSelect: |-
+            =// 履歴の取得
+            //   検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
+            //   検索語あり: historyList にキーワード条件が無いため、全ページ (200 件ずつ) を取得して画面側で絞り込み・ページング
+            Set(varHistLoading, true);
+            If(
+                IsBlank(varHistSearch),
+                Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""));
+                If(
+                    IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                    Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+                    ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
+                ),
+                Set(varHistRaw, Substitute('EDS-APIManagement1'.Run("history", "{""page"":1,""pageSize"":200}", "historyList").response, ":null", ":"""""));
+                If(
+                    IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                    Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory),
+                    ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)}));
+                    ForAll(
+                        Sequence(Max(0, Value(ParseJSON(varHistRaw).totalPages) - 1), 2) As pg,
+                        With(
+                            {pageRaw: Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & pg.Value & ",""pageSize"":200}", "historyList").response, ":null", ":""""")},
+                            If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colHistory, ForAll(Table(ParseJSON(pageRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url)})))
+                        )
+                    )
+                )
+            );
+            Set(varHistLoading, false)
+        Size: =App.Height * 0.015
+        Text: ="検索"
+        Visible: =false
+        Width: =App.Width * .07
+        X: =App.Width * .405
+        Y: =App.Height * .117
+        ZIndex: =53
+

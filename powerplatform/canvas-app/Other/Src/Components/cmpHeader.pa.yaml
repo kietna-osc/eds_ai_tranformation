@@ -1,0 +1,126 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+ComponentDefinitions:
+  cmpHeader:
+    DefinitionType: CanvasComponent
+    AccessAppScope: true
+    Properties:
+      Fill: =RGBA(255, 255, 255, 1)
+      Height: =90
+      Width: =1366
+    Children:
+      - conHdrRoot:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =Parent.Height - 1
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Horizontal
+            LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+            PaddingLeft: =Parent.Width * 0.0167
+            PaddingRight: =Parent.Width * 0.0167
+            RadiusBottomLeft: =0
+            RadiusBottomRight: =0
+            RadiusTopLeft: =0
+            RadiusTopRight: =0
+            Width: =Parent.Width
+          Children:
+            - conHdrTitles:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  DropShadow: =DropShadow.None
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutGap: =Parent.Height * 0.04
+                  LayoutJustifyContent: =LayoutJustifyContent.Center
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =32
+                  RadiusBottomLeft: =0
+                  RadiusBottomRight: =0
+                  RadiusTopLeft: =0
+                  RadiusTopRight: =0
+                Children:
+                  - lblHdrTitle:
+                      Control: Label@2.5.1
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(15, 23, 42, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Bold
+                        Height: =conHdrRoot.Height * 0.42
+                        PaddingLeft: =0
+                        Size: =If(gblIsMobile, conHdrRoot.Height * 0.17, conHdrRoot.Height * 0.235)
+                        Text: =varHeaderTitle
+                        Width: =Parent.Width
+                  - lblHdrSubtitle:
+                      Control: Label@2.5.1
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(100, 116, 139, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        Height: =If(gblIsMobile, conHdrRoot.Height * 0.4, conHdrRoot.Height * 0.26)
+                        PaddingLeft: =0
+                        Size: =If(gblIsMobile, conHdrRoot.Height * 0.115, conHdrRoot.Height * 0.135)
+                        Text: =varHeaderSubtitle
+                        Width: =Parent.Width
+            - conHdrStatus:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  DropShadow: =DropShadow.None
+                  FillPortions: =0
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutGap: =Parent.Width * 0.004
+                  LayoutJustifyContent: =LayoutJustifyContent.End
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =32
+                  RadiusBottomLeft: =0
+                  RadiusBottomRight: =0
+                  RadiusTopLeft: =0
+                  RadiusTopRight: =0
+                  Visible: =!gblIsMobile
+                  Width: =Parent.Width * 0.14
+                Children:
+                  - lblHdrPortal:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Right
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(71, 85, 105, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        Height: =conHdrRoot.Height * 0.3
+                        Size: =conHdrRoot.Height * 0.14
+                        Text: ="オペレーターポータル"
+                        Width: =Parent.Width * 0.82
+                  - lblHdrDot:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Center
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(20, 184, 166, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        Height: =conHdrRoot.Height * 0.3
+                        Size: =conHdrRoot.Height * 0.14
+                        Text: ="●"
+                        Width: =Parent.Width * 0.12
+      - recHdrBorder:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Fill: =RGBA(226, 232, 240, 1)
+            Height: =1
+            Width: =Parent.Width
+            Y: =Parent.Height - 1

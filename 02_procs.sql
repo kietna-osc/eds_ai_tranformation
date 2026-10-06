@@ -59,7 +59,7 @@ GO
 ------------------------------------------------ Append (end of Power Automate flow)
 CREATE OR ALTER PROCEDURE dbo.sp_history_insert
     @slip_no                   NVARCHAR(100)  = NULL,
-    @image_url                 NVARCHAR(1000) = NULL,
+    @image_url                 NVARCHAR(MAX)  = NULL,  -- base64 data URI; a shorter type silently truncates it
     @sender_name               NVARCHAR(200)  = NULL,
     @sender_content            NVARCHAR(1000) = NULL,
     @sender_address            NVARCHAR(500)  = NULL,

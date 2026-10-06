@@ -1,0 +1,283 @@
+{
+  "0b72b120-4051-45e9-8b8e-6639992b15a5": {
+    "appActions": [
+      "Run"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Logic flows",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+      "parameterHints": {
+        "workflowDisplayName": {
+          "value": "EDS-APIManagement1"
+        },
+        "workflowEntityId": {},
+        "workflowName": {
+          "value": "649050a3-e9fb-484d-bfa1-4351703308c6"
+        }
+      },
+      "parameterHintsV2": {
+        "workflowDisplayName": {
+          "value": "EDS-APIManagement1"
+        },
+        "workflowEntityId": {},
+        "workflowName": {
+          "value": "649050a3-e9fb-484d-bfa1-4351703308c6"
+        }
+      }
+    },
+    "datasets": {},
+    "dataSources": [
+      "EDS-APIManagement1"
+    ],
+    "dependencies": {},
+    "dependents": [],
+    "id": "0b72b120-4051-45e9-8b8e-6639992b15a5"
+  },
+  "50b6ffcf-3ec9-49ba-a021-8041b151ca5f": {
+    "appActions": [
+      "Get-Apps",
+      "Get-AppRoleAssignment"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Power Apps for Makers",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1818/1.0.1818.4791/powerappsforappmakers/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_powerappsforappmakers",
+      "parameterHints": {},
+      "parameterHintsV2": {}
+    },
+    "datasets": {},
+    "dataSources": [
+      "PowerAppsforMakers"
+    ],
+    "dependencies": {},
+    "dependents": [],
+    "id": "50b6ffcf-3ec9-49ba-a021-8041b151ca5f"
+  },
+  "57e963d7-5b23-4a6e-b9c1-c513b164e2b9": {
+    "appActions": [
+      "Run"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Logic flows",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+      "parameterHints": {
+        "75f85991-3904-4ad8-8884-e9e1dde3cb26": {
+          "value": "shared_sharepointonline"
+        },
+        "workflowDisplayName": {
+          "value": "EDS-UploadCaptureImage"
+        },
+        "workflowEntityId": {
+          "value": "d102ab96-fdac-f111-aaad-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "2f90d68f-6fba-4896-b34f-365e8b68c924"
+        }
+      },
+      "parameterHintsV2": {
+        "shared_sharepointonline": {
+          "value": "75f85991-3904-4ad8-8884-e9e1dde3cb26"
+        },
+        "workflowDisplayName": {
+          "value": "EDS-UploadCaptureImage"
+        },
+        "workflowEntityId": {
+          "value": "d102ab96-fdac-f111-aaad-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "2f90d68f-6fba-4896-b34f-365e8b68c924"
+        }
+      }
+    },
+    "datasets": {},
+    "dataSources": [
+      "EDS-UploadCaptureImage"
+    ],
+    "dependencies": {
+      "shared_sharepointonline": "75f85991-3904-4ad8-8884-e9e1dde3cb26"
+    },
+    "dependents": [],
+    "id": "57e963d7-5b23-4a6e-b9c1-c513b164e2b9"
+  },
+  "75f85991-3904-4ad8-8884-e9e1dde3cb26": {
+    "appActions": [
+      "providers/PowerPlatform.Governance/Operations/Read",
+      "providers/PowerPlatform.Governance/Operations/Write"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_sharepointonline",
+      "parameterHints": {},
+      "parameterHintsV2": {}
+    },
+    "datasets": {
+      "https://smartosc0.sharepoint.com/sites/EDSProcessLabel2": {
+        "dataSources": {
+          "EmployeeList": {
+            "tableName": "135d1bbd-b393-4d1c-8e8c-0587933be4ed"
+          },
+          "PackageSlipLog": {
+            "tableName": "02e408e4-169b-431a-b28c-2176bafac55a"
+          },
+          "UnknownImage": {
+            "tableName": "fdca82d7-55a5-4d78-bb56-491cb9469888"
+          }
+        }
+      },
+      "https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments": {
+        "dataSources": {
+          "Documents": {
+            "tableName": "f22c3b9e-916b-450c-9494-8645d34e6e92"
+          }
+        }
+      }
+    },
+    "dataSources": [
+      "EmployeeList",
+      "PackageSlipLog",
+      "UnknownImage",
+      "Documents"
+    ],
+    "dependencies": {},
+    "dependents": [
+      "984bcd79-de3d-46bd-903e-1f863b601f1e",
+      "57e963d7-5b23-4a6e-b9c1-c513b164e2b9"
+    ],
+    "id": "75f85991-3904-4ad8-8884-e9e1dde3cb26"
+  },
+  "85671b40-364e-4122-9551-0a3e9e879aba": {
+    "appActions": [
+      "Run"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Logic flows",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+      "parameterHints": {
+        "workflowDisplayName": {
+          "value": "EDS-NotifySelected"
+        },
+        "workflowEntityId": {
+          "value": "7da7a2cc-efa1-f111-b8de-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "910730b1-2ab1-cc9b-b1a7-35db43b271ac"
+        }
+      },
+      "parameterHintsV2": {
+        "workflowDisplayName": {
+          "value": "EDS-NotifySelected"
+        },
+        "workflowEntityId": {
+          "value": "7da7a2cc-efa1-f111-b8de-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "910730b1-2ab1-cc9b-b1a7-35db43b271ac"
+        }
+      }
+    },
+    "datasets": {},
+    "dataSources": [
+      "EDS-NotifySelected"
+    ],
+    "dependencies": {},
+    "dependents": [],
+    "id": "85671b40-364e-4122-9551-0a3e9e879aba"
+  },
+  "984bcd79-de3d-46bd-903e-1f863b601f1e": {
+    "appActions": [
+      "Run"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Logic flows",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+      "parameterHints": {
+        "75f85991-3904-4ad8-8884-e9e1dde3cb26": {
+          "value": "shared_sharepointonline-2"
+        },
+        "workflowDisplayName": {
+          "value": "EDS-ProcessLabel"
+        },
+        "workflowEntityId": {
+          "value": "627a7fda-01ac-f111-aaad-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "224cf5fd-37a9-7842-ccfb-f55dd64b94d8"
+        }
+      },
+      "parameterHintsV2": {
+        "shared_sharepointonline-2": {
+          "value": "75f85991-3904-4ad8-8884-e9e1dde3cb26"
+        },
+        "workflowDisplayName": {
+          "value": "EDS-ProcessLabel"
+        },
+        "workflowEntityId": {
+          "value": "627a7fda-01ac-f111-aaad-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "224cf5fd-37a9-7842-ccfb-f55dd64b94d8"
+        }
+      }
+    },
+    "datasets": {},
+    "dataSources": [
+      "EDS-ProcessLabel"
+    ],
+    "dependencies": {
+      "shared_sharepointonline-2": "75f85991-3904-4ad8-8884-e9e1dde3cb26"
+    },
+    "dependents": [],
+    "id": "984bcd79-de3d-46bd-903e-1f863b601f1e"
+  },
+  "d07c076a-7c2e-4a12-9ca3-a6f6b7fa2f0a": {
+    "appActions": [
+      "Run"
+    ],
+    "connectionRef": {
+      "apiTier": "Standard",
+      "displayName": "Logic flows",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+      "parameterHints": {
+        "workflowDisplayName": {
+          "value": "EDS-SaveUnknownPackage"
+        },
+        "workflowEntityId": {
+          "value": "c6f5f6c0-f1a1-f111-b8de-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "27e05909-93d4-9f02-df51-c07e5cd5194c"
+        }
+      },
+      "parameterHintsV2": {
+        "workflowDisplayName": {
+          "value": "EDS-SaveUnknownPackage"
+        },
+        "workflowEntityId": {
+          "value": "c6f5f6c0-f1a1-f111-b8de-70a8a50387b3"
+        },
+        "workflowName": {
+          "value": "27e05909-93d4-9f02-df51-c07e5cd5194c"
+        }
+      }
+    },
+    "datasets": {},
+    "dataSources": [
+      "EDS-SaveUnknownPackage"
+    ],
+    "dependencies": {},
+    "dependents": [],
+    "id": "d07c076a-7c2e-4a12-9ca3-a6f6b7fa2f0a"
+  }
+}

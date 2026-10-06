@@ -1,0 +1,708 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-2": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "cr1d7_sharedsharepointonline_a7051"
+        },
+        "runtimeSource": "invoker"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "description": "Please select file or image",
+                  "title": "Uploaded Image",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "contentBytes": {
+                      "type": "string",
+                      "format": "byte"
+                    }
+                  },
+                  "x-ms-content-hint": "FILE",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "file"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "02088a69-9a69-46a4-9a0f-1b3cd44530f2"
+          }
+        }
+      },
+      "actions": {
+        "PromptOCR": {
+          "type": "Compose",
+          "inputs": "あなたは日本語の宅配伝票／荷物ラベル専用の情報抽出器です。\n\n与えられたOCRテキストから、お届け先の `receiver_name` と `department` を最優先で正確に抽出してください。\n\n以下のキーを正確にすべて含むJSONオブジェクトのみを返してください。\n\n`is_package_label`（boolean）\n`receiver_name`（string）\n`department`（string）\n`address`（string）\n`phone_number`（string）\n`client_name`（string）\n`client_department`（string）\n`clientNumber`（string）\n`clientItem`（string）\n`confidence`（number、0.0～1.0）\n\nJSON以外の説明、Markdown、コードブロック、補足文章は一切出力しないでください。\n\n# 最重要ルール\n\n* 最初に「お届け先」ブロックを特定する。\n* お届け先情報の抽出では、「ご依頼主」「送り主」「発送元」側の情報を使用しない。\n* `receiver_name` には受取人の人名だけを入れる。\n* `department` にはお届け先の部署・組織単位だけを入れる。\n* 会社名、住所、建物名、郵便番号、電話番号を `department` に含めない。\n* 人名と部署を必ず分離する。\n* ご依頼主についても、名前と部署を `client_name` と `client_department` に分離する。\n* 見つからない文字列フィールドは `\"\"` とする。\n* 印刷されていない内容を推測または捏造しない。\n\n# 読み取り手順\n\n次の順番で情報を探してください。\n\n1. 「お届け先」「送り先」「TO」「届け先」などの見出しを探す。\n2. 見出しがない場合は、住所、電話番号、氏名が記載されている主要な宛名欄をお届け先として扱う。\n3. お届け先ブロック内で、「",
+          "runAfter": {
+            "Compose_OCRText": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4f9e7498-b09a-4b3b-afe3-c6431dfb2e6a"
+          }
+        },
+        "Parse_Raw_string_to_JSON": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@body('HTTP_openai_extract')?['choices']?[0]?['message']?['content']",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "is_package_label": {
+                  "type": "boolean"
+                },
+                "receiver_name": {
+                  "type": "string"
+                },
+                "department": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                },
+                "phone_number": {
+                  "type": "string"
+                },
+                "client_name": {
+                  "type": "string"
+                },
+                "client_department": {
+                  "type": "string"
+                },
+                "clientNumber": {
+                  "type": "string"
+                },
+                "clientItem": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "HTTP_OpenAI_extract": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "5693a8c6-2287-400a-a315-8c7e14fa03d4"
+          }
+        },
+        "Compose_OCRText": {
+          "type": "Compose",
+          "inputs": "@variables('varAnalyzeResult')",
+          "runAfter": {
+            "Condition_status": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Condition_1": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "startsWith": [
+                  "@triggerBody()?['file']?['name']",
+                  "@'SPPATH|'"
+                ]
+              },
+              {
+                "equals": [
+                  "",
+                  ""
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Get_file_content_using_path": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments",
+                  "path": "@replace(triggerBody()?['file']?['name'], 'SPPATH|', '')",
+                  "inferContentType": true
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetFileContentByPath",
+                  "connectionName": "shared_sharepointonline-2"
+                }
+              }
+            },
+            "Set_DISource_SP": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varDISource",
+                "value": "@concat('{\"base64Source\":\"', body('Get_file_content_using_path')?['$content'], '\"}')"
+              },
+              "runAfter": {
+                "Get_file_content_using_path": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Set_DISource_Trigger": {
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "varDISource",
+                  "value": "@concat('{\"base64Source\":\"', triggerBody()?['file']?['contentBytes'], '\"}')"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_variable": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Initialize_variable": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "varAnalyzeResult",
+                "type": "string"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_variable_1": [
+              "Succeeded"
+            ]
+          }
+        },
+        "HTTP_OpenAI_extract": {
+          "type": "Http",
+          "inputs": {
+            "uri": "https://apim-eds-dev.azure-api.net/extract/openai/deployments/gpt-5.5/chat/completions?api-version=2024-10-21",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+            },
+            "body": {
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "@{outputs('PromptOCR')}"
+                },
+                {
+                  "role": "user",
+                  "content": "@{concat('次のOCRテキストから指定キーだけのJSONオブジェクトのみを返してください。confidence (number 0.0-1.0) キーを必ず含めてください。', decodeUriComponent('%0A%0A'), 'OCR text:', decodeUriComponent('%0A'), outputs('Compose_OCRText'))}"
+                }
+              ],
+              "response_format": {
+                "type": "json_object"
+              },
+              "max_completion_tokens": 5000
+            }
+          },
+          "runAfter": {
+            "PromptOCR": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "contentTransfer": {
+              "transferMode": "Chunked"
+            }
+          }
+        },
+        "HTTP_Call_to_DI": {
+          "type": "Http",
+          "inputs": {
+            "uri": "https://apim-eds-dev.azure-api.net/ocr/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-11-30",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+            },
+            "body": "@json(variables('varDISource'))"
+          },
+          "runAfter": {
+            "Condition_1": [
+              "Succeeded"
+            ]
+          },
+          "operationOptions": "DisableAsyncPattern",
+          "runtimeConfiguration": {
+            "contentTransfer": {
+              "transferMode": "Chunked"
+            }
+          }
+        },
+        "Do_until": {
+          "type": "Until",
+          "expression": "@not(equals(body('HTTP_Get_DI_result')?['status'], 'running'))",
+          "limit": {
+            "count": 30,
+            "timeout": "PT2M"
+          },
+          "actions": {
+            "Delay": {
+              "type": "Wait",
+              "inputs": {
+                "interval": {
+                  "count": 2,
+                  "unit": "Second"
+                }
+              }
+            },
+            "HTTP_Get_DI_Result": {
+              "type": "Http",
+              "inputs": {
+                "uri": "@outputs('OperationLocation')",
+                "method": "GET",
+                "headers": {
+                  "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                }
+              },
+              "runAfter": {
+                "Delay": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "OperationLocation": [
+              "Succeeded"
+            ]
+          }
+        },
+        "OperationLocation": {
+          "type": "Compose",
+          "inputs": "@outputs('HTTP_call_to_DI')?['headers']?['Operation-Location']",
+          "runAfter": {
+            "HTTP_Call_to_DI": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Condition_status": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@body('HTTP_Get_DI_result')?['status']",
+                  "succeeded"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Set_variable": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varAnalyzeResult",
+                "value": "@body('HTTP_Get_DI_result')?['analyzeResult']?['content']"
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Terminate": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "message": "@body('HTTP_Get_DI_result')?['error']?['message']"
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Do_until": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Get_auth_token": {
+          "type": "Http",
+          "inputs": {
+            "uri": "https://login.microsoftonline.com/d4e484ed-0018-471f-b7c2-3265f48203f3/oauth2/v2.0/token",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            "body": "grant_type=client_credentials&client_id=53ddbbff-90ae-4085-858e-9923b3c6a3d9&client_secret=<CLIENT_SECRET>&scope=api://652e20e5-6a5a-46c6-a42a-67076fcce01e/.default"
+          },
+          "runAfter": {},
+          "runtimeConfiguration": {
+            "contentTransfer": {
+              "transferMode": "Chunked"
+            }
+          }
+        },
+        "Initialize_variable_1": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "varDISource",
+                "type": "string"
+              }
+            ]
+          },
+          "runAfter": {
+            "Get_auth_token": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Condition": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@body('Parse_Raw_string_to_JSON')?['is_package_label']",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "TopScore": {
+              "type": "Compose",
+              "inputs": "@float(first(body('FuzzParseJson')?['candidates'])?['score'])",
+              "runAfter": {
+                "FuzzParseJson": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Tier": {
+              "type": "Compose",
+              "inputs": "@if(greaterOrEquals(outputs('TopScore'), 95), 'high', 'low')",
+              "runAfter": {
+                "TopScore": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "CandidatesOut": {
+              "type": "Compose",
+              "inputs": "@body('FuzzParseJson')?['candidates']",
+              "runAfter": {
+                "Tier": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Respond_to_a_Power_App_or_flow_1": {
+              "type": "Response",
+              "kind": "PowerApp",
+              "inputs": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tier": {
+                      "title": "tier",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "match_score": {
+                      "title": "match_score",
+                      "type": "number",
+                      "x-ms-content-hint": "NUMBER",
+                      "x-ms-dynamically-added": true
+                    },
+                    "receiver_name": {
+                      "title": "receiver_name",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "department": {
+                      "title": "department",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "ocr_confidence": {
+                      "title": "ocr_confidence",
+                      "type": "number",
+                      "x-ms-content-hint": "NUMBER",
+                      "x-ms-dynamically-added": true
+                    },
+                    "is_package_label": {
+                      "title": "is_package_label",
+                      "type": "boolean",
+                      "x-ms-content-hint": "BOOLEAN",
+                      "x-ms-dynamically-added": true
+                    },
+                    "candidates_json": {
+                      "title": "candidates_json",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "slip_no": {
+                      "title": "slip_no",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "sender_name": {
+                      "title": "sender_name",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "sender_info": {
+                      "title": "sender_info",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "sender_department": {
+                      "title": "sender_department",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    }
+                  },
+                  "additionalProperties": {}
+                },
+                "statusCode": 200,
+                "body": {
+                  "tier": "@{outputs('Tier')}",
+                  "match_score": "@outputs('TopScore')",
+                  "receiver_name": "@{body('Parse_Raw_string_to_JSON')?['receiver_name']}",
+                  "department": "@{body('Parse_Raw_string_to_JSON')?['department']}",
+                  "ocr_confidence": "@body('Parse_Raw_string_to_JSON')?['confidence']",
+                  "is_package_label": "@body('Parse_Raw_string_to_JSON')?['is_package_label']",
+                  "candidates_json": "@{string(outputs('CandidatesOut'))}",
+                  "slip_no": "@{body('Parse_Raw_string_to_JSON')?['clientNumber']}",
+                  "sender_name": "@{body('Parse_Raw_string_to_JSON')?['client_name']}",
+                  "sender_info": "@{body('Parse_Raw_string_to_JSON')?['clientItem']}",
+                  "sender_department": "@{body('Parse_Raw_string_to_JSON')?['client_department']}"
+                }
+              },
+              "runAfter": {
+                "CandidatesOut": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "HTTP_Fuzzy_Search": {
+              "type": "Http",
+              "inputs": {
+                "uri": "https://apim-eds-dev.azure-api.net/eds/employees/fuzzy-search",
+                "method": "POST",
+                "headers": {
+                  "Content-Type": "application/json",
+                  "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                },
+                "body": {
+                  "receiverName": "@{body('Parse_Raw_string_to_JSON')?['receiver_name']}",
+                  "department": "@{body('Parse_Raw_string_to_JSON')?['department']}",
+                  "nameWeight": 0.7,
+                  "topK": 3,
+                  "fuzzyThreshold": 85
+                }
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "FuzzParseJson": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('HTTP_Fuzzy_Search')",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "match_type": {
+                      "type": "string"
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "employee_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "department": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "name_score": {
+                            "type": "number"
+                          },
+                          "department_score": {
+                            "type": "number"
+                          },
+                          "score": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "HTTP_Fuzzy_Search": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Respond_to_a_Power_App_or_flow": {
+                "type": "Response",
+                "kind": "PowerApp",
+                "inputs": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "tier": {
+                        "title": "tier",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "match_score": {
+                        "title": "match_score",
+                        "type": "number",
+                        "x-ms-content-hint": "NUMBER",
+                        "x-ms-dynamically-added": true
+                      },
+                      "receiver_name": {
+                        "title": "receiver_name",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "department": {
+                        "title": "department",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "ocr_confidence": {
+                        "title": "ocr_confidence",
+                        "type": "number",
+                        "x-ms-content-hint": "NUMBER",
+                        "x-ms-dynamically-added": true
+                      },
+                      "is_package_label": {
+                        "title": "is_package_label",
+                        "type": "boolean",
+                        "x-ms-content-hint": "BOOLEAN",
+                        "x-ms-dynamically-added": true
+                      },
+                      "candidates_json": {
+                        "title": "candidates_json",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "slip_no": {
+                        "title": "slip_no",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "sender_name": {
+                        "title": "sender_name",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "sender_department": {
+                        "title": "sender_department",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "sender_info": {
+                        "title": "sender_info",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "statusCode": 200,
+                  "body": {
+                    "tier": "low",
+                    "match_score": 0,
+                    "ocr_confidence": 0,
+                    "is_package_label": "@body('Parse_Raw_string_to_JSON')?['is_package_label']"
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Parse_Raw_string_to_JSON": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

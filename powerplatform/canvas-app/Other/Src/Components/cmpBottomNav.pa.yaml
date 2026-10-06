@@ -1,0 +1,254 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+ComponentDefinitions:
+  cmpBottomNav:
+    DefinitionType: CanvasComponent
+    AccessAppScope: true
+    Properties:
+      Fill: =RGBA(255, 255, 255, 1)
+      Height: =68
+      Width: =1366
+    Children:
+      - recNavBorder:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Fill: =RGBA(226, 232, 240, 1)
+            Height: =1
+            Width: =Parent.Width
+      - conNavRoot:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =Parent.Height - 1
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Horizontal
+            LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+            PaddingLeft: =Parent.Width * 0.0167
+            PaddingRight: =Parent.Width * 0.0167
+            RadiusBottomLeft: =0
+            RadiusBottomRight: =0
+            RadiusTopLeft: =0
+            RadiusTopRight: =0
+            Width: =Parent.Width
+            Y: =1
+          Children:
+            - conNavTabs:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  DropShadow: =DropShadow.None
+                  FillPortions: =0
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutGap: =If(gblIsMobile, conNavRoot.Width * 0.008, conNavRoot.Width * 0.012)
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =32
+                  RadiusBottomLeft: =0
+                  RadiusBottomRight: =0
+                  RadiusTopLeft: =0
+                  RadiusTopRight: =0
+                  Width: =If(gblIsMobile, conNavRoot.Width * 0.966, conNavRoot.Width * 0.46)
+                Children:
+                  - conNavTabHome:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        Fill: |-
+                          =If(
+                              varActiveTab = "home",
+                              RGBA(219, 234, 254, 1),
+                              RGBA(0, 0, 0, 0)
+                          )
+                        FillPortions: =0
+                        Height: =conNavRoot.Height * 0.62
+                        LayoutAlignItems: =LayoutAlignItems.Stretch
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =8
+                        RadiusBottomRight: =8
+                        RadiusTopLeft: =8
+                        RadiusTopRight: =8
+                        Width: =If(gblIsMobile, (conNavRoot.Width * 0.966 - conNavRoot.Width * 0.008 * If(gblMyRole in ["Owner", "CanEdit"], 3, 2)) / If(gblMyRole in ["Owner", "CanEdit"], 4, 3), conNavRoot.Width * 0.09)
+                      Children:
+                        - btnNavTabHome:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              Appearance: =ButtonAppearance.Transparent
+                              BorderStyle: =
+                              Color: |-
+                                =If(
+                                    varActiveTab = "home",
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                              FillPortions: =1
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =If(varActiveTab = "home", FontWeight.Bold, FontWeight.Normal)
+                              Icon: ="Home"
+                              OnSelect: =If(varActiveTab <> "home", Navigate(srcHome, ScreenTransition.None))
+                              PaddingLeft: =If(gblIsMobile, 1, 8)
+                              PaddingRight: =If(gblIsMobile, 1, 8)
+                              Size: =If(gblIsMobile, conNavRoot.Height * 0.15, conNavRoot.Height * 0.17)
+                              Text: ="ホーム"
+                              Width: =Parent.Width
+                  - conNavTabMatch:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        Fill: |-
+                          =If(
+                              varActiveTab = "match",
+                              RGBA(219, 234, 254, 1),
+                              RGBA(0, 0, 0, 0)
+                          )
+                        FillPortions: =0
+                        Height: =conNavRoot.Height * 0.62
+                        LayoutAlignItems: =LayoutAlignItems.Stretch
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =8
+                        RadiusBottomRight: =8
+                        RadiusTopLeft: =8
+                        RadiusTopRight: =8
+                        Width: =If(gblIsMobile, (conNavRoot.Width * 0.966 - conNavRoot.Width * 0.008 * If(gblMyRole in ["Owner", "CanEdit"], 3, 2)) / If(gblMyRole in ["Owner", "CanEdit"], 4, 3), conNavRoot.Width * 0.1)
+                      Children:
+                        - btnNavTabMatch:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              Appearance: =ButtonAppearance.Transparent
+                              BorderStyle: =
+                              Color: |-
+                                =If(
+                                    varActiveTab = "match",
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                              FillPortions: =1
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =If(varActiveTab = "match", FontWeight.Bold, FontWeight.Normal)
+                              Icon: ="CheckmarkCircle"
+                              OnSelect: =If(varActiveTab <> "match", Navigate(srcMatchResult, ScreenTransition.None))
+                              PaddingLeft: =If(gblIsMobile, 1, 8)
+                              PaddingRight: =If(gblIsMobile, 1, 8)
+                              Size: =If(gblIsMobile, conNavRoot.Height * 0.15, conNavRoot.Height * 0.17)
+                              Text: ="照合結果"
+                              Width: =Parent.Width
+                  - conNavTabHistory:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        Fill: |-
+                          =If(
+                              varActiveTab = "history",
+                              RGBA(219, 234, 254, 1),
+                              RGBA(0, 0, 0, 0)
+                          )
+                        FillPortions: =0
+                        Height: =conNavRoot.Height * 0.62
+                        LayoutAlignItems: =LayoutAlignItems.Stretch
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =8
+                        RadiusBottomRight: =8
+                        RadiusTopLeft: =8
+                        RadiusTopRight: =8
+                        Width: =If(gblIsMobile, (conNavRoot.Width * 0.966 - conNavRoot.Width * 0.008 * If(gblMyRole in ["Owner", "CanEdit"], 3, 2)) / If(gblMyRole in ["Owner", "CanEdit"], 4, 3), conNavRoot.Width * 0.1)
+                      Children:
+                        - btnNavTabHistory:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              Appearance: =ButtonAppearance.Transparent
+                              BorderStyle: =
+                              Color: |-
+                                =If(
+                                    varActiveTab = "history",
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                              FillPortions: =1
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =If(varActiveTab = "history", FontWeight.Bold, FontWeight.Normal)
+                              Icon: ="History"
+                              OnSelect: =If(varActiveTab <> "history", Navigate(srcHistory, ScreenTransition.None))
+                              PaddingLeft: =If(gblIsMobile, 1, 8)
+                              PaddingRight: =If(gblIsMobile, 1, 8)
+                              Size: =If(gblIsMobile, conNavRoot.Height * 0.15, conNavRoot.Height * 0.17)
+                              Text: ="履歴"
+                              Width: =Parent.Width
+                  - conNavTabEmployee:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        DropShadow: =DropShadow.None
+                        Fill: |-
+                          =If(
+                              varActiveTab = "employee",
+                              RGBA(219, 234, 254, 1),
+                              RGBA(0, 0, 0, 0)
+                          )
+                        FillPortions: =0
+                        Height: =conNavRoot.Height * 0.62
+                        LayoutAlignItems: =LayoutAlignItems.Stretch
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =8
+                        RadiusBottomRight: =8
+                        RadiusTopLeft: =8
+                        RadiusTopRight: =8
+                        Visible: =gblMyRole in ["Owner", "CanEdit"]
+                        Width: =If(gblIsMobile, (conNavRoot.Width * 0.966 - conNavRoot.Width * 0.008 * If(gblMyRole in ["Owner", "CanEdit"], 3, 2)) / If(gblMyRole in ["Owner", "CanEdit"], 4, 3), conNavRoot.Width * 0.1)
+                      Children:
+                        - btnNavTabEmployee:
+                            Control: ModernButton@1.0.0
+                            Properties:
+                              Appearance: =ButtonAppearance.Transparent
+                              BorderStyle: =
+                              Color: |-
+                                =If(
+                                    varActiveTab = "employee",
+                                    RGBA(0, 102, 204, 1),
+                                    RGBA(148, 163, 184, 1)
+                                )
+                              DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                              FillPortions: =1
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =If(varActiveTab = "employee", FontWeight.Bold, FontWeight.Normal)
+                              Icon: ="People"
+                              OnSelect: =Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now());If(gblMyRole in ["Owner", "CanEdit"], If(varActiveTab <> "employee", Set(varActiveTab, "employee");Set(varHeaderTitle, "社員管理");Set(varHeaderSubtitle, "社員情報の管理と編集");Navigate(srcEmployeeList, ScreenTransition.None)), Notify("この画面へのアクセス権がありません。", NotificationType.Error))
+                              PaddingLeft: =If(gblIsMobile, 1, 8)
+                              PaddingRight: =If(gblIsMobile, 1, 8)
+                              Size: =If(gblIsMobile, conNavRoot.Height * 0.15, conNavRoot.Height * 0.17)
+                              Text: ="社員管理"
+                              Width: =Parent.Width
+            - lblNavVersion:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Right
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  Color: =RGBA(148, 163, 184, 1)
+                  DisabledColor: =RGBA(186, 186, 186, 1)
+                  Font: =Font.'Segoe UI'
+                  Height: =conNavRoot.Height * 0.4
+                  Size: =conNavRoot.Height * 0.16
+                  Text: ="システムバージョン 2.4.1"
+                  Visible: =false
+                  Width: =Parent.Width * 0.2

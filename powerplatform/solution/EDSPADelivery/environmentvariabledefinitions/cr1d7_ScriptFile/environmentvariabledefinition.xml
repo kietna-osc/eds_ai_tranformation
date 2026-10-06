@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_ScriptFile">
+  <defaultvalue>01M2JTLZ5XKLEW2JGKXJHILH3TERF5DQNE</defaultvalue>
+  <displayname default="Script-File">
+    <label description="Script-File" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

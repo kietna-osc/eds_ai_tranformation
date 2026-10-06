@@ -1,0 +1,10 @@
+[
+  {
+    "ApiId": "/providers/microsoft.powerapps/apis/shared_logicflows",
+    "FlowNameId": "80c0df37-c3b8-4909-bf16-d9ad324066e4",
+    "Name": "EDS-UploadCaptureImage",
+    "ServiceKind": "ConnectedWadl",
+    "Type": "ServiceInfo",
+    "WorkflowEntityId": "d102ab96-fdac-f111-aaad-70a8a50387b3"
+  }
+]

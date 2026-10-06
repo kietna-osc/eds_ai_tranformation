@@ -1,0 +1,104 @@
+cmpHeader As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(255, 255, 255, 1)
+    Height: =90
+    Visible: =true
+    Width: =1366
+    X: =0
+    Y: =0
+
+    conHdrRoot As groupContainer.horizontalAutoLayoutContainer:
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =Parent.Height - 1
+        LayoutAlignItems: =LayoutAlignItems.Center
+        LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+        LayoutMode: =LayoutMode.Auto
+        PaddingLeft: =Parent.Width * 0.0167
+        PaddingRight: =Parent.Width * 0.0167
+        Width: =Parent.Width
+        ZIndex: =1
+
+        conHdrTitles As groupContainer.horizontalAutoLayoutContainer:
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =Parent.Height * 0.04
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            ZIndex: =1
+
+            lblHdrTitle As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =conHdrRoot.Height * 0.42
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingLeft: =0
+                Size: =If(gblIsMobile, conHdrRoot.Height * 0.17, conHdrRoot.Height * 0.235)
+                Text: =varHeaderTitle
+                Width: =Parent.Width
+                ZIndex: =1
+
+            lblHdrSubtitle As label:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =If(gblIsMobile, conHdrRoot.Height * 0.4, conHdrRoot.Height * 0.26)
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingLeft: =0
+                Size: =If(gblIsMobile, conHdrRoot.Height * 0.115, conHdrRoot.Height * 0.135)
+                Text: =varHeaderSubtitle
+                Width: =Parent.Width
+                ZIndex: =2
+
+        conHdrStatus As groupContainer.horizontalAutoLayoutContainer:
+            FillPortions: =0
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutGap: =Parent.Width * 0.004
+            LayoutJustifyContent: =LayoutJustifyContent.End
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            Visible: =!gblIsMobile
+            Width: =Parent.Width * 0.14
+            ZIndex: =2
+
+            lblHdrPortal As label:
+                Align: =Align.Right
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(71, 85, 105, 1)
+                Font: =Font.'Segoe UI'
+                Height: =conHdrRoot.Height * 0.3
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =conHdrRoot.Height * 0.14
+                Text: ="オペレーターポータル"
+                Width: =Parent.Width * 0.82
+                ZIndex: =1
+
+            lblHdrDot As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(20, 184, 166, 1)
+                Font: =Font.'Segoe UI'
+                Height: =conHdrRoot.Height * 0.3
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =conHdrRoot.Height * 0.14
+                Text: ="●"
+                Width: =Parent.Width * 0.12
+                ZIndex: =2
+
+    recHdrBorder As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(226, 232, 240, 1)
+        Height: =1
+        Width: =Parent.Width
+        Y: =Parent.Height - 1
+        ZIndex: =2
+

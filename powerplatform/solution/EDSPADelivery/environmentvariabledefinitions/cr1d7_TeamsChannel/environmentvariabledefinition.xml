@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="cr1d7_TeamsChannel">
+  <defaultvalue>19:15c6dceff0ab43958bdf39603b821b69@thread.tacv2</defaultvalue>
+  <displayname default="Teams-Channel">
+    <label description="Teams-Channel" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

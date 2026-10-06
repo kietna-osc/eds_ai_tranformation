@@ -1,0 +1,382 @@
+cmpHomeActions As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =320
+    Visible: =true
+    Width: =500
+    X: =0
+    Y: =0
+
+    conHomeActRoot As groupContainer.horizontalAutoLayoutContainer:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =Parent.Height
+        LayoutAlignItems: =LayoutAlignItems.Stretch
+        LayoutDirection: =LayoutDirection.Vertical
+        LayoutGap: =App.Height * 0.014
+        LayoutMode: =LayoutMode.Auto
+        PaddingBottom: =App.Height * 0.024
+        PaddingLeft: =App.Width * 0.014
+        PaddingRight: =App.Width * 0.014
+        PaddingTop: =App.Height * 0.024
+        RadiusBottomLeft: =16
+        RadiusBottomRight: =16
+        RadiusTopLeft: =16
+        RadiusTopRight: =16
+        Width: =Parent.Width
+        ZIndex: =1
+
+        lblHomePanelTitle As label:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(15, 23, 42, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Bold
+            Height: =App.Height * 0.038
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            PaddingLeft: =0
+            Size: =App.Height * 0.019
+            Text: ="コントロールパネル"
+            ZIndex: =1
+
+        lblHomeError As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =RGBA(185, 28, 28, 1)
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =App.Height * 0.03
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            Size: =App.Height * 0.013
+            Text: =varError
+            Visible: =!IsBlank(varError)
+            ZIndex: =2
+
+        conHomeRow1 As groupContainer.horizontalAutoLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.062
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutGap: =App.Width * 0.008
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            ZIndex: =3
+
+            btnHomeTakePhoto As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(0, 102, 204, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        varBusy
+                        || CountRows(Filter(colHomeQueue As queueItem, Lower(Text(queueItem.source)) = "sharepoint")) > 0,
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Icon: ="Camera"
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: =Navigate(srcCapture, ScreenTransition.None)
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.015
+                Text: ="撮影"
+                ZIndex: =1
+
+            btnHomeSharePoint As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(242, 140, 0, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Icon: ="Document"
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: =Navigate(srcSharePointBrowser, ScreenTransition.None)
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.015
+                Text: ="SharePointを選択"
+                ZIndex: =2
+
+        conHomeRow2 As groupContainer.horizontalAutoLayoutContainer:
+            FillPortions: =0
+            Height: =App.Height * 0.062
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutGap: =App.Width * 0.008
+            LayoutMaxHeight: =0
+            LayoutMaxWidth: =0
+            LayoutMode: =LayoutMode.Auto
+            ZIndex: =4
+
+            btnHomeAIRegister As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(180, 83, 9, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        varBusy
+                        || IsBlank(
+                            Coalesce(
+                                If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                If(
+                                    !IsBlank(varImageUrl),
+                                    Coalesce(LookUp(colHomeQueue, id = varHomeSelectedId).image, varImageUrl),
+                                    Blank()
+                                )
+                            )
+                        ),
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Icon: ="Search"
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =If(
+                        IsBlank(
+                            Coalesce(
+                                If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                If(
+                                    !IsBlank(varImageUrl),
+                                    Coalesce(LookUp(colHomeQueue, id = varHomeSelectedId).image, varImageUrl),
+                                    Blank()
+                                )
+                            )
+                        ),
+                        Set(varError, "先に写真を撮影またはアップロードしてください"),
+                    
+                        Set(varBusy, true);
+                        Set(varError, "");
+                        Set(varFromUnknownList, false);
+                        Set(varHomeQueueId, Coalesce(varHomeSelectedId, ""));
+                        Clear(varCandidates);
+                        Clear(colSelected);
+                        Set(varSearchText, "");
+                        Set(varSelectedRecipientId, "");
+                        IfError(
+                            With(
+                                {
+                                    queueRow: LookUp(colHomeQueue, id = varHomeSelectedId),
+                                    captureImage: Coalesce(
+                                        If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                        LookUp(colHomeQueue, id = varHomeSelectedId).image,
+                                        varImageUrl
+                                    )
+                                },
+                                If(
+                                    Lower(Text(Coalesce(queueRow.source, ""))) = "capture"
+                                    && IsBlank(queueRow.path)
+                                    && !IsBlank(captureImage),
+                                    With(
+                                        {
+                                            uploadName: Lower(GUID()) & ".jpg",
+                                            uploadFolder: Text(DateAdd(DateAdd(Now(), TimeZoneOffset(), TimeUnit.Minutes), 9, TimeUnit.Hours), "dd - mm - yyyy")
+                                        },
+                                        'EDS-UploadCaptureImage'.Run(
+                                            {
+                                                contentBytes: captureImage,
+                                                name: uploadName
+                                            },
+                                            uploadName
+                                        );
+                                        Patch(
+                                            colHomeQueue,
+                                            LookUp(colHomeQueue, id = varHomeSelectedId),
+                                            {
+                                                name: uploadName,
+                                                folder: uploadFolder,
+                                                path: gblSpCaptureRoot & uploadFolder & "/" & uploadName
+                                            }
+                                        );
+                                        Set(varImageName, uploadName)
+                                    )
+                                )
+                            );
+                            Set(
+                                varResult,
+                                'EDS-ProcessLabel'.Run(
+                                    {
+                                        contentBytes: Coalesce(
+                                            If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                            LookUp(colHomeQueue, id = varHomeSelectedId).image,
+                                            varImageUrl
+                                        ),
+                                        name: With(
+                                            {
+                                                spPath: LookUp(colHomeQueue, id = varHomeSelectedId).path
+                                            },
+                                            If(
+                                                !IsBlank(spPath),
+                                                "SPPATH|" & spPath,
+                                                Coalesce(varImageName, "label.jpg")
+                                            )
+                                        )
+                                    }
+                                )
+                            );
+                    
+                            If(
+                                !Coalesce(varResult.is_package_label, false),
+                                Set(varError, "無効な画像です。もう一度お試しください");
+                                Set(varBusy, false),
+                    
+                                Set(varTier, Lower(Trim(Text(Coalesce(varResult.tier, "")))));
+                                Set(varMatchScore, Coalesce(Value(Text(varResult.match_score)), 0));
+                                Set(varOcrName, Text(Coalesce(varResult.receiver_name, "")));
+                                Set(varOcrDept, Text(Coalesce(varResult.department, "")));
+                                Set(varOcrConf, Coalesce(Value(Text(varResult.ocr_confidence)), 0));
+                                Set(varOcrSenderName, Text(Coalesce(varResult.sender_name, "")));
+                                Set(varOcrSenderInfo, Text(Coalesce(varResult.sender_info, "")));
+                                Set(varOcrSenderDepartment, Text(Coalesce(varResult.sender_department, "")));
+                                Set(varOcrDeliverySlip, Text(Coalesce(varResult.slip_no, "")));
+                    
+                                ClearCollect(
+                                    varCandidates,
+                                    ForAll(
+                                        Table(ParseJSON(Coalesce(varResult.candidates_json, "[]"))),
+                                        {
+                                            employee_id: Text(ThisRecord.Value.employee_id),
+                                            name: Text(ThisRecord.Value.name),
+                                            department: Text(ThisRecord.Value.department),
+                                            email: Text(ThisRecord.Value.email),
+                                            teams_id: Text(ThisRecord.Value.teams_id),
+                                            score: Value(ThisRecord.Value.score)
+                                        }
+                                    )
+                                );
+                    
+                                Clear(colSelected);
+                                If(
+                                    CountRows(varCandidates) = 1,
+                                    With(
+                                        { onlyCand: First(varCandidates) },
+                                        Set(varSelectedRecipientId, onlyCand.employee_id);
+                                        Collect(
+                                            colSelected,
+                                            {
+                                                employee_id: onlyCand.employee_id,
+                                                name: onlyCand.name,
+                                                department: onlyCand.department,
+                                                email: onlyCand.email,
+                                                teams_id: onlyCand.teams_id,
+                                                score: Coalesce(onlyCand.score, 0),
+                                                is_cc: false
+                                            }
+                                        )
+                                    )
+                                );
+                                Set(varMatchStep, 1);
+                                Set(varError, "");
+                                Set(varBusy, false);
+                                Navigate(srcMatchResult, ScreenTransition.None)
+                            ),
+                    
+                            Set(
+                                varError,
+                                "処理に失敗しました: " & Coalesce(FirstError.Message, "もう一度お試しください。")
+                            );
+                            Set(varBusy, false)
+                        )
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.015
+                Text: =If(varBusy, "検索中...", "スキャン")
+                ZIndex: =1
+
+            btnHomeManualRegister As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(64, 89, 153, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                DisplayMode: |-
+                    =If(
+                        varBusy
+                        || IsBlank(
+                            Coalesce(
+                                If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                If(
+                                    !IsBlank(varImageUrl),
+                                    Coalesce(LookUp(colHomeQueue, id = varHomeSelectedId).image, varImageUrl),
+                                    Blank()
+                                )
+                            )
+                        ),
+                        DisplayMode.Disabled,
+                        DisplayMode.Edit
+                    )
+                FillPortions: =1
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Semibold
+                Icon: ="People"
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =If(
+                        IsBlank(
+                            Coalesce(
+                                If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
+                                If(
+                                    !IsBlank(varImageUrl),
+                                    Coalesce(LookUp(colHomeQueue, id = varHomeSelectedId).image, varImageUrl),
+                                    Blank()
+                                )
+                            )
+                        ),
+                        Set(varError, "先に写真を撮影またはアップロードしてください"),
+                    
+                        Set(varError, "");
+                        Set(varBusy, false);
+                        Set(varFromUnknownList, false);
+                        Set(varHomeQueueId, Coalesce(varHomeSelectedId, ""));
+                        Clear(varCandidates);
+                        Clear(colSelected);
+                        Set(varSearchText, "");
+                        Set(varSelectedRecipientId, "");
+                        Set(varTier, "");
+                        Set(varMatchScore, 0);
+                        Set(varOcrName, "");
+                        Set(varOcrDept, "");
+                        Set(varOcrConf, 0);
+                        Set(varOcrSenderName, "");
+                        Set(varOcrSenderInfo, "");
+                        Set(varOcrSenderDepartment, "");
+                        Set(varOcrDeliverySlip, "");
+                        Set(varMatchStep, 1);
+                        If(
+                            (IsBlank(varImage) || varImage = SampleImage)
+                            && !IsBlank(LookUp(colHomeQueue, id = varHomeSelectedId).image),
+                            Set(varImage, LookUp(colHomeQueue, id = varHomeSelectedId).image)
+                        );
+                        Navigate(srcMatchResult, ScreenTransition.None)
+                    )
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.015
+                Text: ="手動処理"
+                ZIndex: =2
+

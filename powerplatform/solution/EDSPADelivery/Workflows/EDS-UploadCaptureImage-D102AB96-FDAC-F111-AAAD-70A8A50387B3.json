@@ -1,0 +1,166 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "cr1d7_sharedsharepointonline_a7051"
+        },
+        "runtimeSource": "invoker"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "description": "Please select file or image",
+                  "title": "file",
+                  "type": "object",
+                  "properties": {
+                    "contentBytes": {
+                      "type": "string",
+                      "format": "byte"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "x-ms-content-hint": "FILE",
+                  "x-ms-dynamically-added": true
+                },
+                "text": {
+                  "description": "Please enter your input",
+                  "title": "file_name",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "file",
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "FolderName": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(convertTimeZone(utcNow(), 'UTC', 'Tokyo Standard Time'), 'dd-MM-yyyy')",
+          "runAfter": {}
+        },
+        "Get_folder_metadata_using_path": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments",
+              "path": "@outputs('FolderPath')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetFolderMetadataByPath",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "runAfter": {
+            "FolderPath": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Create_new_folder": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments",
+              "table": "f22c3b9e-916b-450c-9494-8645d34e6e92",
+              "parameters/path": "@outputs('FolderInLib')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "CreateNewFolder",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "runAfter": {
+            "Get_folder_metadata_using_path": [
+              "Failed"
+            ]
+          }
+        },
+        "Create_file": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments",
+              "folderPath": "@outputs('FolderPath')",
+              "name": "@triggerBody()?['text']",
+              "body": "@base64ToBinary(triggerBody()?['file']?['contentBytes'])"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "CreateFile",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "runAfter": {
+            "Create_new_folder": [
+              "Succeeded",
+              "Skipped"
+            ],
+            "Get_folder_metadata_using_path": [
+              "Succeeded",
+              "Failed"
+            ]
+          },
+          "runtimeConfiguration": {
+            "contentTransfer": {
+              "transferMode": "Chunked"
+            }
+          }
+        },
+        "FolderPath": {
+          "type": "Compose",
+          "inputs": "@concat('/Shared Documents/', outputs('FolderInLib'))",
+          "runAfter": {
+            "FolderInLib": [
+              "Succeeded"
+            ]
+          }
+        },
+        "FolderInLib": {
+          "type": "Compose",
+          "inputs": "@concat('channel receipt/UploadedImage/', outputs('FolderName'))",
+          "runAfter": {
+            "FolderName": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}
