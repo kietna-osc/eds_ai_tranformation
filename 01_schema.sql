@@ -50,7 +50,7 @@ CREATE TABLE dbo.history
 (
     history_id                 BIGINT          IDENTITY(1,1) NOT NULL,
     slip_no                    NVARCHAR(100)   NULL,
-    image_url                  NVARCHAR(MAX)   NULL,  -- base64 data URI; older rows hold a SharePoint URL/path
+    image_url                  NVARCHAR(MAX)   NULL,  -- SharePoint URL or path of the scanned image
     sender_name                NVARCHAR(200)   NULL,
     sender_content             NVARCHAR(1000)  NULL,
     sender_address             NVARCHAR(500)   NULL,
@@ -79,7 +79,8 @@ IF COL_LENGTH('dbo.history', 'sender_address') IS NULL
     ALTER TABLE dbo.history ADD sender_address NVARCHAR(500) NULL;
 GO
 
--- Existing databases created before v1.2: widen image_url to hold the base64 image.
+-- Existing databases created before v1.2: widen image_url (long enough for a base64 image,
+-- see branch feature/history-base64; harmless for URLs).
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.history') AND name = 'image_url' AND max_length <> -1)
     ALTER TABLE dbo.history ALTER COLUMN image_url NVARCHAR(MAX) NULL;
 GO

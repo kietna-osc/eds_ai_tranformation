@@ -390,12 +390,9 @@ Response **200**. `employee_id` ở endpoint này là **string**.
 
 `status` chỉ có `Unknown` và `Identified`.
 
-`image_url` (`NVARCHAR(MAX)`) có hai dạng:
+`image_url` (`NVARCHAR(MAX)`) là URL hoặc relative path SharePoint của ảnh scan (`/Shared%20Documents/...`). Màn hình History (`srcHistory` → `imgHistScan.Image`) lấy thumbnail từ SharePoint theo tên file.
 
-- Row mới: ảnh scan dạng base64 data URI, ví dụ `data:image/jpeg;base64,/9j/4AAQ...`. Flow `EDS-NotifySelected` đọc file từ SharePoint rồi gửi chuỗi này vào `historyInsert`. Một ảnh khoảng 800.000 ký tự.
-- Row cũ (trước khi đổi), hoặc khi flow không đọc được file: URL hoặc relative path SharePoint (`/Shared%20Documents/...`).
-
-Màn hình History (`srcHistory` → `imgHistScan.Image`) hiển thị trực tiếp nếu giá trị bắt đầu bằng `data:`, ngược lại lấy thumbnail từ SharePoint.
+Phiên bản lưu ảnh dạng base64 trong `image_url` nằm ở branch `feature/history-base64` (flow `EDS-NotifySelected-base64`, đang tắt).
 
 ### historyList
 
@@ -487,13 +484,11 @@ Response **200**:
 
 **400** khi `status` khác `Unknown`/`Identified`, hoặc một mốc ngày không parse được.
 
-Response chứa nguyên `image_url` base64 của mỗi row, nên một trang 50 row có thể tới hàng chục MB. Nếu màn hình History chậm, giảm `pageSize`.
-
 ### historyInsert
 
 Mọi field optional. Có `employee_id` mà không gửi `status` thì API ghi `Identified`. Không có `employee_id` thì ghi `Unknown`.
 
-`image_url` không bị cắt độ dài (xem phần `history` ở trên). Các field text khác vẫn bị cắt theo độ dài cột.
+`image_url` không bị cắt độ dài. Các field text khác vẫn bị cắt theo độ dài cột.
 
 `content` mẫu:
 

@@ -103,7 +103,7 @@
                   "slip_no": { "type": "string" },
                   "image_url": {
                     "type": "string",
-                    "description": "Scanned image as a base64 data URI (data:image/jpeg;base64,...). Not length-capped. Older rows hold a SharePoint URL or path."
+                    "description": "SharePoint URL or path of the scanned image. Not length-capped."
                   },
                   "sender_name": { "type": "string" },
                   "sender_content": { "type": "string" },

@@ -77,8 +77,7 @@ The folder is the content of the solution export zip. The client secret has been
    ```
 3. **Import** with `pac solution import --path EDSPADelivery.zip`, or in make.powerapps.com → Solutions → Import. Create or select the connections for the four connection references: SharePoint, Teams, Planner and Excel Online.
 4. **Set the environment variables.** These are `cr1d7_*`: SharePoint site, list and library IDs, Teams team and channel, Planner group and plan, and the Office Script. The values in the export point to the current environment.
-5. **Check the hard-coded values.** In `EDS-NotifySelected` → `Try_get_image` → `Image_source_url`, the SharePoint site URL is hard-coded: `https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments`. Change it if the site is different.
-6. Turn the flows on.
+5. Turn the flows on.
 
 The client secret is stored in plain text in the flow definition. Anyone who can open or export the flow can read it. Move it to a secret environment variable or Key Vault when possible.
 
@@ -107,28 +106,26 @@ The list routes read the page size from `pageSize`, which is what the app sends.
 
 ## Scanned images in the history table
 
-New registrations store the scanned image as base64 in `dbo.history.image_url`:
+`dbo.history.image_url` holds the SharePoint URL or path of the scanned image:
 
 ```
 App (register / register unknown) → image uploaded to SharePoint (EDS-UploadCaptureImage / EDS-SaveUnknownPackage)
-  → EDS-NotifySelected: reads the file from SharePoint → "data:<type>;base64,<content>"
-  → APIM /history (POST) → historyInsert → sp_history_insert → dbo.history.image_url (NVARCHAR(MAX))
-History screen: EDS-APIManagement1 → historyList → imgHistScan shows the data URI directly;
-  older rows (SharePoint URL/path) still use the SharePoint thumbnail
+  → EDS-NotifySelected → APIM /history (POST) → historyInsert → sp_history_insert → dbo.history.image_url
+History screen: EDS-APIManagement1 → historyList → imgHistScan looks up the file name in the
+  SharePoint Documents library (colSpAllItems) and shows its thumbnail
 ```
 
-- If the flow cannot read the file, it saves the original URL or path instead, so the registration is not lost.
-- The SharePoint upload is unchanged. Teams notifications and other screens still use it.
-- Old rows were not converted.
-- Each of these must be NVARCHAR(MAX) or uncapped: the column, the `@image_url` parameter and the Function App parameter. A shorter type anywhere silently cuts the image and stores it broken.
-- `historyList` returns the full images. A page of 50 rows can be tens of MB. Lower `pageSize` if the History screen is slow.
+### Base64 variant (not active)
 
-Check new rows:
+A version that stores the image itself as a base64 data URI in `image_url`, so the History screen does not depend on SharePoint, is kept on branch **`feature/history-base64`**. It was live from 2026-10-06 to 2026-10-07, then rolled back: each row carried about 0.8 MB, and a 50-row History page took about 23 s to load.
 
-```sql
-SELECT TOP 10 history_id, slip_no, created_at,
-       LEN(image_url) AS image_length,
-       CASE WHEN image_url LIKE 'data:image/%;base64,%' THEN 'BASE64' ELSE 'URL / PATH' END AS image_type
-FROM dbo.history
-ORDER BY history_id DESC;
-```
+What stays on `develop` from that change, because it is harmless with URLs:
+
+- `image_url` and `@image_url` are `NVARCHAR(MAX)`, and `historyInsert` does not cap the length.
+- The app's `imgHistScan.Image` formula shows a value starting with `data:` directly, otherwise the SharePoint thumbnail.
+
+To turn it back on:
+
+1. In Power Automate, turn on **`EDS-NotifySelected-base64`** (a copy of `EDS-NotifySelected` with the steps `Initialize_image_value`, `Set_image_value_url` and `Try_get_image`, kept turned off), or apply its definition from the branch to `EDS-NotifySelected`.
+2. Point the app's register and register-unknown buttons (`cmpMatchPanel` → `btnRegister`, `btnUnknown`) at the flow that is on, and publish.
+3. Read `docs/history-search-paging.md` first: with base64, the size of `historyList` responses becomes the main performance problem.

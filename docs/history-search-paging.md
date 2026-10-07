@@ -2,6 +2,8 @@
 
 Status: **proposed, not implemented.** This page describes the current behaviour and what needs to change.
 
+Written while the base64 variant was live (see `docs/SETUP.md` → "Base64 variant"). With SharePoint URLs in `image_url`, rows are small, so a search that downloads every row is cheap today. The change becomes necessary again if base64 is turned back on, or once the table grows large.
+
 ## Current behaviour
 
 The History screen (`srcHistory`) loads rows through `EDS-APIManagement1` → APIM → `historyList` → `dbo.sp_history_list`.
