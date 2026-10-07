@@ -3,8 +3,8 @@
    Copies every row, keeping history_id, except rows whose image_url is a base64
    data URI (left over from the rolled-back base64 variant). Copied rows have no
    blob paths, so the History screen shows their SharePoint thumbnail as before.
-   After the copy the two tables are independent: live registrations keep going
-   to dbo.history, blob-variant registrations go to dbo.history_blob.
+   After the copy the two tables are independent: live registrations are saved
+   in dbo.history, blob-variant registrations in dbo.history_blob.
 
    Run against eds-db after 09_history_blob.sql. Does nothing if
    dbo.history_blob already has rows. */
