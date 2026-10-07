@@ -942,7 +942,7 @@ cmpMatchPanel As CanvasComponent:
                                     Set(varNotifyJson, JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData));
                                     Set(
                                         varNotifyResult,
-                                        'EDS-NotifySelected'.Run(
+                                        'EDS-NotifySelected-blob'.Run(
                                             {
                                                 text_5: varNotifyJson
                                             }
@@ -1315,7 +1315,7 @@ cmpMatchPanel As CanvasComponent:
                         IfError(
                             Set(
                                 varNotifyResult,
-                                'EDS-NotifySelected'.Run(
+                                'EDS-NotifySelected-blob'.Run(
                                     {
                                         text_5: varNotifyJson
                                     }

@@ -469,3 +469,11 @@ app.http('health', {
   route: 'health',
   handler: async () => json(200, { ok: true, ts: new Date().toISOString() }),
 });
+
+/* History with images in Blob Storage (api/src/historyBlob.js). Only an app with
+   BLOB_ACCOUNT_URL set (func-eds-blob-dev) gets these routes; func-eds-dev is unchanged. */
+if (process.env.BLOB_ACCOUNT_URL) {
+  require('./historyBlob')({
+    app, exec, sql, json, handler, intOrNull, strOrNull, dateOrNull, clampTop, STATUSES, toHistory,
+  });
+}

@@ -5,3 +5,4 @@ EDS package delivery: Power Apps + Power Automate front end, Azure Functions API
 - `docs/SETUP.md`: how to deploy each part, and what is not in this repository
 - `docs/EDS-APIManagement1.md`: API contract used by the app
 - `docs/history-search-paging.md`: proposed change, server-side search paging for the History screen
+- `docs/history-blob.md`: images in Azure Blob Storage (branch feature/history-blob)
