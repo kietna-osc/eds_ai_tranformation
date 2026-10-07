@@ -87,6 +87,7 @@ The same parameters and response as `GET /eds/history`. Each row also has `image
    2. `09_history_blob.sql`: table, indexes, trigger, procedures.
    3. `10_history_blob_copy.sql`: one-time copy of `dbo.history`.
    4. `11_history_blob_grants.sql`: database user for `func-eds-blob-dev`, EXECUTE on the two procedures only.
+   5. Only for a database set up before 2026-10-07 14:00: `12_history_blob_employee_id_text.sql`, then `09_history_blob.sql` again. A fresh setup gets `NVARCHAR(50)` from `09` directly.
 2. **App** (Power Apps Studio):
    1. File → Open → Browse → `EDS-App-Desktop-phase2-blob.msapp`.
    2. Data / Power Automate pane → **Add flow** → `EDS-NotifySelected-blob` and `EDS-APIManagement1-blob`. The formulas already call these names; errors in Studio disappear once both are added.
@@ -116,7 +117,13 @@ FROM dbo.history_blob ORDER BY history_id DESC;
 - **Delivered status.** `POST /eds/history/delivered` (`historySetDelivered`) updates `dbo.history` only. According to its code comment it is called by a Planner "task completed" flow, which is not in this repository and was not checked. If that flow exists, rows registered through the blob variant are not marked delivered. Add a blob route and point the flow at it before going live.
 - **Mobile.** The mobile History layout has no image control, so it shows no preview.
 - **Link lifetime.** Read links expire after `BLOB_SAS_MINUTES`. The History screen gets new links on every page load.
-- **Inherited from live, unchanged on purpose:** unknown registrations are saved with `status = Identified`; the department name is not saved (`recipient_department` vs `recipient_department_name`); only one row is saved per registration; a Planner failure stops the flow before the history row is written.
+- **Inherited from live, unchanged on purpose:**
+  - unknown registrations are saved with `status = Identified`
+  - the department name is not saved (`recipient_department` vs `recipient_department_name`)
+  - only one row is saved per registration
+  - **a Planner failure stops the flow** before the Teams post and the history row. Seen 2026-10-07: assigning to `KIET@SMARTOSC.COM`, which is not a user in the tenant, failed with "Referenced User or Group … is not found", and the app showed 「メッセージの送信に失敗しました」. Test with recipients whose email is a tenant user.
+- **`employee_id` is text.** Live `dbo.employee.employee_id` is `NVARCHAR`, and 12 of 2,007 ids do not fit in `INT` (e.g. `10000000004`). The blob variant stores `employee_id` as `NVARCHAR(50)` (`12_history_blob_employee_id_text.sql`); `GET /eds-blob/history` returns digit-only ids as numbers and others as text. **Live has the same bug:** `func-eds-dev` `historyInsert` sends `employee_id` as `INT`, so registering one of those 12 employees in the live app fails with a 500 at the history step. Not fixed in live.
+- **Schema drift.** The live database differs from `01_schema.sql` (`employee.employee_id` is text, `employee_code` does not exist). Update the repo scripts from the live schema before using them for a new environment.
 - **Policy drift.** The live `eds-data-api` policy requires role `{{api-app-role}}` (`OCR.Invoke`), but `apim/eds-data-api.policy.xml` on `develop` says `{{data-app-role}}`. The new API copies the live policy.
 
 ## Removing the variant

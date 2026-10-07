@@ -72,6 +72,14 @@ async function readUrl(blobPath) {
   return `${container().getBlobClient(blobPath).url}?${sas.toString()}`;
 }
 
+/** employee_id is stored as text. Digit-only ids that are exact in JavaScript are
+    returned as numbers (what existing callers expect); anything else as text. */
+function employeeIdOut(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const s = String(v).trim();
+  return /^\d+$/.test(s) && Number.isSafeInteger(Number(s)) ? Number(s) : s;
+}
+
 /** Accepts plain base64 or a data URI; returns { buffer, mime } or { error }. */
 function decodeImage(content, contentType) {
   if (typeof content !== 'string' || !content) return { error: 'content (base64 image) is required' };
@@ -158,7 +166,8 @@ module.exports = function registerHistoryBlob({
     route: 'blob/history',
     handler: handler('blobHistoryInsert', async (request, context) => {
       const b = await request.json().catch(() => ({}));
-      const employeeId = intOrNull(b.employee_id);
+      // Text, like live dbo.employee: some ids do not fit in INT (e.g. 10000000004).
+      const employeeId = strOrNull(String(b.employee_id ?? '').trim(), 50);
       const status = strOrNull(b.status, 20) || (employeeId ? 'Identified' : 'Unknown');
       if (!STATUSES.has(status)) {
         return json(400, { error: `status must be one of ${[...STATUSES].join(', ')}` });
@@ -171,7 +180,7 @@ module.exports = function registerHistoryBlob({
         ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
         ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
         ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],
-        ['employee_id', sql.Int, employeeId],
+        ['employee_id', sql.NVarChar(50), employeeId],
         ['recipient_name', sql.NVarChar(200), strOrNull(b.recipient_name, 200)],
         ['recipient_department_id', sql.Int, intOrNull(b.recipient_department_id)],
         ['recipient_department_name', sql.NVarChar(200), strOrNull(b.recipient_department_name, 200)],
@@ -211,7 +220,7 @@ module.exports = function registerHistoryBlob({
         ['page_size', sql.Int, pageSize],
         ['status', sql.VarChar(20), status],
         ['department_id', sql.Int, intOrNull(q.get('department_id'))],
-        ['employee_id', sql.Int, intOrNull(q.get('employee_id'))],
+        ['employee_id', sql.NVarChar(50), strOrNull(q.get('employee_id'), 50)],
         ['notified_start', sql.DateTime2, dates.notified_start],
         ['notified_end', sql.DateTime2, dates.notified_end],
         ['delivered_start', sql.DateTime2, dates.delivered_start],
@@ -221,6 +230,7 @@ module.exports = function registerHistoryBlob({
       const totalCount = Number(rows[0]?.total_count ?? 0);
       const value = await Promise.all(rows.map(async (row) => ({
         ...toHistory(row),
+        employee_id: employeeIdOut(row.employee_id),
         image_blob_path: row.image_blob_path ?? null,
         preview_blob_path: row.preview_blob_path ?? null,
         image_blob_url: await readUrl(row.image_blob_path),

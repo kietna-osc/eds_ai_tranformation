@@ -20,7 +20,7 @@ CREATE TABLE dbo.history_blob
     sender_name                NVARCHAR(200)   NULL,
     sender_content             NVARCHAR(1000)  NULL,
     sender_address             NVARCHAR(500)   NULL,
-    employee_id                INT             NULL,  -- snapshot id, not a foreign key
+    employee_id                NVARCHAR(50)    NULL,  -- snapshot id as text, like live dbo.employee
     recipient_name             NVARCHAR(200)   NULL,
     recipient_department_id    INT             NULL,
     recipient_department_name  NVARCHAR(200)   NULL,
@@ -72,7 +72,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_history_blob_list
     @page_size        INT          = 50,
     @status           VARCHAR(20)  = NULL,
     @department_id    INT          = NULL,
-    @employee_id      INT          = NULL,
+    @employee_id      NVARCHAR(50) = NULL,
     @notified_start   DATETIME2(0) = NULL,
     @notified_end     DATETIME2(0) = NULL,
     @delivered_start  DATETIME2(0) = NULL,
@@ -126,7 +126,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_history_blob_insert
     @sender_name               NVARCHAR(200)  = NULL,
     @sender_content            NVARCHAR(1000) = NULL,
     @sender_address            NVARCHAR(500)  = NULL,
-    @employee_id               INT            = NULL,
+    @employee_id               NVARCHAR(50)   = NULL,
     @recipient_name            NVARCHAR(200)  = NULL,
     @recipient_department_id   INT            = NULL,
     @recipient_department_name NVARCHAR(200)  = NULL,
