@@ -3,6 +3,9 @@ const { exec, sql, isRetryable } = require('./db');
 const { fuzzyMatchEmployees } = require('./fuzzyMatch');
 const blobImages = require('./blobImages');
 const historyCsv = require('./historyCsv');
+const historySearch = require('./historySearch');
+
+const HISTORY_SEARCH_MAX_ROWS = 100000;
 const { CsvParseError } = require('./csv');
 const { message } = require('./messages');
 const employeeCsv = require('./employeeCsv');
@@ -147,7 +150,10 @@ const handler = (name, fn) => async (request, context) => {
    History page with server-side pagination.
    Filters are applied in DB first, then page/pageSize are used
    to return the requested chunk. Each row includes sender_name,
-   sender_content, sender_address and status Unknown | Identified. */
+   sender_content, sender_address and status Unknown | Identified.
+   search_keyword (optional): the History search (historySearch.js) on 伝票番号, 受取人,
+   処理状況, データ区分 and 通知日時; totalCount / totalPages then describe the matches.
+   tz_offset (optional): Power Fx TimeZoneOffset() for the 通知日時 match, default Japan. */
 app.http('historyList', {
   methods: ['GET'],
   authLevel: 'function',
@@ -188,9 +194,7 @@ app.http('historyList', {
       return json(400, { error: 'delivered_end must be a valid datetime' });
     }
 
-    const rows = await exec('dbo.sp_history_list_v2', [
-      ['page', sql.Int, page],
-      ['page_size', sql.Int, pageSize],
+    const filters = [
       ['status', sql.VarChar(20), status],
       ['department_id', sql.Int, departmentId],
       ['employee_id', sql.NVarChar(50), employeeId],
@@ -198,9 +202,33 @@ app.http('historyList', {
       ['notified_end', sql.DateTime2, notifiedEnd],
       ['delivered_start', sql.DateTime2, deliveredStart],
       ['delivered_end', sql.DateTime2, deliveredEnd],
-    ], context);
+    ];
 
-    const totalCount = Number(rows[0]?.total_count ?? 0);
+    /* search_keyword: the History search (historySearch.js) over the rows matching the
+       other filters, then this page. Without it, SQL pages directly. Either way read
+       links are only signed for the rows returned. */
+    const keyword = strOrNull(String(q.get('search_keyword') ?? '').trim(), 200);
+    let rows;
+    let totalCount;
+    if (keyword) {
+      const tzOffset = historySearch.tzOffsetOrDefault(q.get('tz_offset'));
+      const all = await exec('dbo.sp_history_list_v2', [
+        ['page', sql.Int, 1],
+        ['page_size', sql.Int, HISTORY_SEARCH_MAX_ROWS],
+        ...filters,
+      ], context);
+      if (all.length >= HISTORY_SEARCH_MAX_ROWS) context.warn(`historyList: search capped at ${HISTORY_SEARCH_MAX_ROWS} rows`);
+      const matched = historySearch.filterRows(all, keyword, tzOffset);
+      totalCount = matched.length;
+      rows = matched.slice((page - 1) * pageSize, page * pageSize);
+    } else {
+      rows = await exec('dbo.sp_history_list_v2', [
+        ['page', sql.Int, page],
+        ['page_size', sql.Int, pageSize],
+        ...filters,
+      ], context);
+      totalCount = Number(rows[0]?.total_count ?? 0);
+    }
 
     return json(200, {
       page,
@@ -241,7 +269,7 @@ app.http('historyExport', {
     ], context);
     if (rows.length >= EXPORT_MAX_ROWS) context.warn(`historyExport: capped at ${EXPORT_MAX_ROWS} rows`);
 
-    const matched = historyCsv.filterRows(rows, searchKeyword);
+    const matched = historyCsv.filterRows(rows, searchKeyword, tzOffset);
     const fileName = historyCsv.fileName(new Date(), tzOffset);
     const { url, expiresOn } = await blobImages.storeExport(fileName, historyCsv.buildCsv(matched, tzOffset));
     context.log(`historyExport: ${matched.length} of ${rows.length} rows, keyword ${searchKeyword ? 'set' : 'none'}`);

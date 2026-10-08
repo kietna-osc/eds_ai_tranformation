@@ -533,7 +533,7 @@
           },
           "runAfter": {
             "Apply_to_each_1": [
-              "Succeeded"
+              "SUCCEEDED"
             ]
           },
           "metadata": {
@@ -723,7 +723,7 @@
                       },
                       "runAfter": {
                         "Create_a_task": [
-                          "Succeeded"
+                          "SUCCEEDED"
                         ]
                       },
                       "metadata": {
@@ -743,6 +743,20 @@
                       },
                       "metadata": {
                         "operationMetadataId": "e6d2ce3d-d7c7-4de3-a863-689ad2a926b2"
+                      }
+                    },
+                    "Set_email": {
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "to_email",
+                        "value": "@items('Apply_to_each_1')?['email']"
+                      },
+                      "runAfter": {
+                        "Create_a_task": [
+                          "SKIPPED",
+                          "TIMEDOUT",
+                          "FAILED"
+                        ]
                       }
                     }
                   },
@@ -902,8 +916,8 @@
             }
           },
           "runAfter": {
-            "Initialize_preview_blob_path": [
-              "Succeeded"
+            "Initialize_email": [
+              "SUCCEEDED"
             ]
           },
           "metadata": {
@@ -1037,6 +1051,12 @@
                   "title": "success",
                   "x-ms-dynamically-added": true,
                   "type": "string"
+                },
+                "error": {
+                  "title": "error",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
                 }
               },
               "additionalProperties": {}
@@ -1086,11 +1106,6 @@
         },
         "Try_get_image": {
           "type": "Scope",
-          "runAfter": {
-            "Set_image_value_url": [
-              "Succeeded"
-            ]
-          },
           "actions": {
             "Is_sharing_link": {
               "type": "If",
@@ -1174,6 +1189,11 @@
               "type": "Compose",
               "inputs": "@if(startsWith(toLower(variables('image_value')), 'http'), variables('image_value'), if(startsWith(if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))), '/sites/'), concat('https://smartosc0.sharepoint.com', if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20')))), concat('https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments', if(startsWith(if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))), '/'), '', '/'), if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))))))"
             }
+          },
+          "runAfter": {
+            "Set_image_value_url": [
+              "Succeeded"
+            ]
           }
         },
         "Initialize_image_blob_path": {
@@ -1277,6 +1297,60 @@
               "Failed",
               "Skipped",
               "TimedOut"
+            ]
+          }
+        },
+        "Respond_to_a_Power_App_or_flow_1": {
+          "type": "Response",
+          "kind": "PowerApp",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "title": "success",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "error": {
+                  "title": "error",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "additionalProperties": {}
+            },
+            "statusCode": 200,
+            "body": {
+              "success": "false",
+              "error": "@{concat('以下の受取人はTeams/Plannerに存在しないため通知を送信できません： ', variables('to_email'),'。別の受取人を選択するか、管理者にご確認ください。')}"
+            }
+          },
+          "runAfter": {
+            "Apply_to_each_1": [
+              "TIMEDOUT",
+              "SKIPPED",
+              "FAILED"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
+          }
+        },
+        "Initialize_email": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "to_email",
+                "type": "string"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_preview_blob_path": [
+              "Succeeded"
             ]
           }
         }
