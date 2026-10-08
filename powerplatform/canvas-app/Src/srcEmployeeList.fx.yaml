@@ -682,7 +682,7 @@ srcEmployeeList As screen:
         DisplayMode: =If(varEmpLoading, DisplayMode.Disabled, DisplayMode.Edit)
         FocusedBorderThickness: =2
         Font: =Font.'Segoe UI'
-        Height: =App.Height * .055
+        Height: =App.Height * .09
         HoverColor: =RGBA(50, 49, 48, 1)
         HoverFill: =RGBA(245, 245, 245, 1)
         ItemColor: =RGBA(255, 255, 255, 1)
@@ -692,11 +692,11 @@ srcEmployeeList As screen:
         ItemSpacing: =4
         MaxAttachments: =1
         NoAttachmentsColor: =RGBA(161, 159, 157, 1)
-        NoAttachmentsText: =""
+        NoAttachmentsText: =" "
         PaddingBottom: =2
         PaddingLeft: =4
         PaddingRight: =4
-        PaddingTop: =2
+        PaddingTop: =0
         PressedColor: =RGBA(255, 255, 255, 1)
         PressedFill: =RGBA(0, 102, 204, 1)
         Size: =App.Height * 0.014
@@ -704,6 +704,6 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * .24
         X: =App.Width * .50
-        Y: =App.Height * .1135
+        Y: =App.Height * .105
         ZIndex: =29
 
