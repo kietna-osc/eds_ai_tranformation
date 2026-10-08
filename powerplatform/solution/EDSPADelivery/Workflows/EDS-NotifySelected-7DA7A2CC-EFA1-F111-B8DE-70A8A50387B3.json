@@ -27,6 +27,15 @@
           "connectionReferenceLogicalName": "cr1d7_sharedteams_76c77"
         },
         "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "cr1d7_sharedsharepointonline_a7051"
+        },
+        "runtimeSource": "embedded"
       }
     },
     "definition": {
@@ -893,7 +902,7 @@
             }
           },
           "runAfter": {
-            "Initialize_planner_task_id": [
+            "Initialize_preview_blob_path": [
               "Succeeded"
             ]
           },
@@ -955,7 +964,9 @@
               "updated_at": "@{utcNow()}",
               "sender_name": "@{variables('history_var')?['sender_name']}",
               "sender_address": "@{variables('history_var')?['sender_address']}",
-              "sender_content": "@{variables('history_var')?['sender_info']}"
+              "sender_content": "@{variables('history_var')?['sender_info']}",
+              "image_blob_path": "@{variables('image_blob_path')}",
+              "preview_blob_path": "@{variables('preview_blob_path')}"
             },
             "retryPolicy": {
               "type": "exponential",
@@ -965,8 +976,11 @@
             }
           },
           "runAfter": {
-            "Get_auth_token": [
-              "Succeeded"
+            "Upload_to_blob": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
             ]
           },
           "metadata": {
@@ -1040,10 +1054,234 @@
           "metadata": {
             "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
           }
+        },
+        "Initialize_image_value": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "image_value",
+                "type": "string",
+                "value": "@''"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_planner_task_id": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Set_image_value_url": {
+          "type": "SetVariable",
+          "inputs": {
+            "name": "image_value",
+            "value": "@{coalesce(variables('history_var')?['image_url'], '')}"
+          },
+          "runAfter": {
+            "Get_auth_token": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Try_get_image": {
+          "type": "Scope",
+          "runAfter": {
+            "Set_image_value_url": [
+              "Succeeded"
+            ]
+          },
+          "actions": {
+            "Is_sharing_link": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "contains": [
+                      "@outputs('Image_source_url')",
+                      "/:"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Get_shared_file_content": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@concat('https://', split(first(split(outputs('Image_source_url'), '?')), '/')[2], '/sites/', split(first(split(outputs('Image_source_url'), '?')), '/')[5])",
+                      "parameters/method": "GET",
+                      "parameters/uri": "@concat('_api/v2.0/shares/u!', replace(replace(replace(base64(outputs('Image_source_url')), '=', ''), '/', '_'), '+', '-'), '/driveItem/content')"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  }
+                },
+                "Set_image_value_shared": {
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "image_value",
+                    "value": "@concat('data:', coalesce(body('Get_shared_file_content')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_shared_file_content')?['$content'])"
+                  },
+                  "runAfter": {
+                    "Get_shared_file_content": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Get_file_content_using_path": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "@concat('https://', split(first(split(outputs('Image_source_url'), '?')), '/')[2], '/sites/', split(first(split(outputs('Image_source_url'), '?')), '/')[4])",
+                        "path": "@concat('/', decodeUriComponent(join(skip(split(first(split(outputs('Image_source_url'), '?')), '/'), 5), '/')))",
+                        "inferContentType": true
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "GetFileContentByPath",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    }
+                  },
+                  "Set_image_value_file": {
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "image_value",
+                      "value": "@concat('data:', coalesce(body('Get_file_content_using_path')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_file_content_using_path')?['$content'])"
+                    },
+                    "runAfter": {
+                      "Get_file_content_using_path": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Image_source_url": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Image_source_url": {
+              "type": "Compose",
+              "inputs": "@if(startsWith(toLower(variables('image_value')), 'http'), variables('image_value'), if(startsWith(if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))), '/sites/'), concat('https://smartosc0.sharepoint.com', if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20')))), concat('https://smartosc0.sharepoint.com/sites/Teamresponsibleforreceivingexpressshipments', if(startsWith(if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))), '/'), '', '/'), if(startsWith(variables('image_value'), '/Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 11)), if(startsWith(variables('image_value'), 'Documents/'), concat('/Shared%20Documents/', substring(variables('image_value'), 10)), replace(variables('image_value'), ' ', '%20'))))))"
+            }
+          }
+        },
+        "Initialize_image_blob_path": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "image_blob_path",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_image_value": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Initialize_preview_blob_path": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "preview_blob_path",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_image_blob_path": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Upload_to_blob": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "startsWith": [
+                  "@variables('image_value')",
+                  "data:"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Upload_image": {
+              "type": "Http",
+              "inputs": {
+                "uri": "https://apim-eds-dev.azure-api.net/eds/images",
+                "method": "POST",
+                "headers": {
+                  "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "content": "@variables('image_value')"
+                },
+                "retryPolicy": {
+                  "type": "exponential",
+                  "count": 2,
+                  "interval": "PT10S",
+                  "maximumInterval": "PT1M"
+                }
+              }
+            },
+            "Set_image_blob_path": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "image_blob_path",
+                "value": "@{body('Upload_image')?['image_blob_path']}"
+              },
+              "runAfter": {
+                "Upload_image": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Set_preview_blob_path": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "preview_blob_path",
+                "value": "@{body('Upload_image')?['preview_blob_path']}"
+              },
+              "runAfter": {
+                "Set_image_blob_path": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Try_get_image": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
         }
       }
-    },
-    "templateName": null
+    }
   },
   "schemaVersion": "1.0.0.0"
 }

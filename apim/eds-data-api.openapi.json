@@ -63,25 +63,37 @@
             "name": "notified_start",
             "in": "query",
             "description": "Inclusive lower bound on notified_at.",
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           {
             "name": "notified_end",
             "in": "query",
             "description": "Inclusive upper bound on notified_at.",
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           {
             "name": "delivered_start",
             "in": "query",
             "description": "Inclusive lower bound on delivered_at.",
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           {
             "name": "delivered_end",
             "in": "query",
             "description": "Inclusive upper bound on delivered_at.",
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           }
         ],
         "responses": {
@@ -100,24 +112,58 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "slip_no": { "type": "string" },
+                  "slip_no": {
+                    "type": "string"
+                  },
                   "image_url": {
                     "type": "string",
                     "description": "SharePoint URL or path of the scanned image. Not length-capped."
                   },
-                  "sender_name": { "type": "string" },
-                  "sender_content": { "type": "string" },
-                  "sender_address": { "type": "string" },
-                  "employee_id": { "type": "integer" },
-                  "recipient_name": { "type": "string" },
-                  "recipient_department_id": { "type": "integer" },
-                  "recipient_department_name": { "type": "string" },
+                  "sender_name": {
+                    "type": "string"
+                  },
+                  "sender_content": {
+                    "type": "string"
+                  },
+                  "sender_address": {
+                    "type": "string"
+                  },
+                  "employee_id": {
+                    "type": "string",
+                    "description": "Text, like dbo.employee (some ids do not fit in INT)"
+                  },
+                  "recipient_name": {
+                    "type": "string"
+                  },
+                  "recipient_department_id": {
+                    "type": "integer"
+                  },
+                  "recipient_department_name": {
+                    "type": "string"
+                  },
                   "status": {
                     "type": "string",
-                    "enum": ["Unknown", "Identified"]
+                    "enum": [
+                      "Unknown",
+                      "Identified"
+                    ]
                   },
-                  "notified_at": { "type": "string", "format": "date-time" },
-                  "planner_task_id": { "type": "string", "nullable": true }
+                  "notified_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "planner_task_id": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "image_blob_path": {
+                    "type": "string",
+                    "description": "From POST /images"
+                  },
+                  "preview_blob_path": {
+                    "type": "string",
+                    "description": "From POST /images"
+                  }
                 }
               },
               "example": {
@@ -261,16 +307,38 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["employee_id", "employee_code", "full_name"],
+                "required": [
+                  "employee_id",
+                  "employee_code",
+                  "full_name"
+                ],
                 "properties": {
-                  "employee_id": { "type": "integer" },
-                  "employee_code": { "type": "string" },
-                  "full_name": { "type": "string" },
-                  "name_normalized": { "type": "string" },
-                  "department_id": { "type": "integer", "nullable": true },
-                  "department_name": { "type": "string" },
-                  "email": { "type": "string" },
-                  "is_active": { "type": "boolean", "default": true }
+                  "employee_id": {
+                    "type": "integer"
+                  },
+                  "employee_code": {
+                    "type": "string"
+                  },
+                  "full_name": {
+                    "type": "string"
+                  },
+                  "name_normalized": {
+                    "type": "string"
+                  },
+                  "department_id": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "department_name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean",
+                    "default": true
+                  }
                 }
               },
               "example": {
@@ -349,31 +417,44 @@
             "name": "receiver_name",
             "in": "query",
             "description": "OCR receiver name. Empty returns the first top_k roster rows.",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "department",
             "in": "query",
             "description": "OCR department.",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "name_weight",
             "in": "query",
             "description": "Name score weight 0-1.",
-            "schema": { "type": "number", "default": 0.85 }
+            "schema": {
+              "type": "number",
+              "default": 0.85
+            }
           },
           {
             "name": "top_k",
             "in": "query",
             "description": "Weak-candidate count when no exact name match.",
-            "schema": { "type": "integer", "default": 3 }
+            "schema": {
+              "type": "integer",
+              "default": 3
+            }
           },
           {
             "name": "fuzzy_threshold",
             "in": "query",
             "description": "If the best fuzzy score is above this, return top 1.",
-            "schema": { "type": "number", "default": 90 }
+            "schema": {
+              "type": "number",
+              "default": 90
+            }
           }
         ],
         "responses": {
@@ -392,15 +473,39 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "receiver_name": { "type": "string" },
-                  "receiverName": { "type": "string" },
-                  "department": { "type": "string" },
-                  "name_weight": { "type": "number", "default": 0.85 },
-                  "nameWeight": { "type": "number", "default": 0.85 },
-                  "top_k": { "type": "integer", "default": 3 },
-                  "topK": { "type": "integer", "default": 3 },
-                  "fuzzy_threshold": { "type": "number", "default": 90 },
-                  "fuzzyThreshold": { "type": "number", "default": 90 }
+                  "receiver_name": {
+                    "type": "string"
+                  },
+                  "receiverName": {
+                    "type": "string"
+                  },
+                  "department": {
+                    "type": "string"
+                  },
+                  "name_weight": {
+                    "type": "number",
+                    "default": 0.85
+                  },
+                  "nameWeight": {
+                    "type": "number",
+                    "default": 0.85
+                  },
+                  "top_k": {
+                    "type": "integer",
+                    "default": 3
+                  },
+                  "topK": {
+                    "type": "integer",
+                    "default": 3
+                  },
+                  "fuzzy_threshold": {
+                    "type": "number",
+                    "default": 90
+                  },
+                  "fuzzyThreshold": {
+                    "type": "number",
+                    "default": 90
+                  }
                 }
               },
               "example": {
@@ -451,7 +556,9 @@
         "summary": "List departments",
         "operationId": "department-list",
         "responses": {
-          "200": { "description": "Department catalog." }
+          "200": {
+            "description": "Department catalog."
+          }
         }
       },
       "post": {
@@ -463,18 +570,28 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["department_name"],
+                "required": [
+                  "department_name"
+                ],
                 "properties": {
-                  "department_name": { "type": "string" }
+                  "department_name": {
+                    "type": "string"
+                  }
                 }
               },
-              "example": { "department_name": "総務部" }
+              "example": {
+                "department_name": "総務部"
+              }
             }
           }
         },
         "responses": {
-          "201": { "description": "Created." },
-          "409": { "description": "department_name already exists." }
+          "201": {
+            "description": "Created."
+          },
+          "409": {
+            "description": "department_name already exists."
+          }
         }
       }
     },
@@ -489,14 +606,31 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "history_id": { "type": "integer", "nullable": true },
-                  "name": { "type": "string" },
-                  "department": { "type": "string" },
-                  "slip_no": { "type": "string" },
-                  "sender_name": { "type": "string" },
-                  "sender_content": { "type": "string" },
-                  "sender_address": { "type": "string" },
-                  "model_name": { "type": "string" }
+                  "history_id": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "department": {
+                    "type": "string"
+                  },
+                  "slip_no": {
+                    "type": "string"
+                  },
+                  "sender_name": {
+                    "type": "string"
+                  },
+                  "sender_content": {
+                    "type": "string"
+                  },
+                  "sender_address": {
+                    "type": "string"
+                  },
+                  "model_name": {
+                    "type": "string"
+                  }
                 }
               },
               "example": {
@@ -513,7 +647,76 @@
           }
         },
         "responses": {
-          "201": { "description": "Created; body contains id." }
+          "201": {
+            "description": "Created; body contains id."
+          }
+        }
+      }
+    },
+    "/images": {
+      "post": {
+        "summary": "Store a scanned image and its preview",
+        "description": "Stores the original and a 320 px JPEG preview in Blob Storage (container history-images). Returns the blob paths to pass to POST /history. Called by EDS-NotifySelected.",
+        "operationId": "image-upload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "content"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "description": "Base64 image or data URI (data:image/jpeg;base64,...). Max 10 MB."
+                  },
+                  "content_type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "image_blob_path": {
+                      "type": "string"
+                    },
+                    "preview_blob_path": {
+                      "type": "string"
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "type": "integer"
+                    },
+                    "height": {
+                      "type": "integer"
+                    },
+                    "image_bytes": {
+                      "type": "integer"
+                    },
+                    "preview_bytes": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, not base64, or not an image"
+          }
         }
       }
     }
@@ -534,10 +737,10 @@
   },
   "security": [
     {
-      "apiKeyHeader": [ ]
+      "apiKeyHeader": []
     },
     {
-      "apiKeyQuery": [ ]
+      "apiKeyQuery": []
     }
   ]
 }

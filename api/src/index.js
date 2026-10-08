@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { exec, sql } = require('./db');
 const { fuzzyMatchEmployees } = require('./fuzzyMatch');
+const blobImages = require('./blobImages');
 
 /* Every route is authLevel 'function' and the app additionally restricts inbound
    traffic to the APIM gateway IP, so these handlers are never reached directly.
@@ -8,6 +9,8 @@ const { fuzzyMatchEmployees } = require('./fuzzyMatch');
 
 /* dbo.history schema:
    image_url NVARCHAR(MAX): SharePoint URL or relative path of the scanned image
+   image_blob_path / preview_blob_path NVARCHAR(500): original and 320 px preview in Blob Storage
+   employee_id NVARCHAR(50): text, like dbo.employee; some ids do not fit in INT (e.g. 10000000004)
    sender_name NVARCHAR(200), sender_content NVARCHAR(1000), sender_address NVARCHAR(500)
    status VARCHAR(20) CHECK (Unknown | Identified), default Unknown */
 const STATUSES = new Set(['Unknown', 'Identified']);
@@ -19,9 +22,9 @@ const toHistory = (row) => ({
   sender_name: row.sender_name,
   sender_content: row.sender_content,
   sender_address: row.sender_address,
-  // Coerced like history_id: the EDS-APIManagement1 Parse JSON schema expects integer | null,
-  // and a string here (e.g. a BIGINT or text column, which mssql returns as a string) fails the run.
-  employee_id: intOrNull(row.employee_id),
+  // The EDS-APIManagement1 Parse JSON schema expects integer | null, so digit-only ids
+  // (stored as text) are returned as numbers.
+  employee_id: employeeIdOut(row.employee_id),
   recipient_name: row.recipient_name,
   recipient_department_id: intOrNull(row.recipient_department_id),
   recipient_department_name: row.recipient_department_name,
@@ -32,7 +35,16 @@ const toHistory = (row) => ({
   planner_task_id: row.planner_task_id,
   created_at: row.created_at,
   updated_at: row.updated_at,
+  image_blob_path: row.image_blob_path ?? null,
+  preview_blob_path: row.preview_blob_path ?? null,
 });
+
+/** employee_id is text. Digit-only ids that are exact in JavaScript come back as numbers. */
+function employeeIdOut(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const s = String(v).trim();
+  return /^\d+$/.test(s) && Number.isSafeInteger(Number(s)) ? Number(s) : s;
+}
 
 const toEmployee = (row) => ({
   employee_id: row.employee_id,
@@ -105,7 +117,7 @@ app.http('historyList', {
     const q = request.query;
 
     const status = strOrNull(q.get('status'), 20);
-    const employeeId = intOrNull(q.get('employee_id'));
+    const employeeId = strOrNull(q.get('employee_id'), 50);
     const departmentId = intOrNull(q.get('department_id'));
     const notifiedStart = dateOrNull(q.get('notified_start'));
     const notifiedEnd = dateOrNull(q.get('notified_end'));
@@ -137,12 +149,12 @@ app.http('historyList', {
       return json(400, { error: 'delivered_end must be a valid datetime' });
     }
 
-    const rows = await exec('dbo.sp_history_list', [
+    const rows = await exec('dbo.sp_history_list_v2', [
       ['page', sql.Int, page],
       ['page_size', sql.Int, pageSize],
       ['status', sql.VarChar(20), status],
       ['department_id', sql.Int, departmentId],
-      ['employee_id', sql.Int, employeeId],
+      ['employee_id', sql.NVarChar(50), employeeId],
       ['notified_start', sql.DateTime2, notifiedStart],
       ['notified_end', sql.DateTime2, notifiedEnd],
       ['delivered_start', sql.DateTime2, deliveredStart],
@@ -157,7 +169,12 @@ app.http('historyList', {
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize),
       count: rows.length,
-      value: rows.map(toHistory),
+      // preview_url / image_blob_url: read-only links valid for BLOB_SAS_MINUTES, null without a blob.
+      value: await Promise.all(rows.map(async (row) => ({
+        ...toHistory(row),
+        image_blob_url: await blobImages.readUrl(row.image_blob_path),
+        preview_url: await blobImages.readUrl(row.preview_blob_path),
+      }))),
     });
   }),
 });
@@ -171,19 +188,21 @@ app.http('historyInsert', {
   route: 'history',
   handler: handler('historyInsert', async (request, context) => {
     const b = await request.json().catch(() => ({}));
-    const employeeId = intOrNull(b.employee_id);
+    const employeeId = strOrNull(String(b.employee_id ?? '').trim(), 50);
     const status = strOrNull(b.status, 20) || (employeeId ? 'Identified' : 'Unknown');
     if (!STATUSES.has(status)) {
       return json(400, { error: `status must be one of ${[...STATUSES].join(', ')}` });
     }
-    const rows = await exec('dbo.sp_history_insert', [
+    const rows = await exec('dbo.sp_history_insert_v2', [
       ['slip_no', sql.NVarChar(100), strOrNull(b.slip_no, 100)],
       // Not length-capped, to match the NVARCHAR(MAX) column and parameter.
       ['image_url', sql.NVarChar(sql.MAX), strOrNull(b.image_url)],
+      ['image_blob_path', sql.NVarChar(500), strOrNull(b.image_blob_path, 500)],
+      ['preview_blob_path', sql.NVarChar(500), strOrNull(b.preview_blob_path, 500)],
       ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
       ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
       ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],
-      ['employee_id', sql.Int, employeeId],
+      ['employee_id', sql.NVarChar(50), employeeId],
       ['recipient_name', sql.NVarChar(200), strOrNull(b.recipient_name, 200)],
       ['recipient_department_id', sql.Int, intOrNull(b.recipient_department_id)],
       ['recipient_department_name', sql.NVarChar(200), strOrNull(b.recipient_department_name, 200)],
@@ -194,6 +213,26 @@ app.http('historyInsert', {
     return json(201, { history_id: Number(rows[0]?.history_id) });
   }),
 });
+
+/* ------------------------------------------------- POST /api/images
+   Called by EDS-NotifySelected before POST /api/history.
+   Body: { content: "<base64 or data URI>", content_type?: "image/jpeg" }
+   Stores the original and a 320 px preview; returns image_blob_path / preview_blob_path.
+   Only registered when BLOB_ACCOUNT_URL is set (see blobImages.js). */
+if (blobImages.enabled()) {
+  app.http('imageUpload', {
+    methods: ['POST'],
+    authLevel: 'function',
+    route: 'images',
+    handler: handler('imageUpload', async (request, context) => {
+      const b = await request.json().catch(() => ({}));
+      const result = await blobImages.storeImage(b.content, strOrNull(b.content_type, 100));
+      if (result.error) return json(400, { error: result.error });
+      context.log(`imageUpload: ${result.image_blob_path} (${result.image_bytes} B), preview ${result.preview_bytes} B`);
+      return json(201, result);
+    }),
+  });
+}
 
 /* --------------------------- PATCH /api/history/{id}/planner-task
    Links the Planner task created by the flow back to the package, which is what
