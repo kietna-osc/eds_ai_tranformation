@@ -216,6 +216,7 @@
                                     "employee_id": {
                                       "type": [
                                         "integer",
+                                        "string",
                                         "null"
                                       ]
                                     },
