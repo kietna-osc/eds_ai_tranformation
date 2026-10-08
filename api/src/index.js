@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { exec, sql } = require('./db');
 const { fuzzyMatchEmployees } = require('./fuzzyMatch');
 const blobImages = require('./blobImages');
+const historyCsv = require('./historyCsv');
 
 /* Every route is authLevel 'function' and the app additionally restricts inbound
    traffic to the APIM gateway IP, so these handlers are never reached directly.
@@ -175,6 +176,43 @@ app.http('historyList', {
         image_blob_url: await blobImages.readUrl(row.image_blob_path),
         preview_url: await blobImages.readUrl(row.preview_blob_path),
       }))),
+    });
+  }),
+});
+
+/* ------------------------------------------ GET /api/history/export
+   History screen → ダウンロード. Every row, or with search_keyword only the rows
+   the screen's search shows (see historyCsv.js), as a CSV file in Blob Storage.
+   Returns a short-lived download link for the app's Download().
+   tz_offset: Power Fx TimeZoneOffset(), so the times match the screen. */
+const EXPORT_MAX_ROWS = 100000;
+
+app.http('historyExport', {
+  methods: ['GET'],
+  authLevel: 'function',
+  route: 'history/export',
+  handler: handler('historyExport', async (request, context) => {
+    if (!blobImages.enabled()) return json(503, { error: 'download is not configured (BLOB_ACCOUNT_URL)' });
+    const q = request.query;
+    const searchKeyword = strOrNull(String(q.get('search_keyword') ?? '').trim(), 200);
+    const tzOffset = historyCsv.tzOffsetOrDefault(q.get('tz_offset'));
+
+    const rows = await exec('dbo.sp_history_list_v2', [
+      ['page', sql.Int, 1],
+      ['page_size', sql.Int, EXPORT_MAX_ROWS],
+    ], context);
+    if (rows.length >= EXPORT_MAX_ROWS) context.warn(`historyExport: capped at ${EXPORT_MAX_ROWS} rows`);
+
+    const matched = historyCsv.filterRows(rows, searchKeyword);
+    const fileName = historyCsv.fileName(new Date(), tzOffset);
+    const { url, expiresOn } = await blobImages.storeExport(fileName, historyCsv.buildCsv(matched, tzOffset));
+    context.log(`historyExport: ${matched.length} of ${rows.length} rows, keyword ${searchKeyword ? 'set' : 'none'}`);
+
+    return json(200, {
+      rowCount: matched.length,
+      totalCount: rows.length,
+      searchKeyword,
+      file: { fileName, contentType: 'text/csv', url, expiresOn },
     });
   }),
 });

@@ -13,7 +13,9 @@
      BLOB_ACCOUNT_URL       https://<account>.blob.core.windows.net
      BLOB_CONTAINER         container name (default history-images)
      BLOB_SAS_MINUTES       lifetime of read links (default 60)
-     BLOB_PREVIEW_WIDTH     preview width in px (default 320) */
+     BLOB_PREVIEW_WIDTH     preview width in px (default 320)
+     BLOB_EXPORT_CONTAINER  container for History CSV downloads (default history-exports)
+     BLOB_EXPORT_SAS_MINUTES lifetime of download links (default 15) */
 
 const { randomUUID } = require('crypto');
 
@@ -25,6 +27,8 @@ const accountUrl = process.env.BLOB_ACCOUNT_URL;
 const containerName = process.env.BLOB_CONTAINER || 'history-images';
 const sasMinutes = Number(process.env.BLOB_SAS_MINUTES) || 60;
 const previewWidth = Number(process.env.BLOB_PREVIEW_WIDTH) || 320;
+const exportContainerName = process.env.BLOB_EXPORT_CONTAINER || 'history-exports';
+const exportSasMinutes = Number(process.env.BLOB_EXPORT_SAS_MINUTES) || 15;
 
 const enabled = () => Boolean(accountUrl);
 
@@ -56,17 +60,38 @@ async function delegationKey() {
 /** Read-only https link to one blob, valid for BLOB_SAS_MINUTES; null without a path. */
 async function readUrl(blobPath) {
   if (!blobPath || !enabled()) return null;
+  return signedUrl(containerName, blobPath, sasMinutes);
+}
+
+/* Signs a read-only link. With fileName, the browser saves the blob under that
+   name instead of showing it (Content-Disposition: attachment). */
+async function signedUrl(containerNameForLink, blobPath, minutes, fileName) {
   const key = await delegationKey();
   const now = Date.now();
+  const expiresOn = new Date(now + minutes * 60 * 1000);
   const sas = blob.generateBlobSASQueryParameters({
-    containerName,
+    containerName: containerNameForLink,
     blobName: blobPath,
     permissions: blob.BlobSASPermissions.parse('r'),
     startsOn: new Date(now - 5 * 60 * 1000),
-    expiresOn: new Date(now + sasMinutes * 60 * 1000),
+    expiresOn,
     protocol: blob.SASProtocol.Https,
+    ...(fileName ? { contentDisposition: `attachment; filename="${fileName}"` } : {}),
   }, key, new URL(accountUrl).hostname.split('.')[0]);
-  return `${container().getBlobClient(blobPath).url}?${sas.toString()}`;
+  const url = `${service().getContainerClient(containerNameForLink).getBlobClient(blobPath).url}?${sas.toString()}`;
+  return fileName ? { url, expiresOn } : url;
+}
+
+/** Stores a CSV download (fileName must be ASCII) and returns { url, expiresOn }:
+ *  a read-only link valid for BLOB_EXPORT_SAS_MINUTES. The container is private;
+ *  a lifecycle rule on the storage account removes old files. */
+async function storeExport(fileName, text) {
+  const now = new Date();
+  const folder = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  const blobPath = `${folder}/${randomUUID()}/${fileName}`;
+  await service().getContainerClient(exportContainerName).getBlockBlobClient(blobPath)
+    .uploadData(Buffer.from(text, 'utf8'), { blobHTTPHeaders: { blobContentType: 'text/csv; charset=utf-8' } });
+  return signedUrl(exportContainerName, blobPath, exportSasMinutes, fileName);
 }
 
 /** Accepts plain base64 or a data URI; returns { buffer, mime } or { error }. */
@@ -130,4 +155,4 @@ async function storeImage(content, contentType) {
   };
 }
 
-module.exports = { enabled, readUrl, storeImage };
+module.exports = { enabled, readUrl, storeImage, storeExport };
