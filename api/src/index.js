@@ -1,8 +1,11 @@
 const { app } = require('@azure/functions');
-const { exec, sql } = require('./db');
+const { exec, sql, isRetryable } = require('./db');
 const { fuzzyMatchEmployees } = require('./fuzzyMatch');
 const blobImages = require('./blobImages');
 const historyCsv = require('./historyCsv');
+const { CsvParseError } = require('./csv');
+const { message } = require('./messages');
+const employeeCsv = require('./employeeCsv');
 
 /* Every route is authLevel 'function' and the app additionally restricts inbound
    traffic to the APIM gateway IP, so these handlers are never reached directly.
@@ -27,7 +30,7 @@ const toHistory = (row) => ({
   // (stored as text) are returned as numbers.
   employee_id: employeeIdOut(row.employee_id),
   recipient_name: row.recipient_name,
-  recipient_department_id: intOrNull(row.recipient_department_id),
+  recipient_department_id: row.recipient_department_id,
   recipient_department_name: row.recipient_department_name,
   status: row.status,
   notified_at: row.notified_at,
@@ -85,6 +88,41 @@ const json = (status, body) => ({
   jsonBody: body,
   headers: { 'Cache-Control': 'no-store' },
 });
+
+/* ------------------------------------------------- keyword search
+   The list procedures cannot be changed for now, so keyword search runs here:
+   fetch every row matching the SQL filters, filter by keyword, then page.
+   Paging is always the last step, so totalCount / totalPages describe the
+   keyword matches. */
+const FETCH_ALL = 100000;
+
+const pageBody = (page, pageSize, totalCount, value) => ({
+  page,
+  pageSize,
+  totalCount,
+  totalPages: Math.ceil(totalCount / pageSize),
+  count: value.length,
+  value,
+});
+
+const paginate = (rows, page, pageSize) =>
+  rows.slice((page - 1) * pageSize, page * pageSize);
+
+// NFKC (full-width -> half-width), case-insensitive, whitespace ignored, so
+// "林健太" matches "林 健太" and "２０２６" matches "2026".
+const normalizeSearch = (v) =>
+  String(v ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+
+const matchesKeyword = (keyword, fields) =>
+  fields.some((f) => normalizeSearch(f).includes(keyword));
+
+// Employee: 社員番号, 社員氏名, Eメール, 部署.
+const employeeMatches = (keyword) => (row) => matchesKeyword(keyword, [
+  row.employee_code,
+  row.full_name,
+  row.email,
+  row.department_name,
+]);
 
 /** Wraps a handler so an unexpected failure never leaks SQL detail to the client. */
 const handler = (name, fn) => async (request, context) => {
@@ -323,7 +361,9 @@ app.http('historySetDelivered', {
 
 /* ------------------------------------- GET /api/employees
    Employee page with server-side pagination, same shape as historyList.
-   department_id filters by department; search_keyword matches name, department, or email. */
+   department_id filters by department; search_keyword is a contains match on
+   社員番号 (employee_code), 社員氏名 (full_name), Eメール (email) and 部署
+   (department_name). Other columns do not match. */
 app.http('employeeList', {
   methods: ['GET'],
   authLevel: 'function',
@@ -332,7 +372,7 @@ app.http('employeeList', {
     const q = request.query;
 
     const departmentId = intOrNull(q.get('department_id'));
-    const searchKeyword = strOrNull(q.get('search_keyword'), 200);
+    const keyword = normalizeSearch(q.get('search_keyword'));
 
     const pageSize = clampTop(q.get('pageSize'), 50, 200);
 
@@ -341,23 +381,86 @@ app.http('employeeList', {
       ? pageValue
       : 1;
 
-    const rows = await exec('dbo.sp_employee_list', [
-      ['page', sql.Int, page],
-      ['page_size', sql.Int, pageSize],
+    if (!keyword) {
+      const rows = await exec('dbo.sp_employee_list', [
+        ['page', sql.Int, page],
+        ['page_size', sql.Int, pageSize],
+        ['department_id', sql.Int, departmentId],
+        ['search_keyword', sql.NVarChar(200), null],
+      ], context);
+      const totalCount = Number(rows[0]?.total_count ?? 0);
+      return json(200, pageBody(page, pageSize, totalCount, rows.map(toEmployee)));
+    }
+
+    // Keyword: the procedure's own keyword match is prefix-only on employee_code,
+    // so fetch every row (same order), match here, then page.
+    const all = await exec('dbo.sp_employee_list', [
+      ['page', sql.Int, 1],
+      ['page_size', sql.Int, FETCH_ALL],
       ['department_id', sql.Int, departmentId],
-      ['search_keyword', sql.NVarChar(200), searchKeyword],
+      ['search_keyword', sql.NVarChar(200), null],
     ], context);
+    if (all.length >= FETCH_ALL) context.warn(`employeeList: keyword search capped at ${FETCH_ALL} rows`);
+    const matched = all.filter(employeeMatches(keyword));
+    return json(200, pageBody(page, pageSize, matched.length,
+      paginate(matched, page, pageSize).map(toEmployee)));
+  }),
+});
 
-    const totalCount = Number(rows[0]?.total_count ?? 0);
+/* ------------------------------------ POST /api/employees/import
+   CSV import (messages 51-56). Body: { "csv": "<file text>" } or
+   { "csv_base64": "<file content>" }. Columns: 社員番号,社員氏名,メール,部署.
+   Each row is validated on its own; valid rows are upserted by employee_code
+   (existing code -> updated, new code -> inserted) in one transaction, invalid
+   rows are skipped and returned as errorFile.
+     200  some or all rows written: messages 51 or 52, plus 54 when codes were updated
+     413  file too large / too many rows: message 55
+     422  every row invalid, nothing written: message 53
+     503  connection lost while writing, transaction rolled back: message 56
+     400  not a readable CSV or a required column is missing (no message id yet) */
+app.http('employeeImport', {
+  methods: ['POST'],
+  authLevel: 'function',
+  route: 'employees/import',
+  handler: handler('employeeImport', async (request, context) => {
+    const b = await request.json().catch(() => ({}));
+    const csvText = typeof b.csv === 'string'
+      ? b.csv
+      : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : null;
+    if (!csvText) return json(400, { error: 'csv or csv_base64 is required' });
+    if (employeeCsv.tooLarge(csvText)) return json(413, { success: false, messages: [message(55)] });
 
-    return json(200, {
-      page,
-      pageSize,
-      totalCount,
-      totalPages: Math.ceil(totalCount / pageSize),
-      count: rows.length,
-      value: rows.map(toEmployee),
-    });
+    let checked;
+    try {
+      checked = employeeCsv.validateImport(csvText);
+    } catch (e) {
+      if (e instanceof CsvParseError || e instanceof employeeCsv.ImportFormatError) {
+        return json(400, { error: `invalid CSV: ${e.message}` });
+      }
+      throw e;
+    }
+    if (employeeCsv.tooManyRows(checked.total)) return json(413, { success: false, messages: [message(55)] });
+    if (!checked.valid.length) return json(422, employeeCsv.importResult(checked, []));
+
+    let upserted;
+    try {
+      upserted = await exec('dbo.sp_employee_upsert', [
+        ['rows', sql.NVarChar(sql.MAX), JSON.stringify(checked.valid.map((r) => ({
+          employee_code: r.employee_code,
+          full_name: r.full_name,
+          email: r.email,
+          department_name: r.department_name,
+        })))],
+      ], context);
+    } catch (e) {
+      // The procedure runs with XACT_ABORT in one transaction, so nothing was kept.
+      if (isRetryable(e)) {
+        context.error(`employeeImport: connection lost, rolled back: ${e.message}`);
+        return json(503, { success: false, messages: [message(56)] });
+      }
+      throw e;
+    }
+    return json(200, employeeCsv.importResult(checked, upserted));
   }),
 });
 

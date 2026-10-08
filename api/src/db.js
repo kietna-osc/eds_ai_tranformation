@@ -57,4 +57,4 @@ async function exec(procName, params = [], log) {
   throw lastErr;
 }
 
-module.exports = { exec, sql };
+module.exports = { exec, sql, isRetryable };
