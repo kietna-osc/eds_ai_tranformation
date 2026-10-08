@@ -86,6 +86,34 @@ srcEmployeeList As screen:
         Font: =Font.'Segoe UI'
         FontWeight: =FontWeight.Bold
         Height: =App.Height * .048
+        OnSelect: |-
+            =If(
+                IsEmpty(attEmpCsv.Attachments),
+                Notify("インポートするCSVファイルを選択してください", NotificationType.Warning),
+                !EndsWith(Lower(First(attEmpCsv.Attachments).Name), ".csv"),
+                Notify("CSVファイル (.csv) を選択してください", NotificationType.Error),
+                Set(varEmpLoading, true);
+                With(
+                    {res: IfError('EDS-EmployeeImport'.Run({contentBytes: First(attEmpCsv.Attachments).Value, name: First(attEmpCsv.Attachments).Name}), Blank())},
+                    With(
+                        {body: IfError(ParseJSON(res.response), Blank())},
+                        If(
+                            IsBlank(res) || IsBlank(body),
+                            Notify("インポートに失敗しました。時間をおいて再度お試しください。", NotificationType.Error),
+                            !IsBlank(Text(body.error)),
+                            Notify("CSVファイルの形式が正しくありません: " & Text(body.error), NotificationType.Error),
+                            Notify(
+                                Concat(Table(body.messages), Text(ThisRecord.Value.text), Char(10)),
+                                If(Boolean(body.success), NotificationType.Success, NotificationType.Error)
+                            )
+                        )
+                    )
+                );
+                Set(varEmpLoading, false);
+                Reset(attEmpCsv);
+                Set(gblPage, 1);
+                Select(btnEmpFetch)
+            )
         Size: =App.Height * 0.015
         Text: ="社員リストインポート"
         Visible: =!gblIsMobile
@@ -641,4 +669,41 @@ srcEmployeeList As screen:
         X: =App.Width * .405
         Y: =App.Height * .117
         ZIndex: =28
+
+    attEmpCsv As attachments:
+        AccessibleLabel: ="インポートするCSVファイル"
+        AddAttachmentText: ="CSVファイルを選択"
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Color: =RGBA(50, 49, 48, 1)
+        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+        DisabledColor: =RGBA(161, 159, 157, 1)
+        DisabledFill: =RGBA(242, 242, 241, 0)
+        DisplayMode: =If(varEmpLoading, DisplayMode.Disabled, DisplayMode.Edit)
+        FocusedBorderThickness: =2
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * .055
+        HoverColor: =RGBA(50, 49, 48, 1)
+        HoverFill: =RGBA(245, 245, 245, 1)
+        ItemColor: =RGBA(255, 255, 255, 1)
+        ItemFill: =RGBA(0, 102, 204, 1)
+        ItemHoverColor: =RGBA(50, 49, 48, 1)
+        ItemHoverFill: =RGBA(245, 245, 245, 1)
+        ItemSpacing: =4
+        MaxAttachments: =1
+        NoAttachmentsColor: =RGBA(161, 159, 157, 1)
+        NoAttachmentsText: =""
+        PaddingBottom: =2
+        PaddingLeft: =4
+        PaddingRight: =4
+        PaddingTop: =2
+        PressedColor: =RGBA(255, 255, 255, 1)
+        PressedFill: =RGBA(0, 102, 204, 1)
+        Size: =App.Height * 0.014
+        Tooltip: ="社員リストのCSVファイル (社員番号,社員氏名,メール,部署)"
+        Visible: =!gblIsMobile
+        Width: =App.Width * .24
+        X: =App.Width * .50
+        Y: =App.Height * .1135
+        ZIndex: =29
 
