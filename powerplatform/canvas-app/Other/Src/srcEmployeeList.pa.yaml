@@ -17,7 +17,7 @@ Screens:
         // 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
         Set(varEmpLoading, true);
         // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
-        Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
+        Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
         If(
             IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
             Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
@@ -72,7 +72,7 @@ Screens:
             Font: =Font.'Segoe UI'
             Height: =App.Height * .048
             OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
-            Placeholder: ="社員番号・社員氏名・Eメール・部署で検索..."
+            Placeholder: ="社員番号・社員氏名・Eメール・部署・登録日・更新日で検索..."
             Required: =
             TriggerOutput: =
             Type: =TextInputType.Search
@@ -147,7 +147,7 @@ Screens:
             Font: =Font.'Segoe UI'
             Height: =App.Height * 0.052
             OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
-            Placeholder: ="社員番号・社員氏名・Eメール・部署で検索..."
+            Placeholder: ="社員番号・社員氏名・Eメール・部署・登録日・更新日で検索..."
             Required: =
             TriggerOutput: =
             Type: =TextInputType.Search
@@ -686,7 +686,7 @@ Screens:
               =// 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
               Set(varEmpLoading, true);
               // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
-              Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
+              Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
               If(
                   IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
                   Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),

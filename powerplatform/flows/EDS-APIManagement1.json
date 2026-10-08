@@ -647,6 +647,12 @@
                               },
                               "pageSize": {
                                 "type": "integer"
+                              },
+                              "tz_offset": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
                               }
                             }
                           }
@@ -669,7 +675,8 @@
                             "pageSize": "@{coalesce(body('Parse_list_params_1')?['pageSize'], body('Parse_list_params_1')?['page_size'])}",
                             "page": "@{body('Parse_list_params_1')?['page']}",
                             "department_id": "@{body('Parse_list_params_1')?['department_id']}",
-                            "search_keyword": "@{body('Parse_list_params_1')?['search_keyword']}"
+                            "search_keyword": "@{body('Parse_list_params_1')?['search_keyword']}",
+                            "tz_offset": "@{body('Parse_list_params_1')?['tz_offset']}"
                           },
                           "retryPolicy": {
                             "type": "exponential",

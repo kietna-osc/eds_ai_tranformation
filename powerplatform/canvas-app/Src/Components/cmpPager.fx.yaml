@@ -437,7 +437,7 @@ cmpPager As CanvasComponent:
                 Set(varHistLoading, false),
                 "employee",
                 Set(varEmpLoading, true);
-                Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
+                Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
                 If(
                     IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
                     Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
