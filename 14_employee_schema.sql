@@ -66,6 +66,8 @@ EXEC (N'CREATE INDEX IX_employee_department_id ON dbo.employee (department_id)
 -- the same rule as sp_employee_upsert.
 SELECT b.employee_id                          AS old_id,
        TRY_CONVERT(INT, b.employee_id)        AS old_int,
+       CASE WHEN TRY_CONVERT(INT, b.employee_id) > 0
+             AND b.employee_id = CAST(TRY_CONVERT(INT, b.employee_id) AS NVARCHAR(50)) THEN 1 ELSE 0 END AS keep_id,
        b.full_name, b.department_name, NULLIF(LTRIM(RTRIM(b.email)), N'') AS email,
        b.created_at, b.updated_at,
        (SELECT TOP 1 d.department_id FROM dbo.department d
@@ -81,7 +83,7 @@ INSERT dbo.employee (employee_id, employee_code, full_name, name_normalized, dep
                      email, is_active, created_at, updated_at)
 SELECT old_int, old_id, full_name, full_name, department_id, department_name, email, 1, created_at, updated_at
 FROM #src
-WHERE old_int > 0 AND old_id = CAST(old_int AS NVARCHAR(50));
+WHERE keep_id = 1;
 SET IDENTITY_INSERT dbo.employee OFF;');
 
 -- Everything else (e.g. 10000000004, test-3) gets the next free number.
@@ -89,7 +91,7 @@ EXEC (N'INSERT dbo.employee (employee_code, full_name, name_normalized, departme
                      email, is_active, created_at, updated_at)
 SELECT old_id, full_name, full_name, department_id, department_name, email, 1, created_at, updated_at
 FROM #src
-WHERE NOT (old_int > 0 AND old_id = CAST(old_int AS NVARCHAR(50)))
+WHERE keep_id = 0
 ORDER BY old_id;');
 
 IF (SELECT COUNT(*) FROM dbo.employee) <> (SELECT COUNT(*) FROM dbo.employee_backup_20261008)
@@ -97,6 +99,15 @@ IF (SELECT COUNT(*) FROM dbo.employee) <> (SELECT COUNT(*) FROM dbo.employee_bac
 
 DROP TABLE #src;
 COMMIT;
+GO
+
+-- Stop here if the copy above did not complete: SET NOEXEC ON makes the remaining
+-- batches compile only, so nothing below changes the old table or its procedures.
+IF COL_LENGTH('dbo.employee', 'employee_code') IS NULL
+BEGIN
+    RAISERROR('The employee copy did not complete; the remaining steps were not run.', 16, 1);
+    SET NOEXEC ON;
+END
 GO
 
 CREATE TRIGGER dbo.TR_employee_updated_at ON dbo.employee AFTER UPDATE AS
@@ -334,3 +345,6 @@ UNION ALL SELECT 'kept their old number', CAST(COUNT(*) AS NVARCHAR(50)) FROM db
 UNION ALL SELECT 'new number (non-numeric or too large old id)', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE employee_code <> CAST(employee_id AS NVARCHAR(50))
 UNION ALL SELECT 'with department_id', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE department_id IS NOT NULL
 UNION ALL SELECT 'backup rows', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee_backup_20261008;
+GO
+
+SET NOEXEC OFF;
