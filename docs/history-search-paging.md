@@ -1,6 +1,6 @@
 # History screen: download one page at a time when searching
 
-Status: **proposed, not implemented.** This page describes the current behaviour and what needs to change.
+Status: **implemented 2026-10-08** (branch `feature/history-search`), in the function instead of SQL: `historyList` takes `search_keyword` (and `tz_offset`), filters with `api/src/historySearch.js` (伝票番号, 受取人, 処理状況, データ区分, 通知日時; NFKC, case and spaces ignored; date keywords), then pages. The CSV download uses the same matcher. The text below describes the situation before.
 
 Written while the base64 variant was live (see `docs/SETUP.md` → "Base64 variant"). With SharePoint URLs in `image_url`, rows are small, so a search that downloads every row is cheap today. The change becomes necessary again if base64 is turned back on, or once the table grows large.
 

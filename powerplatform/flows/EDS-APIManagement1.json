@@ -115,6 +115,18 @@
                               },
                               "pageSize": {
                                 "type": "integer"
+                              },
+                              "search_keyword": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "tz_offset": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
                               }
                             }
                           }
@@ -138,7 +150,9 @@
                             "page": "@{body('Parse_list_params')?['page']}",
                             "status": "@{body('Parse_list_params')?['status']}",
                             "employee_id": "@{body('Parse_list_params')?['employee_id']}",
-                            "department_id": "@{body('Parse_list_params')?['department_id']}"
+                            "department_id": "@{body('Parse_list_params')?['department_id']}",
+                            "search_keyword": "@{body('Parse_list_params')?['search_keyword']}",
+                            "tz_offset": "@{body('Parse_list_params')?['tz_offset']}"
                           },
                           "retryPolicy": {
                             "type": "exponential",

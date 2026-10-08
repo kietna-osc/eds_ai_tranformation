@@ -16,29 +16,13 @@ Screens:
         Set(varHistSearch, Trim(Coalesce(txtHistSearch.Text, txtHistMSearch.Text)));
         // 履歴の取得
         //   検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
-        //   検索語あり: historyList にキーワード条件が無いため、全ページ (200 件ずつ) を取得して画面側で絞り込み・ページング
+        //   検索語あり: サーバー側で絞り込み (伝票番号・受取人・処理状況・データ区分・通知日時) してページング
         Set(varHistLoading, true);
+        Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varHistSearch), "", ",""search_keyword"":" & JSON(varHistSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "historyList").response, ":null", ":"""""), ""));
         If(
-            IsBlank(varHistSearch),
-            Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""), ""));
-            If(
-                IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
-                ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
-            ),
-            Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":1,""pageSize"":200}", "historyList").response, ":null", ":"""""), ""));
-            If(
-                IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory),
-                ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)}));
-                ForAll(
-                    Sequence(Max(0, Value(ParseJSON(varHistRaw).totalPages) - 1), 2) As pg,
-                    With(
-                        {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & pg.Value & ",""pageSize"":200}", "historyList").response, ":null", ":"""""), "")},
-                        If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colHistory, ForAll(Table(ParseJSON(pageRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})))
-                    )
-                )
-            )
+            IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+            Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+            ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
         );
         Set(varHistLoading, false);
 
@@ -440,13 +424,7 @@ Screens:
             DelayItemLoading: =false
             Height: =App.Height * .60
             Items: |-
-              =If(
-                  IsBlank(varHistSearch),
-                  // サーバー側ページング: colHistory は現在のページ分だけ
-                  ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})),
-                  // 検索語あり: 全件から絞り込んで画面側でページング
-                  With({rows: Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize))
-              )
+              =ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
             LoadingSpinner: =LoadingSpinner.None
             TemplatePadding: =0
             TemplateSize: =App.Height * .11
@@ -675,13 +653,7 @@ Screens:
             DelayItemLoading: =false
             Height: =App.Height * 0.50
             Items: |-
-              =If(
-                  IsBlank(varHistSearch),
-                  // サーバー側ページング: colHistory は現在のページ分だけ
-                  ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})),
-                  // 検索語あり: 全件から絞り込んで画面側でページング
-                  With({rows: Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize))
-              )
+              =ForAll(Sequence(CountRows(colHistory)) As seq, Patch(Index(colHistory, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
             LoadingSpinner: =LoadingSpinner.None
             TemplatePadding: =0
             TemplateSize: =App.Height * 0.155
@@ -1211,29 +1183,13 @@ Screens:
             OnSelect: |-
               =// 履歴の取得
               //   検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
-              //   検索語あり: historyList にキーワード条件が無いため、全ページ (200 件ずつ) を取得して画面側で絞り込み・ページング
+              //   検索語あり: サーバー側で絞り込み (伝票番号・受取人・処理状況・データ区分・通知日時) してページング
               Set(varHistLoading, true);
+              Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varHistSearch), "", ",""search_keyword"":" & JSON(varHistSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "historyList").response, ":null", ":"""""), ""));
               If(
-                  IsBlank(varHistSearch),
-                  Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""), ""));
-                  If(
-                      IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                      Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
-                      ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
-                  ),
-                  Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":1,""pageSize"":200}", "historyList").response, ":null", ":"""""), ""));
-                  If(
-                      IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                      Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory),
-                      ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)}));
-                      ForAll(
-                          Sequence(Max(0, Value(ParseJSON(varHistRaw).totalPages) - 1), 2) As pg,
-                          With(
-                              {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & pg.Value & ",""pageSize"":200}", "historyList").response, ":null", ":"""""), "")},
-                              If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colHistory, ForAll(Table(ParseJSON(pageRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})))
-                          )
-                      )
-                  )
+                  IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                  Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+                  ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
               );
               Set(varHistLoading, false)
             Size: =App.Height * 0.015

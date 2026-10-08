@@ -268,7 +268,7 @@ cmpPager As CanvasComponent:
             Text(
                 Switch(
                     varActiveTab,
-                    "history", If(IsBlank(varHistSearch), varHistTotal, CountRows(Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType)))),
+                    "history", varHistTotal,
                     "employee", varEmpTotal,
                     0
                 ),
@@ -427,18 +427,14 @@ cmpPager As CanvasComponent:
             Switch(
                 varActiveTab,
                 "history",
-                // 検索語ありは全件取得済み (画面側ページング) なので取り直さない
+                Set(varHistLoading, true);
+                Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varHistSearch), "", ",""search_keyword"":" & JSON(varHistSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "historyList").response, ":null", ":"""""), ""));
                 If(
-                    IsBlank(varHistSearch),
-                    Set(varHistLoading, true);
-                    Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "historyList").response, ":null", ":"""""), ""));
-                    If(
-                        IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                        Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
-                        ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
-                    );
-                    Set(varHistLoading, false)
-                ),
+                    IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                    Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
+                    ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
+                );
+                Set(varHistLoading, false),
                 "employee",
                 Set(varEmpLoading, true);
                 Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
