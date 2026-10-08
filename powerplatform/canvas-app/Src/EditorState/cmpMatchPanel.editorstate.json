@@ -2789,7 +2789,7 @@
       "MetaDataIDKey": "",
       "Name": "conCCBtnRow",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 15,
+      "ParentIndex": 1,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3101,7 +3101,7 @@
       "MetaDataIDKey": "",
       "Name": "conMatchBtnRow",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 14,
+      "ParentIndex": 15,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3669,7 +3669,7 @@
       "MetaDataIDKey": "",
       "Name": "conSearchWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 11,
+      "ParentIndex": 12,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3981,7 +3981,7 @@
       "MetaDataIDKey": "",
       "Name": "conSlipLabelWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 1,
+      "ParentIndex": 3,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -4293,7 +4293,7 @@
       "MetaDataIDKey": "",
       "Name": "conTableHeader",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 12,
+      "ParentIndex": 13,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -4605,7 +4605,7 @@
       "MetaDataIDKey": "",
       "Name": "conTableWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 13,
+      "ParentIndex": 14,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -5282,7 +5282,7 @@
       "MetaDataIDKey": "",
       "Name": "lblAssignRecipient",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 10,
+      "ParentIndex": 11,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -7530,7 +7530,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldContents",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 4,
+      "ParentIndex": 5,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -7914,7 +7914,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldDept",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 8,
+      "ParentIndex": 9,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -8298,7 +8298,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldSender",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 6,
+      "ParentIndex": 7,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -9017,7 +9017,7 @@
       "MetaDataIDKey": "",
       "Name": "lblMatchPanelTitle",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 0,
+      "ParentIndex": 2,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -12406,7 +12406,7 @@
       "MetaDataIDKey": "",
       "Name": "lblSlipRequired",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 3,
+      "ParentIndex": 0,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -13480,7 +13480,7 @@
       "MetaDataIDKey": "",
       "Name": "txtDeliverySlip",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 2,
+      "ParentIndex": 4,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -13823,7 +13823,7 @@
       "MetaDataIDKey": "",
       "Name": "txtPackageContents",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 9,
+      "ParentIndex": 10,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -14460,7 +14460,7 @@
       "MetaDataIDKey": "",
       "Name": "txtSenderCompany",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 5,
+      "ParentIndex": 6,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -14803,7 +14803,7 @@
       "MetaDataIDKey": "",
       "Name": "txtSenderName",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 7,
+      "ParentIndex": 8,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {

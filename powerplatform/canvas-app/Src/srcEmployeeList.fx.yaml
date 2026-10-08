@@ -7,29 +7,12 @@ srcEmployeeList As screen:
         Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));
         // 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
         Set(varEmpLoading, true);
+        // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
+        Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
         If(
-            IsBlank(varEmpSearch),
-            // 検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
-            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "employeeList").response, ":null", ":"""""), ""));
-            If(
-                IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-            ),
-            // 検索語あり: 全件 (200 件ずつ) を取得して画面側で絞り込み・ページング (履歴画面と同じ)
-            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":200}", "employeeList").response, ":null", ":"""""), ""));
-            If(
-                IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees),
-                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))}));
-                ForAll(
-                    Sequence(Max(0, Value(ParseJSON(varEmpRaw).totalPages) - 1), 2) As pg,
-                    With(
-                        {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & pg.Value & ",""pageSize"":200}", "employeeList").response, ":null", ":"""""), "")},
-                        If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colEmployees, ForAll(Table(ParseJSON(pageRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})))
-                    )
-                )
-            )
+            IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+            Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+            ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
         );
         Set(varEmpLoading, false)
 
@@ -308,7 +291,7 @@ srcEmployeeList As screen:
         BorderColor: =RGBA(0, 0, 0, 0)
         Height: =App.Height * .60
         Items: |-
-            =If(IsBlank(varEmpSearch), ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})), With({rows: Filter(colEmployees, Lower(varEmpSearch) in Lower(empId & " " & name & " " & email & " " & dept))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize)))
+            =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
         Layout: =Layout.Vertical
         TemplatePadding: =0
         TemplateSize: =App.Height * .07
@@ -470,7 +453,7 @@ srcEmployeeList As screen:
         BorderColor: =RGBA(0, 0, 0, 0)
         Height: =App.Height * 0.50
         Items: |-
-            =If(IsBlank(varEmpSearch), ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})), With({rows: Filter(colEmployees, Lower(varEmpSearch) in Lower(empId & " " & name & " " & email & " " & dept))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize)))
+            =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
         Layout: =Layout.Vertical
         TemplatePadding: =0
         TemplateSize: =App.Height * 0.125
@@ -637,29 +620,12 @@ srcEmployeeList As screen:
         OnSelect: |-
             =// 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
             Set(varEmpLoading, true);
+            // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
+            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
             If(
-                IsBlank(varEmpSearch),
-                // 検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
-                Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "employeeList").response, ":null", ":"""""), ""));
-                If(
-                    IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                    Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                    ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-                ),
-                // 検索語あり: 全件 (200 件ずつ) を取得して画面側で絞り込み・ページング (履歴画面と同じ)
-                Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":200}", "employeeList").response, ":null", ":"""""), ""));
-                If(
-                    IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                    Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees),
-                    ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))}));
-                    ForAll(
-                        Sequence(Max(0, Value(ParseJSON(varEmpRaw).totalPages) - 1), 2) As pg,
-                        With(
-                            {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & pg.Value & ",""pageSize"":200}", "employeeList").response, ":null", ":"""""), "")},
-                            If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colEmployees, ForAll(Table(ParseJSON(pageRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})))
-                        )
-                    )
-                )
+                IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
             );
             Set(varEmpLoading, false)
         Size: =App.Height * 0.015

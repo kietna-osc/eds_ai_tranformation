@@ -269,7 +269,7 @@ cmpPager As CanvasComponent:
                 Switch(
                     varActiveTab,
                     "history", If(IsBlank(varHistSearch), varHistTotal, CountRows(Filter(colHistory, IsBlank(varHistSearch) || Lower(varHistSearch) in Lower(slip & " " & recipient & " " & status & " " & dataType)))),
-                    "employee", If(IsBlank(varEmpSearch), varEmpTotal, CountRows(Filter(colEmployees, Lower(varEmpSearch) in Lower(empId & " " & name & " " & email & " " & dept)))),
+                    "employee", varEmpTotal,
                     0
                 ),
                 "[$-en-US]0"
@@ -440,18 +440,14 @@ cmpPager As CanvasComponent:
                     Set(varHistLoading, false)
                 ),
                 "employee",
-                // 検索語ありは全件取得済み (画面側ページング) なので取り直さない
+                Set(varEmpLoading, true);
+                Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
                 If(
-                    IsBlank(varEmpSearch),
-                    Set(varEmpLoading, true);
-                    Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "employeeList").response, ":null", ":"""""), ""));
-                    If(
-                        IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                        Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                        ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-                    );
-                    Set(varEmpLoading, false)
-                )
+                    IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                    Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                    ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+                );
+                Set(varEmpLoading, false)
             )
         Size: =App.Height * 0.018
         Text: ="›"

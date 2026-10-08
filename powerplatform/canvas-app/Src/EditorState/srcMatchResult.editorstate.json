@@ -657,7 +657,7 @@
       "MetaDataIDKey": "",
       "Name": "cmpBottomNav_Match",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 4,
+      "ParentIndex": 5,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -834,7 +834,7 @@
       "MetaDataIDKey": "",
       "Name": "cmpMatchPanel_1",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 2,
+      "ParentIndex": 4,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -1038,7 +1038,7 @@
       "MetaDataIDKey": "",
       "Name": "conMatchImgMask",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 1,
+      "ParentIndex": 0,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -1918,7 +1918,7 @@
       "MetaDataIDKey": "",
       "Name": "conMatchWorkspace",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 1,
+      "ParentIndex": 2,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3345,7 +3345,7 @@
       "MetaDataIDKey": "",
       "Name": "conNotifySuccessOverlay",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 5,
+      "ParentIndex": 1,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -6228,7 +6228,7 @@
       "MetaDataIDKey": "",
       "Name": "sldMatchPanX",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 0,
+      "ParentIndex": 2,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -6335,7 +6335,7 @@
       "MetaDataIDKey": "",
       "Name": "sldMatchPanY",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 2,
+      "ParentIndex": 1,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
