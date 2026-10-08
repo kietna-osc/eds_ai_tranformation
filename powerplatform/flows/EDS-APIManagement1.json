@@ -315,6 +315,12 @@
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
                               }
                             },
                             "additionalProperties": {}
@@ -483,6 +489,12 @@
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
                               }
                             },
                             "additionalProperties": {}
@@ -561,6 +573,12 @@
                               },
                               "action": {
                                 "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
@@ -770,6 +788,12 @@
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
                               }
                             },
                             "additionalProperties": {}
@@ -793,7 +817,7 @@
                           "schema": {
                             "type": "object",
                             "properties": {
-                              "history_id": {
+                              "employee_id": {
                                 "type": "integer"
                               }
                             }
@@ -808,7 +832,7 @@
                         },
                         "type": "Http",
                         "inputs": {
-                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees/@{body('Parse_delete_employee')?['history_id']}",
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees/@{body('Parse_delete_employee')?['employee_id']}",
                           "method": "DELETE",
                           "headers": {
                             "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
@@ -841,6 +865,12 @@
                               },
                               "response": {
                                 "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
@@ -948,6 +978,12 @@
                               },
                               "response": {
                                 "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
@@ -1111,6 +1147,12 @@
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
                               }
                             },
                             "additionalProperties": {}
@@ -1159,7 +1201,7 @@
                       },
                       "Parse_JSON_5": {
                         "runAfter": {
-                          "List_department": [
+                          "Respond_to_a_Power_App_or_flow_6_1": [
                             "Succeeded"
                           ]
                         },
@@ -1219,6 +1261,12 @@
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
                               }
                             },
                             "additionalProperties": {}
@@ -1227,6 +1275,45 @@
                           "body": {
                             "action": "@{triggerBody()?['text_2']}",
                             "response": "@{body('Parse_JSON_5')}"
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_6_1": {
+                        "runAfter": {
+                          "List_department": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "error": "履歴一覧を読み込めませんでした。もう一度お試しください。"
                           }
                         }
                       }
@@ -1293,6 +1380,12 @@
                               },
                               "response": {
                                 "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
                                 "type": "string",
                                 "x-ms-content-hint": "TEXT",
                                 "x-ms-dynamically-added": true
