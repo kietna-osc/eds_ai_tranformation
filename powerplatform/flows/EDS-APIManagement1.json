@@ -495,6 +495,87 @@
                         }
                       }
                     }
+                  },
+                  "historyExport": {
+                    "case": "historyExport",
+                    "actions": {
+                      "Parse_export_params": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "search_keyword": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "tz_offset": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Export_history": {
+                        "runAfter": {
+                          "Parse_export_params": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/history/export",
+                          "method": "GET",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "queries": {
+                            "search_keyword": "@{coalesce(body('Parse_export_params')?['search_keyword'], '')}",
+                            "tz_offset": "@{coalesce(body('Parse_export_params')?['tz_offset'], -540)}"
+                          }
+                        }
+                      },
+                      "Respond_export": {
+                        "runAfter": {
+                          "Export_history": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "response": "@{body('Export_history')}",
+                            "action": "@{triggerBody()?['text_2']}"
+                          }
+                        }
+                      }
+                    }
                   }
                 },
                 "default": {

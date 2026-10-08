@@ -130,6 +130,16 @@ Screens:
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * .048
+            OnSelect: |-
+                =With(
+                    {raw: IfError('EDS-APIManagement1'.Run("history", JSON({search_keyword: Coalesce(varHistSearch, ""), tz_offset: TimeZoneOffset()}), "historyExport").response, "")},
+                    If(
+                        IsBlank(raw) || Left(raw, 8) = "{""error""",
+                        Notify("ダウンロードに失敗しました", NotificationType.Error),
+                        Notify(Text(ParseJSON(raw).rowCount) & " 件をダウンロードします", NotificationType.Success);
+                        Download(Text(ParseJSON(raw).file.url))
+                    )
+                )
             Size: =App.Height * 0.015
             Text: ="ダウンロード"
             Visible: =!gblIsMobile
@@ -201,6 +211,16 @@ Screens:
             Font: =Font.'Segoe UI'
             FontWeight: =FontWeight.Bold
             Height: =App.Height * 0.048
+            OnSelect: |-
+                =With(
+                    {raw: IfError('EDS-APIManagement1'.Run("history", JSON({search_keyword: Coalesce(varHistSearch, ""), tz_offset: TimeZoneOffset()}), "historyExport").response, "")},
+                    If(
+                        IsBlank(raw) || Left(raw, 8) = "{""error""",
+                        Notify("ダウンロードに失敗しました", NotificationType.Error),
+                        Notify(Text(ParseJSON(raw).rowCount) & " 件をダウンロードします", NotificationType.Success);
+                        Download(Text(ParseJSON(raw).file.url))
+                    )
+                )
             Size: =App.Height * 0.015
             Text: ="ダウンロード"
             Visible: =gblIsMobile

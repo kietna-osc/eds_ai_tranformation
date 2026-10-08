@@ -719,6 +719,76 @@
           }
         }
       }
+    },
+    "/history/export": {
+      "get": {
+        "summary": "Download History as CSV",
+        "operationId": "history-export",
+        "description": "Builds a CSV of dbo.history (all rows, or with search_keyword the rows the History screen search shows) in Blob Storage and returns a 15-minute download link.",
+        "parameters": [
+          {
+            "name": "search_keyword",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz_offset",
+            "in": "query",
+            "description": "Power Fx TimeZoneOffset() (minutes, UTC minus local). Default -540 (Japan).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer"
+                    },
+                    "totalCount": {
+                      "type": "integer"
+                    },
+                    "searchKeyword": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "file": {
+                      "type": "object",
+                      "properties": {
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "contentType": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "expiresOn": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Blob Storage not configured"
+          }
+        }
+      }
     }
   },
   "components": {
