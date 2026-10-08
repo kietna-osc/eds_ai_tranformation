@@ -1,0 +1,132 @@
+{
+  "displayName": "EDS-EmployeeImport",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      }
+    },
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "PowerAppV2",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "description": "Employee CSV file (社員番号,社員氏名,メール,部署)",
+                "title": "file",
+                "type": "object",
+                "properties": {
+                  "contentBytes": {
+                    "type": "string",
+                    "format": "byte"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "x-ms-content-hint": "FILE",
+                "x-ms-dynamically-added": true
+              }
+            },
+            "required": [
+              "file"
+            ]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Get_auth_token": {
+        "metadata": {
+          "operationMetadataId": "31783c68-3578-4803-9331-a70bac3807b0"
+        },
+        "type": "Http",
+        "inputs": {
+          "uri": "https://login.microsoftonline.com/d4e484ed-0018-471f-b7c2-3265f48203f3/oauth2/v2.0/token",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=client_credentials&client_id=53ddbbff-90ae-4085-858e-9923b3c6a3d9&client_secret=<CLIENT_SECRET>&scope=api://652e20e5-6a5a-46c6-a42a-67076fcce01e/.default"
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Import_employees": {
+        "runAfter": {
+          "Get_auth_token": [
+            "Succeeded"
+          ]
+        },
+        "type": "Http",
+        "inputs": {
+          "uri": "https://apim-eds-dev.azure-api.net/eds/employees/import",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "csv_base64": "@{triggerBody()?['file']?['contentBytes']}"
+          },
+          "retryPolicy": {
+            "type": "none"
+          }
+        }
+      },
+      "Respond_import": {
+        "runAfter": {
+          "Import_employees": [
+            "Succeeded",
+            "Failed"
+          ]
+        },
+        "type": "Response",
+        "kind": "PowerApp",
+        "inputs": {
+          "statusCode": 200,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "title": "status",
+                "type": "string",
+                "x-ms-content-hint": "TEXT",
+                "x-ms-dynamically-added": true
+              },
+              "response": {
+                "title": "response",
+                "type": "string",
+                "x-ms-content-hint": "TEXT",
+                "x-ms-dynamically-added": true
+              }
+            },
+            "additionalProperties": {}
+          },
+          "body": {
+            "status": "@{outputs('Import_employees')?['statusCode']}",
+            "response": "@{body('Import_employees')}"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "connectionReferences": {}
+}

@@ -14,13 +14,33 @@ Screens:
       OnVisible: |-
         =Set(varActiveTab, "employee");Set(varShowPageSize, false);Set(varHeaderTitle, "社員管理");Set(varHeaderSubtitle, "社員情報の管理と編集");Set(gblPage, 1);Set(varShowEmpFilter, false);Set(varEmpQId, "");Set(varEmpQName, "");Set(varEmpQMail, "");Set(varEmpQDept, "");Set(varEmpDDept, "");Set(varShowEmpFDeptList, false);Set(varShowEmpMFDeptList, false);Set(varEmpQCreFrom, "");Set(varEmpQCreTo, "");Set(varEmpQUpdFrom, "");Set(varEmpQUpdTo, "");Set(varEmpQActive, false);Set(varEmpQInactive, false);Set(varEmpDActive, false);Set(varEmpDInactive, false);Set(varEmpDCreFromT, "");Set(varEmpDCreToT, "");Set(varEmpDUpdFromT, "");Set(varEmpDUpdToT, "");Set(varEmpTimeTgt, "");Set(varShowEmpModal, false);Set(varEmpMode, "create");Set(varEmpEditId, "");
         Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));
-        // 社員一覧の取得 — 絞り込みもページングもサーバー側 (page = gblPage, pageSize = gblPageSize)
-        Set(varEmpRaw, Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""));
+        // 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
+        Set(varEmpLoading, true);
         If(
-            IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-            Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-            ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-        )
+            IsBlank(varEmpSearch),
+            // 検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
+            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "employeeList").response, ":null", ":"""""), ""));
+            If(
+                IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+            ),
+            // 検索語あり: 全件 (200 件ずつ) を取得して画面側で絞り込み・ページング (履歴画面と同じ)
+            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":200}", "employeeList").response, ":null", ":"""""), ""));
+            If(
+                IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees),
+                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))}));
+                ForAll(
+                    Sequence(Max(0, Value(ParseJSON(varEmpRaw).totalPages) - 1), 2) As pg,
+                    With(
+                        {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & pg.Value & ",""pageSize"":200}", "employeeList").response, ":null", ":"""""), "")},
+                        If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colEmployees, ForAll(Table(ParseJSON(pageRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})))
+                    )
+                )
+            )
+        );
+        Set(varEmpLoading, false)
     Children:
       - cmpHeader_E:
           Control: CanvasComponent
@@ -298,11 +318,11 @@ Screens:
             DelayItemLoading: =false
             Height: =App.Height * .60
             Items: |-
-              =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
+              =If(IsBlank(varEmpSearch), ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})), With({rows: Filter(colEmployees, Lower(varEmpSearch) in Lower(empId & " " & name & " " & email & " " & dept))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize)))
             LoadingSpinner: =LoadingSpinner.None
             TemplatePadding: =0
             TemplateSize: =App.Height * .07
-            Visible: =!gblIsMobile
+            Visible: =!gblIsMobile && !varEmpLoading
             Width: =App.Width * .966
             X: =App.Width * .017
             Y: =App.Height * .225
@@ -460,8 +480,8 @@ Screens:
             Height: =App.Height * .06
             PaddingLeft: =0
             Size: =App.Height * 0.018
-            Text: =If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません")
-            Visible: =!gblIsMobile && IsEmpty(galEmployees.AllItems)
+            Text: =If(varEmpLoading, "読み込み中...", If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません"))
+            Visible: =!gblIsMobile && (varEmpLoading || IsEmpty(galEmployees.AllItems))
             Width: =App.Width * .966
             X: =App.Width * .017
             Y: =App.Height * .30
@@ -473,11 +493,11 @@ Screens:
             DelayItemLoading: =false
             Height: =App.Height * 0.50
             Items: |-
-              =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
+              =If(IsBlank(varEmpSearch), ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value})), With({rows: Filter(colEmployees, Lower(varEmpSearch) in Lower(empId & " " & name & " " & email & " " & dept))}, LastN(FirstN(ForAll(Sequence(CountRows(rows)) As seq, Patch(Index(rows, seq.Value), {no: seq.Value})), gblPage * gblPageSize), gblPageSize)))
             LoadingSpinner: =LoadingSpinner.None
             TemplatePadding: =0
             TemplateSize: =App.Height * 0.125
-            Visible: =gblIsMobile
+            Visible: =gblIsMobile && !varEmpLoading
             Width: =App.Width * 0.92
             X: =App.Width * 0.04
             Y: =App.Height * 0.272
@@ -582,8 +602,8 @@ Screens:
             Height: =App.Height * .06
             PaddingLeft: =0
             Size: =App.Height * 0.018
-            Text: =If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません")
-            Visible: =gblIsMobile && IsEmpty(galEmpMobile.AllItems)
+            Text: =If(varEmpLoading, "読み込み中...", If(IsBlank(varEmpSearch), "データがありません", "検索条件に一致するデータがありません"))
+            Visible: =gblIsMobile && (varEmpLoading || IsEmpty(galEmpMobile.AllItems))
             Width: =App.Width * 0.92
             X: =App.Width * 0.04
             Y: =App.Height * 0.32
@@ -652,13 +672,33 @@ Screens:
             FontWeight: =FontWeight.Semibold
             Height: =App.Height * .048
             OnSelect: |-
-              =// 社員一覧の取得 — 絞り込みもページングもサーバー側 (page = gblPage, pageSize = gblPageSize)
-              Set(varEmpRaw, Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""));
+              =// 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
+              Set(varEmpLoading, true);
               If(
-                  IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                  Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                  ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-              )
+                  IsBlank(varEmpSearch),
+                  // 検索語なし: サーバー側ページング (page = gblPage, pageSize = gblPageSize)
+                  Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & "}", "employeeList").response, ":null", ":"""""), ""));
+                  If(
+                      IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                      Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
+                      ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+                  ),
+                  // 検索語あり: 全件 (200 件ずつ) を取得して画面側で絞り込み・ページング (履歴画面と同じ)
+                  Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":200}", "employeeList").response, ":null", ":"""""), ""));
+                  If(
+                      IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                      Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees),
+                      ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))}));
+                      ForAll(
+                          Sequence(Max(0, Value(ParseJSON(varEmpRaw).totalPages) - 1), 2) As pg,
+                          With(
+                              {pageRaw: IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & pg.Value & ",""pageSize"":200}", "employeeList").response, ":null", ":"""""), "")},
+                              If(!(IsBlank(pageRaw) || Left(pageRaw, 8) = "{""error"""), Collect(colEmployees, ForAll(Table(ParseJSON(pageRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})))
+                          )
+                      )
+                  )
+              );
+              Set(varEmpLoading, false)
             Size: =App.Height * 0.015
             Text: ="検索"
             Visible: =false
