@@ -119,12 +119,16 @@ const normalizeSearch = (v) =>
 const matchesKeyword = (keyword, fields) =>
   fields.some((f) => normalizeSearch(f).includes(keyword));
 
-// Employee: 社員番号, 社員氏名, Eメール, 部署.
-const employeeMatches = (keyword) => (row) => matchesKeyword(keyword, [
+// Employee: 社員番号, 社員氏名, Eメール, 部署, 登録日, 更新日 (dates as the screen shows them:
+// yyyy/mm/dd hh:mm in the caller's time zone). The keyword comes from
+// historySearch.prepareKeyword, so date keywords work as on the History screen.
+const employeeMatches = (keyword, tzOffset) => (row) => matchesKeyword(keyword, [
   row.employee_code,
   row.full_name,
   row.email,
   row.department_name,
+  historySearch.formatTime(row.created_at, tzOffset),
+  historySearch.formatTime(row.updated_at, tzOffset),
 ]);
 
 /** Wraps a handler so an unexpected failure never leaks SQL detail to the client. */
@@ -400,7 +404,9 @@ app.http('employeeList', {
     const q = request.query;
 
     const departmentId = intOrNull(q.get('department_id'));
-    const keyword = normalizeSearch(q.get('search_keyword'));
+    // Same normalization as normalizeSearch, plus date keywords (2026/10/8, 2026年10月8日 14:30, …).
+    const keyword = historySearch.prepareKeyword(q.get('search_keyword'));
+    const tzOffset = historySearch.tzOffsetOrDefault(q.get('tz_offset'));
 
     const pageSize = clampTop(q.get('pageSize'), 50, 200);
 
@@ -429,7 +435,7 @@ app.http('employeeList', {
       ['search_keyword', sql.NVarChar(200), null],
     ], context);
     if (all.length >= FETCH_ALL) context.warn(`employeeList: keyword search capped at ${FETCH_ALL} rows`);
-    const matched = all.filter(employeeMatches(keyword));
+    const matched = all.filter(employeeMatches(keyword, tzOffset));
     return json(200, pageBody(page, pageSize, matched.length,
       paginate(matched, page, pageSize).map(toEmployee)));
   }),
