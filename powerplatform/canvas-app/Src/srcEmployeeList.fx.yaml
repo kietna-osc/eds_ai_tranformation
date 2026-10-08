@@ -696,7 +696,6 @@ srcEmployeeList As screen:
         PaddingBottom: =2
         PaddingLeft: =4
         PaddingRight: =4
-        PaddingTop: =0
         PressedColor: =RGBA(255, 255, 255, 1)
         PressedFill: =RGBA(0, 102, 204, 1)
         Size: =App.Height * 0.014
