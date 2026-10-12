@@ -1,37 +1,53 @@
-/* Minimal RFC 4180 CSV reader / writer. toCsv is used by the History download
-   (historyCsv.js); parseCsv is kept for reading CSV files back. */
+class CsvParseError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'CsvParseError';
+  }
+}
 
-class CsvParseError extends Error {}
-
-/** Parses CSV text into an array of records (arrays of strings).
- *  Handles a UTF-8 BOM, quoted fields with "" escapes and embedded newlines,
- *  and CRLF / LF line endings. Throws CsvParseError on an unclosed quote. */
+/** Parse a CSV text into rows of strings. Supports quotes, commas, and CRLF. */
 function parseCsv(text) {
-  const s = String(text ?? '').replace(/^﻿/, '');
-  const records = [];
-  let record = [];
+  const src = String(text ?? '').replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
   let field = '';
-  let quoted = false;
-  let i = 0;
-  while (i < s.length) {
-    const c = s[i];
-    if (quoted) {
-      if (c === '"' && s[i + 1] === '"') { field += '"'; i += 2; continue; }
-      if (c === '"') { quoted = false; i++; continue; }
-      field += c; i++; continue;
-    }
-    if (c === '"' && field === '') { quoted = true; i++; continue; }
-    if (c === ',') { record.push(field); field = ''; i++; continue; }
-    if (c === '\r' || c === '\n') {
-      record.push(field); records.push(record); record = []; field = '';
-      i += c === '\r' && s[i + 1] === '\n' ? 2 : 1;
+  let inQuotes = false;
+
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += c;
+      }
       continue;
     }
-    field += c; i++;
+    if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else if (c !== '\r') {
+      field += c;
+    }
   }
-  if (quoted) throw new CsvParseError('unclosed quoted field');
-  if (field !== '' || record.length) { record.push(field); records.push(record); }
-  return records;
+  if (inQuotes) throw new CsvParseError('unterminated quote');
+  if (field.length || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
 }
 
 const quote = (v) => {
@@ -40,7 +56,7 @@ const quote = (v) => {
 };
 
 /** Writes rows (arrays) as CSV with CRLF line endings and a UTF-8 BOM, so Excel
- *  opens Japanese text correctly. */
+ *  opens Japanese text correctly. Used by the History download (historyCsv.js). */
 const toCsv = (rows) => '﻿' + rows.map((r) => r.map(quote).join(',')).join('\r\n') + '\r\n';
 
-module.exports = { parseCsv, toCsv, CsvParseError };
+module.exports = { CsvParseError, parseCsv, toCsv };

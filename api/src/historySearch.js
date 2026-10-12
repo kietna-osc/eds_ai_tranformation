@@ -23,7 +23,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const labels = (row) => ({
   recipient: text(row.recipient_name) === '' ? '不明' : text(row.recipient_name),
   status: text(row.delivered_at) === '' ? '通知済み' : '荷物受取済み',
-  dataType: row.status === 'Identified' ? '受取人指定あり' : '受取人不明',
+  dataType: row.data_type === 'Identified' ? '受取人指定あり' : '受取人不明',
 });
 
 /** Parses tz_offset (minutes, UTC minus local); falls back to Japan. */
@@ -68,4 +68,7 @@ function filterRows(rows, keyword, tzOffset = DEFAULT_TZ_OFFSET) {
   });
 }
 
-module.exports = { filterRows, prepareKeyword, labels, formatTime, tzOffsetOrDefault, DEFAULT_TZ_OFFSET };
+/** True when any field contains the keyword (from prepareKeyword). Used by the Employee search. */
+const matchesKeyword = (keyword, fields) => fields.some((f) => normalize(f).includes(keyword));
+
+module.exports = { filterRows, prepareKeyword, matchesKeyword, labels, formatTime, tzOffsetOrDefault, DEFAULT_TZ_OFFSET };

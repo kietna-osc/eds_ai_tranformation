@@ -33,6 +33,7 @@ GRANT EXECUTE ON OBJECT::dbo.sp_employee_list            TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_match_candidates         TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_employee_fuzzy_roster    TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_employee_insert          TO [func-eds-dev];
+GRANT EXECUTE ON OBJECT::dbo.sp_employee_update          TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_employee_delete          TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_department_list          TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_department_insert        TO [func-eds-dev];

@@ -12,8 +12,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_history_list
     @page             INT          = 1,
     @page_size        INT          = 50,
     @status           VARCHAR(20)  = NULL,
-    @department_id    INT          = NULL,
-    @employee_id      INT          = NULL,
+    @data_type        VARCHAR(20)  = NULL,
+    @employee_id      NVARCHAR(50) = NULL,
     @notified_start   DATETIME2(0) = NULL,
     @notified_end     DATETIME2(0) = NULL,
     @delivered_start  DATETIME2(0) = NULL,
@@ -31,9 +31,9 @@ BEGIN
         sender_address,
         employee_id,
         recipient_name,
-        recipient_department_id,
         recipient_department_name,
         status,
+        data_type,
         notified_at,
         delivered_at,
         delivered_by,
@@ -43,7 +43,7 @@ BEGIN
         COUNT(*) OVER() AS total_count
     FROM dbo.history
     WHERE (@status IS NULL OR status = @status)
-      AND (@department_id IS NULL OR recipient_department_id = @department_id)
+      AND (@data_type IS NULL OR data_type = @data_type)
       AND (@employee_id IS NULL OR employee_id = @employee_id)
       AND (@notified_start IS NULL OR notified_at >= @notified_start)
       AND (@notified_end IS NULL OR notified_at <= @notified_end)
@@ -58,16 +58,16 @@ GO
 
 ------------------------------------------------ Append (end of Power Automate flow)
 CREATE OR ALTER PROCEDURE dbo.sp_history_insert
-    @slip_no                   NVARCHAR(100)  = NULL,
-    @image_url                 NVARCHAR(MAX)  = NULL,  -- matches the column; a shorter type silently truncates
+    @slip_no                   NVARCHAR(100),
+    @image_url                 NVARCHAR(MAX),
     @sender_name               NVARCHAR(200)  = NULL,
     @sender_content            NVARCHAR(1000) = NULL,
     @sender_address            NVARCHAR(500)  = NULL,
-    @employee_id               INT            = NULL,
+    @employee_id               NVARCHAR(50)   = NULL,
     @recipient_name            NVARCHAR(200)  = NULL,
-    @recipient_department_id   INT            = NULL,
     @recipient_department_name NVARCHAR(200)  = NULL,
-    @status                    VARCHAR(20)    = 'Unknown',
+    @status                    VARCHAR(20)    = 'Notified',
+    @data_type                 VARCHAR(20),
     @notified_at               DATETIME2(0)   = NULL,
     @planner_task_id           NVARCHAR(100)  = NULL
 AS
@@ -75,12 +75,12 @@ BEGIN
     SET NOCOUNT ON;
     INSERT dbo.history (slip_no, image_url, sender_name, sender_content, sender_address,
                         employee_id,
-                        recipient_name, recipient_department_id, recipient_department_name,
-                        status, notified_at, planner_task_id)
+                        recipient_name, recipient_department_name,
+                        status, data_type, notified_at, planner_task_id)
     VALUES (@slip_no, @image_url, @sender_name, @sender_content, @sender_address,
             @employee_id,
-            @recipient_name, @recipient_department_id, @recipient_department_name,
-            @status, @notified_at, @planner_task_id);
+            @recipient_name, @recipient_department_name,
+            @status, @data_type, @notified_at, @planner_task_id);
 
     SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS history_id;
 END
@@ -101,7 +101,7 @@ GO
 --------------------------------------------- Planner task completed
 -- Idempotent: the Planner trigger can fire more than once for the same task, and
 -- replaying must not move delivered_at. Accepts either key.
--- Identification status (Unknown | Identified) is left unchanged.
+-- status becomes Delivered. delivered_at is written only the first time.
 CREATE OR ALTER PROCEDURE dbo.sp_set_delivered
     @planner_task_id NVARCHAR(100) = NULL,
     @history_id      BIGINT        = NULL,
@@ -115,7 +115,8 @@ BEGIN
 
     UPDATE dbo.history
     SET    delivered_at = COALESCE(delivered_at, @delivered_at, SYSUTCDATETIME()),
-           delivered_by = COALESCE(delivered_by, @delivered_by)
+           delivered_by = COALESCE(delivered_by, @delivered_by),
+           status       = 'Delivered'
     WHERE  (@planner_task_id IS NOT NULL AND planner_task_id = @planner_task_id)
        OR  (@history_id      IS NOT NULL AND history_id      = @history_id);
 
@@ -127,34 +128,29 @@ GO
 -- Filters (department, name keyword) are applied first, then page/page_size
 -- determine the returned chunk. search_keyword is optional; omitted means all names.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_list
-    @page            INT          = 1,
-    @page_size       INT          = 50,
-    @department_id   INT          = NULL,
-    @search_keyword  NVARCHAR(200) = NULL
+    @page             INT           = 1,
+    @page_size        INT           = 50,
+    @department_name  NVARCHAR(200) = NULL,
+    @search_keyword   NVARCHAR(200) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT
         employee_id,
-        employee_code,
         full_name,
-        name_normalized,
-        department_id,
         department_name,
         email,
-        is_active,
         created_at,
         updated_at,
         COUNT(*) OVER() AS total_count
     FROM dbo.employee
-    WHERE (@department_id IS NULL OR department_id = @department_id)
+    WHERE (@department_name IS NULL OR department_name = @department_name)
       AND (@search_keyword IS NULL
-           OR name_normalized  LIKE @search_keyword + N'%'
-           OR full_name        LIKE N'%' + @search_keyword + N'%'
-           OR employee_code    LIKE @search_keyword + N'%'
-           OR department_name  LIKE N'%' + @search_keyword + N'%'
-           OR email            LIKE N'%' + @search_keyword + N'%')
+           OR full_name       LIKE N'%' + @search_keyword + N'%'
+           OR employee_id     LIKE @search_keyword + N'%'
+           OR department_name LIKE N'%' + @search_keyword + N'%'
+           OR email           LIKE N'%' + @search_keyword + N'%')
     ORDER BY full_name, employee_id
     OFFSET (@page - 1) * @page_size ROWS
     FETCH NEXT @page_size ROWS ONLY
@@ -168,23 +164,22 @@ GO
 -- katakana->hiragana, whitespace stripped) so both sides match.
 CREATE OR ALTER PROCEDURE dbo.sp_match_candidates
     @name_normalized NVARCHAR(200),
-    @department_id   INT = NULL,
+    @department_name NVARCHAR(200) = NULL,
     @top             INT = 10
 AS
 BEGIN
     SET NOCOUNT ON;
     SELECT TOP (@top)
-           employee_id, employee_code, full_name, department_id, department_name, email,
-           CASE WHEN name_normalized = @name_normalized THEN 100    -- exact
-                WHEN name_normalized LIKE @name_normalized + N'%' THEN 80
+           employee_id, full_name, department_name, email,
+           CASE WHEN REPLACE(full_name, N' ', N'') = @name_normalized THEN 100
+                WHEN REPLACE(full_name, N' ', N'') LIKE @name_normalized + N'%' THEN 80
                 ELSE 60 END
-           + CASE WHEN @department_id IS NOT NULL AND department_id = @department_id
+           + CASE WHEN @department_name IS NOT NULL AND department_name = @department_name
                   THEN 10 ELSE 0 END AS match_score
     FROM   dbo.employee
-    WHERE  is_active = 1
-      AND  (name_normalized = @name_normalized
-            OR name_normalized LIKE @name_normalized + N'%'
-            OR @name_normalized LIKE name_normalized + N'%')
+    WHERE  REPLACE(full_name, N' ', N'') = @name_normalized
+        OR REPLACE(full_name, N' ', N'') LIKE @name_normalized + N'%'
+        OR @name_normalized LIKE REPLACE(full_name, N' ', N'') + N'%'
     ORDER BY match_score DESC, full_name
     OPTION (RECOMPILE);
 END
@@ -198,56 +193,70 @@ BEGIN
     SET NOCOUNT ON;
     SELECT employee_id, full_name, department_name, email
     FROM   dbo.employee
-    WHERE  is_active = 1
     ORDER BY full_name, employee_id;
 END
 GO
 
 --------------------------------------------------------- Insert employee
--- Caller supplies employee_id (IDENTITY_INSERT) so Power Apps can keep a
--- stable key. Duplicate PK / employee_code raises SQL 2627; the API maps that
--- to 409.
+-- employee_id is the employee code.
+-- 50002: employee_id already used. 50003: email already used.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_insert
-    @employee_id      INT,
-    @employee_code    NVARCHAR(50),
+    @employee_id      NVARCHAR(50),
     @full_name        NVARCHAR(200),
-    @name_normalized  NVARCHAR(200) = NULL,
-    @department_id    INT           = NULL,
-    @department_name  NVARCHAR(200) = NULL,
-    @email            NVARCHAR(320) = NULL,
-    @is_active        BIT           = 1
+    @department_name  NVARCHAR(200),
+    @email            NVARCHAR(320)
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF @employee_id IS NULL OR @employee_id <= 0
-        THROW 50001, 'sp_employee_insert requires a positive @employee_id.', 1;
-    IF @employee_code IS NULL OR LTRIM(RTRIM(@employee_code)) = N''
-        THROW 50001, 'sp_employee_insert requires @employee_code.', 1;
+    IF @employee_id IS NULL OR LTRIM(RTRIM(@employee_id)) = N''
+        THROW 50001, 'sp_employee_insert requires @employee_id.', 1;
     IF @full_name IS NULL OR LTRIM(RTRIM(@full_name)) = N''
         THROW 50001, 'sp_employee_insert requires @full_name.', 1;
+    IF @department_name IS NULL OR LTRIM(RTRIM(@department_name)) = N''
+        THROW 50001, 'sp_employee_insert requires @department_name.', 1;
+    IF @email IS NULL OR LTRIM(RTRIM(@email)) = N''
+        THROW 50001, 'sp_employee_insert requires @email.', 1;
+    IF EXISTS (SELECT 1 FROM dbo.employee WHERE employee_id = @employee_id)
+        THROW 50002, N'このIDは既に他の従業員に使用されている', 1;
+    IF EXISTS (SELECT 1 FROM dbo.employee WHERE email = @email)
+        THROW 50003, N'このメールアドレスは既に他の従業員に使用されている', 1;
 
-    IF @name_normalized IS NULL OR LTRIM(RTRIM(@name_normalized)) = N''
-        SET @name_normalized = @full_name;
+    INSERT dbo.employee (employee_id, full_name, department_name, email)
+    VALUES (@employee_id, @full_name, @department_name, @email);
 
-    BEGIN TRY
-        SET IDENTITY_INSERT dbo.employee ON;
-        INSERT dbo.employee (
-            employee_id, employee_code, full_name, name_normalized,
-            department_id, department_name, email, is_active
-        )
-        VALUES (
-            @employee_id, @employee_code, @full_name, @name_normalized,
-            @department_id, @department_name, @email, ISNULL(@is_active, 1)
-        );
-        SET IDENTITY_INSERT dbo.employee OFF;
-    END TRY
-    BEGIN CATCH
-        SET IDENTITY_INSERT dbo.employee OFF;
-        THROW;
-    END CATCH
+    SELECT employee_id, full_name, department_name, email, created_at, updated_at
+    FROM   dbo.employee
+    WHERE  employee_id = @employee_id;
+END
+GO
 
-    SELECT employee_id, employee_code, full_name, name_normalized,
-           department_id, department_name, email, is_active, created_at, updated_at
+--------------------------------------------------------- Update employee
+-- employee_id is the key and is not changed. The other columns match insert.
+-- updated_at is set by TR_employee_updated_at.
+CREATE OR ALTER PROCEDURE dbo.sp_employee_update
+    @employee_id      NVARCHAR(50),
+    @full_name        NVARCHAR(200),
+    @department_name  NVARCHAR(200),
+    @email            NVARCHAR(320)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @employee_id IS NULL OR LTRIM(RTRIM(@employee_id)) = N''
+        THROW 50001, 'sp_employee_update requires @employee_id.', 1;
+    IF @full_name IS NULL OR LTRIM(RTRIM(@full_name)) = N''
+        THROW 50001, 'sp_employee_update requires @full_name.', 1;
+    IF @department_name IS NULL OR LTRIM(RTRIM(@department_name)) = N''
+        THROW 50001, 'sp_employee_update requires @department_name.', 1;
+    IF @email IS NULL OR LTRIM(RTRIM(@email)) = N''
+        THROW 50001, 'sp_employee_update requires @email.', 1;
+
+    UPDATE dbo.employee
+    SET    full_name = @full_name,
+           department_name = @department_name,
+           email = @email
+    WHERE  employee_id = @employee_id;
+
+    SELECT employee_id, full_name, department_name, email, created_at, updated_at
     FROM   dbo.employee
     WHERE  employee_id = @employee_id;
 END
@@ -257,12 +266,12 @@ GO
 -- Hard delete by employee_id. history.employee_id is not a foreign key, so
 -- package rows that still store this id are left in place.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_delete
-    @employee_id INT
+    @employee_id NVARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF @employee_id IS NULL OR @employee_id <= 0
-        THROW 50001, 'sp_employee_delete requires a positive @employee_id.', 1;
+    IF @employee_id IS NULL OR LTRIM(RTRIM(@employee_id)) = N''
+        THROW 50001, 'sp_employee_delete requires @employee_id.', 1;
 
     DELETE FROM dbo.employee WHERE employee_id = @employee_id;
     SELECT @@ROWCOUNT AS rows_deleted;
@@ -297,26 +306,154 @@ GO
 
 --------------------------------------------------------- OCR result log
 CREATE OR ALTER PROCEDURE dbo.sp_ocr_history_insert
-    @history_id      BIGINT         = NULL,
-    @name            NVARCHAR(200)  = NULL,
-    @department      NVARCHAR(200)  = NULL,
-    @slip_no         NVARCHAR(100)  = NULL,
-    @sender_name     NVARCHAR(200)  = NULL,
-    @sender_content  NVARCHAR(1000) = NULL,
-    @sender_address  NVARCHAR(500)  = NULL,
-    @model_name      NVARCHAR(200)  = NULL
+    @history_id                 BIGINT         = NULL,
+    @slip_no                    NVARCHAR(100),
+    @image_url                  NVARCHAR(MAX),
+    @sender_name                NVARCHAR(200)  = NULL,
+    @sender_content             NVARCHAR(1000) = NULL,
+    @sender_address             NVARCHAR(500)  = NULL,
+    @employee_id                NVARCHAR(50)   = NULL,
+    @recipient_name             NVARCHAR(200)  = NULL,
+    @recipient_department_name  NVARCHAR(200)  = NULL,
+    @status                     VARCHAR(20)    = 'Notified',
+    @data_type                  VARCHAR(20),
+    @notified_at                DATETIME2(0)   = NULL,
+    @delivered_at               DATETIME2(0)   = NULL,
+    @delivered_by               NVARCHAR(320)  = NULL,
+    @planner_task_id            NVARCHAR(100)  = NULL,
+    @ocr_receipt_name           NVARCHAR(200)  = NULL,
+    @ocr_receipt_department     NVARCHAR(200)  = NULL,
+    @ocr_slip_no                NVARCHAR(100)  = NULL,
+    @ocr_sender_name            NVARCHAR(200)  = NULL,
+    @ocr_sender_content         NVARCHAR(1000) = NULL,
+    @ocr_sender_address         NVARCHAR(500)  = NULL,
+    @ocr_model_name             NVARCHAR(200)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
+    IF @slip_no IS NULL OR LTRIM(RTRIM(@slip_no)) = N''
+        THROW 50001, 'sp_ocr_history_insert requires @slip_no.', 1;
+    IF @image_url IS NULL OR LTRIM(RTRIM(@image_url)) = N''
+        THROW 50001, 'sp_ocr_history_insert requires @image_url.', 1;
+    IF @data_type IS NULL OR @data_type NOT IN ('Identified', 'Unknown')
+        THROW 50001, 'sp_ocr_history_insert requires @data_type Identified or Unknown.', 1;
+    IF @status IS NULL OR @status NOT IN ('Notified', 'Delivered')
+        THROW 50001, 'sp_ocr_history_insert requires @status Notified or Delivered.', 1;
+
     INSERT dbo.ocr_history (
-        history_id, name, department, slip_no,
-        sender_name, sender_content, sender_address, model_name
+        history_id, slip_no, image_url,
+        sender_name, sender_content, sender_address,
+        employee_id, recipient_name, recipient_department_name,
+        status, data_type, notified_at, delivered_at, delivered_by, planner_task_id,
+        ocr_receipt_name, ocr_receipt_department, ocr_slip_no,
+        ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name
     )
     VALUES (
-        @history_id, @name, @department, @slip_no,
-        @sender_name, @sender_content, @sender_address, @model_name
+        @history_id, @slip_no, @image_url,
+        @sender_name, @sender_content, @sender_address,
+        @employee_id, @recipient_name, @recipient_department_name,
+        @status, @data_type, @notified_at, @delivered_at, @delivered_by, @planner_task_id,
+        @ocr_receipt_name, @ocr_receipt_department, @ocr_slip_no,
+        @ocr_sender_name, @ocr_sender_content, @ocr_sender_address, @ocr_model_name
     );
 
-    SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS id;
+    SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS ocr_id;
 END
+GO
+
+------------------------------------------------ History list (same columns as sp_history_list)
+CREATE OR ALTER PROCEDURE dbo.sp_history_list_v2
+    @page             INT          = 1,
+    @page_size        INT          = 50,
+    @status           VARCHAR(20)  = NULL,
+    @data_type        VARCHAR(20)  = NULL,
+    @employee_id      NVARCHAR(50) = NULL,
+    @notified_start   DATETIME2(0) = NULL,
+    @notified_end     DATETIME2(0) = NULL,
+    @delivered_start  DATETIME2(0) = NULL,
+    @delivered_end    DATETIME2(0) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    EXEC dbo.sp_history_list
+        @page, @page_size, @status, @data_type, @employee_id,
+        @notified_start, @notified_end, @delivered_start, @delivered_end;
+END
+GO
+
+------------------------------------------------ Append history (same columns as sp_history_insert)
+CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
+    @slip_no                   NVARCHAR(100),
+    @image_url                 NVARCHAR(MAX),
+    @sender_name               NVARCHAR(200)  = NULL,
+    @sender_content            NVARCHAR(1000) = NULL,
+    @sender_address            NVARCHAR(500)  = NULL,
+    @employee_id               NVARCHAR(50)   = NULL,
+    @recipient_name            NVARCHAR(200)  = NULL,
+    @recipient_department_name NVARCHAR(200)  = NULL,
+    @status                    VARCHAR(20)    = 'Notified',
+    @data_type                 VARCHAR(20),
+    @notified_at               DATETIME2(0)   = NULL,
+    @planner_task_id           NVARCHAR(100)  = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    EXEC dbo.sp_history_insert
+        @slip_no, @image_url, @sender_name, @sender_content, @sender_address,
+        @employee_id, @recipient_name, @recipient_department_name,
+        @status, @data_type, @notified_at, @planner_task_id;
+END
+GO
+
+------------------------------------------------ Upsert employees from a CSV import
+-- @rows is a JSON array of { employee_id, full_name, email, department_name }.
+-- employee_id is the employee code (社員番号). One transaction.
+CREATE OR ALTER PROCEDURE dbo.sp_employee_upsert
+    @rows NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @incoming TABLE (
+        employee_id     NVARCHAR(50)  NOT NULL PRIMARY KEY,
+        full_name       NVARCHAR(200) NOT NULL,
+        email           NVARCHAR(320) NOT NULL,
+        department_name NVARCHAR(200) NOT NULL
+    );
+
+    INSERT @incoming (employee_id, full_name, email, department_name)
+    SELECT employee_id, full_name, email, department_name
+    FROM OPENJSON(@rows)
+    WITH (
+        employee_id     NVARCHAR(50)  '$.employee_id',
+        full_name       NVARCHAR(200) '$.full_name',
+        email           NVARCHAR(320) '$.email',
+        department_name NVARCHAR(200) '$.department_name'
+    );
+
+    DECLARE @result TABLE (
+        employee_id NVARCHAR(50) NOT NULL,
+        action      NVARCHAR(10) NOT NULL
+    );
+
+    MERGE dbo.employee AS e
+    USING @incoming AS i ON e.employee_id = i.employee_id
+    WHEN MATCHED THEN
+        UPDATE SET e.full_name = i.full_name,
+                   e.email = i.email,
+                   e.department_name = i.department_name
+    WHEN NOT MATCHED THEN
+        INSERT (employee_id, full_name, email, department_name)
+        VALUES (i.employee_id, i.full_name, i.email, i.department_name)
+    OUTPUT inserted.employee_id, $action INTO @result;
+
+    SELECT employee_id, action FROM @result;
+END
+GO
+
+GRANT EXECUTE ON OBJECT::dbo.sp_history_list_v2   TO [func-eds-dev];
+GRANT EXECUTE ON OBJECT::dbo.sp_history_insert_v2 TO [func-eds-dev];
+GRANT EXECUTE ON OBJECT::dbo.sp_employee_upsert   TO [func-eds-dev];
+GRANT EXECUTE ON OBJECT::dbo.sp_employee_update   TO [func-eds-dev];
 GO

@@ -1,7 +1,7 @@
 /* Scanned images in Azure Blob Storage.
 
-   POST /api/images stores the original and a 320 px JPEG preview; dbo.history keeps
-   the two blob paths. historyList turns the paths into short-lived, read-only SAS
+   POST /api/images stores the original and a 320 px JPEG preview; dbo.history.image_url
+   keeps the original's blob URL. historyList turns it into short-lived, read-only SAS
    links signed with a user delegation key, so no storage account key is used.
    The container is private.
 
@@ -61,6 +61,38 @@ async function delegationKey() {
 async function readUrl(blobPath) {
   if (!blobPath || !enabled()) return null;
   return signedUrl(containerName, blobPath, sasMinutes);
+}
+
+/* dbo.history.image_url holds the original's blob URL without a SAS, e.g.
+   https://<account>.blob.core.windows.net/history-images/2026/10/<id>.jpg.
+   The preview sits next to it as <id>_preview.jpg, so it needs no column. */
+const containerUrl = () => `${String(accountUrl).replace(/\/+$/, '')}/${containerName}/`;
+
+/** Blob URL to store in image_url for a blob path. */
+const imageUrlFor = (blobPath) => `${containerUrl()}${blobPath}`;
+
+/** Blob path inside the image container, or null when image_url is not one of our blobs
+ *  (SharePoint URL, base64, empty). */
+function pathFromImageUrl(imageUrl) {
+  if (!enabled() || typeof imageUrl !== 'string') return null;
+  const prefix = containerUrl();
+  if (imageUrl.slice(0, prefix.length).toLowerCase() !== prefix.toLowerCase()) return null;
+  const blobPath = decodeURIComponent(imageUrl.slice(prefix.length).split('?')[0]);
+  return blobPath && !blobPath.includes('..') ? blobPath : null;
+}
+
+/** Preview path for an original's blob path. */
+const previewPathFor = (blobPath) => blobPath.replace(/\.[^./]+$/, '') + '_preview.jpg';
+
+/** Read links for a history row's image_url: { image_blob_url, preview_url }, both null
+ *  when the image is not in Blob Storage. */
+async function imageLinks(imageUrl) {
+  const blobPath = pathFromImageUrl(imageUrl);
+  if (!blobPath) return { image_blob_url: null, preview_url: null };
+  return {
+    image_blob_url: await readUrl(blobPath),
+    preview_url: await readUrl(previewPathFor(blobPath)),
+  };
 }
 
 /* Signs a read-only link. With fileName, the browser saves the blob under that
@@ -145,6 +177,7 @@ async function storeImage(content, contentType) {
   await cc.getBlockBlobClient(previewPath).uploadData(preview, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } });
 
   return {
+    image_url: imageUrlFor(imagePath),
     image_blob_path: imagePath,
     preview_blob_path: previewPath,
     content_type: mime,
@@ -155,4 +188,4 @@ async function storeImage(content, contentType) {
   };
 }
 
-module.exports = { enabled, readUrl, storeImage, storeExport };
+module.exports = { enabled, readUrl, imageLinks, imageUrlFor, pathFromImageUrl, storeImage, storeExport };

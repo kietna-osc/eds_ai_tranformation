@@ -15,12 +15,13 @@ const employeeCsv = require('./employeeCsv');
    Caller identity (JWT, tenant, app role) is validated by the APIM global policy. */
 
 /* dbo.history schema:
-   image_url NVARCHAR(MAX): SharePoint URL or relative path of the scanned image
-   image_blob_path / preview_blob_path NVARCHAR(500): original and 320 px preview in Blob Storage
-   employee_id NVARCHAR(50): text, like dbo.employee; some ids do not fit in INT (e.g. 10000000004)
-   sender_name NVARCHAR(200), sender_content NVARCHAR(1000), sender_address NVARCHAR(500)
-   status VARCHAR(20) CHECK (Unknown | Identified), default Unknown */
-const STATUSES = new Set(['Unknown', 'Identified']);
+   image_url NVARCHAR(MAX): blob URL of the image in Blob Storage (see blobImages.js);
+     older rows may hold a SharePoint URL or base64
+   employee_id NVARCHAR(50): snapshot of the employee code, not a foreign key
+   status VARCHAR(20) CHECK (Notified | Delivered), default Notified
+   data_type VARCHAR(20) CHECK (Identified | Unknown) */
+const STATUSES = new Set(['Notified', 'Delivered']);
+const DATA_TYPES = new Set(['Identified', 'Unknown']);
 
 const toHistory = (row) => ({
   history_id: Number(row.history_id),
@@ -29,21 +30,17 @@ const toHistory = (row) => ({
   sender_name: row.sender_name,
   sender_content: row.sender_content,
   sender_address: row.sender_address,
-  // The EDS-APIManagement1 Parse JSON schema expects integer | null, so digit-only ids
-  // (stored as text) are returned as numbers.
   employee_id: employeeIdOut(row.employee_id),
   recipient_name: row.recipient_name,
-  recipient_department_id: row.recipient_department_id,
   recipient_department_name: row.recipient_department_name,
   status: row.status,
+  data_type: row.data_type,
   notified_at: row.notified_at,
   delivered_at: row.delivered_at,
   delivered_by: row.delivered_by,
   planner_task_id: row.planner_task_id,
   created_at: row.created_at,
   updated_at: row.updated_at,
-  image_blob_path: row.image_blob_path ?? null,
-  preview_blob_path: row.preview_blob_path ?? null,
 });
 
 /** employee_id is text. Digit-only ids that are exact in JavaScript come back as numbers. */
@@ -55,13 +52,9 @@ function employeeIdOut(v) {
 
 const toEmployee = (row) => ({
   employee_id: row.employee_id,
-  employee_code: row.employee_code,
   full_name: row.full_name,
-  name_normalized: row.name_normalized,
-  department_id: row.department_id,
   department_name: row.department_name,
   email: row.email,
-  is_active: row.is_active,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -78,7 +71,7 @@ const intOrNull = (v) => {
 };
 
 const strOrNull = (v, max) =>
-  v === undefined || v === null || v === '' ? null : String(v).slice(0, max);
+  v === undefined || v === null || v === '' ? null : (max ? String(v).slice(0, max) : String(v));
 
 const dateOrNull = (v) => {
   if (!v) return null;
@@ -92,11 +85,6 @@ const json = (status, body) => ({
   headers: { 'Cache-Control': 'no-store' },
 });
 
-/* ------------------------------------------------- keyword search
-   The list procedures cannot be changed for now, so keyword search runs here:
-   fetch every row matching the SQL filters, filter by keyword, then page.
-   Paging is always the last step, so totalCount / totalPages describe the
-   keyword matches. */
 const FETCH_ALL = 100000;
 
 const pageBody = (page, pageSize, totalCount, value) => ({
@@ -111,19 +99,8 @@ const pageBody = (page, pageSize, totalCount, value) => ({
 const paginate = (rows, page, pageSize) =>
   rows.slice((page - 1) * pageSize, page * pageSize);
 
-// NFKC (full-width -> half-width), case-insensitive, whitespace ignored, so
-// "林健太" matches "林 健太" and "２０２６" matches "2026".
-const normalizeSearch = (v) =>
-  String(v ?? '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
-
-const matchesKeyword = (keyword, fields) =>
-  fields.some((f) => normalizeSearch(f).includes(keyword));
-
-// Employee: 社員番号, 社員氏名, Eメール, 部署, 登録日, 更新日 (dates as the screen shows them:
-// yyyy/mm/dd hh:mm in the caller's time zone). The keyword comes from
-// historySearch.prepareKeyword, so date keywords work as on the History screen.
-const employeeMatches = (keyword, tzOffset) => (row) => matchesKeyword(keyword, [
-  row.employee_code,
+const employeeMatches = (keyword, tzOffset) => (row) => historySearch.matchesKeyword(keyword, [
+  row.employee_id,
   row.full_name,
   row.email,
   row.department_name,
@@ -138,6 +115,7 @@ const handler = (name, fn) => async (request, context) => {
   } catch (e) {
     context.error(`${name} failed: ${e.message}`, e.stack);
     if (e.number === 50001) return json(400, { error: e.message });
+    if (e.number === 50002 || e.number === 50003) return json(409, { error: e.message });
     if (e.number === 547) {
       return json(409, {
         error: 'Cannot delete: history rows still reference this employee',
@@ -154,10 +132,8 @@ const handler = (name, fn) => async (request, context) => {
    History page with server-side pagination.
    Filters are applied in DB first, then page/pageSize are used
    to return the requested chunk. Each row includes sender_name,
-   sender_content, sender_address and status Unknown | Identified.
-   search_keyword (optional): the History search (historySearch.js) on 伝票番号, 受取人,
-   処理状況, データ区分 and 通知日時; totalCount / totalPages then describe the matches.
-   tz_offset (optional): Power Fx TimeZoneOffset() for the 通知日時 match, default Japan. */
+   sender_content, sender_address, status Notified | Delivered,
+   and data_type Identified | Unknown. */
 app.http('historyList', {
   methods: ['GET'],
   authLevel: 'function',
@@ -165,9 +141,13 @@ app.http('historyList', {
   handler: handler('historyList', async (request, context) => {
     const q = request.query;
 
-    const status = strOrNull(q.get('status'), 20);
+    let status = strOrNull(q.get('status'), 20);
+    let dataType = strOrNull(q.get('data_type'), 20);
     const employeeId = strOrNull(q.get('employee_id'), 50);
-    const departmentId = intOrNull(q.get('department_id'));
+    if (status === 'Identified' || status === 'Unknown') {
+      dataType = dataType || status;
+      status = null;
+    }
     const notifiedStart = dateOrNull(q.get('notified_start'));
     const notifiedEnd = dateOrNull(q.get('notified_end'));
     const deliveredStart = dateOrNull(q.get('delivered_start'));
@@ -185,6 +165,11 @@ app.http('historyList', {
         error: `status must be one of ${[...STATUSES].join(', ')}`
       });
     }
+    if (dataType && !DATA_TYPES.has(dataType)) {
+      return json(400, {
+        error: `data_type must be one of ${[...DATA_TYPES].join(', ')}`
+      });
+    }
     if (q.get('notified_start') && !notifiedStart) {
       return json(400, { error: 'notified_start must be a valid datetime' });
     }
@@ -200,7 +185,7 @@ app.http('historyList', {
 
     const filters = [
       ['status', sql.VarChar(20), status],
-      ['department_id', sql.Int, departmentId],
+      ['data_type', sql.VarChar(20), dataType],
       ['employee_id', sql.NVarChar(50), employeeId],
       ['notified_start', sql.DateTime2, notifiedStart],
       ['notified_end', sql.DateTime2, notifiedEnd],
@@ -208,9 +193,6 @@ app.http('historyList', {
       ['delivered_end', sql.DateTime2, deliveredEnd],
     ];
 
-    /* search_keyword: the History search (historySearch.js) over the rows matching the
-       other filters, then this page. Without it, SQL pages directly. Either way read
-       links are only signed for the rows returned. */
     const keyword = strOrNull(String(q.get('search_keyword') ?? '').trim(), 200);
     let rows;
     let totalCount;
@@ -240,21 +222,16 @@ app.http('historyList', {
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize),
       count: rows.length,
-      // preview_url / image_blob_url: read-only links valid for BLOB_SAS_MINUTES, null without a blob.
+      // preview_url / image_blob_url: read-only links valid for BLOB_SAS_MINUTES,
+      // null when image_url is not a blob URL.
       value: await Promise.all(rows.map(async (row) => ({
         ...toHistory(row),
-        image_blob_url: await blobImages.readUrl(row.image_blob_path),
-        preview_url: await blobImages.readUrl(row.preview_blob_path),
+        ...(await blobImages.imageLinks(row.image_url)),
       }))),
     });
   }),
 });
 
-/* ------------------------------------------ GET /api/history/export
-   History screen → ダウンロード. Every row, or with search_keyword only the rows
-   the screen's search shows (see historyCsv.js), as a CSV file in Blob Storage.
-   Returns a short-lived download link for the app's Download().
-   tz_offset: Power Fx TimeZoneOffset(), so the times match the screen. */
 const EXPORT_MAX_ROWS = 100000;
 
 app.http('historyExport', {
@@ -297,24 +274,39 @@ app.http('historyInsert', {
   handler: handler('historyInsert', async (request, context) => {
     const b = await request.json().catch(() => ({}));
     const employeeId = strOrNull(String(b.employee_id ?? '').trim(), 50);
-    const status = strOrNull(b.status, 20) || (employeeId ? 'Identified' : 'Unknown');
+    const slipNo = strOrNull(b.slip_no, 100);
+    // image_blob_path (from POST /api/images) wins: image_url then stores its blob URL.
+    const blobPath = strOrNull(b.image_blob_path, 500);
+    const imageUrl = blobPath && blobImages.enabled()
+      ? blobImages.imageUrlFor(blobPath)
+      : (b.image_url == null || b.image_url === '' ? null : String(b.image_url));
+    let dataType = strOrNull(b.data_type, 20);
+    let status = strOrNull(b.status, 20);
+    if (status === 'Identified' || status === 'Unknown') {
+      dataType = dataType || status;
+      status = 'Notified';
+    }
+    if (!dataType) dataType = employeeId ? 'Identified' : 'Unknown';
+    if (!status) status = 'Notified';
+    if (!slipNo) return json(400, { error: 'slip_no is required' });
+    if (!imageUrl) return json(400, { error: 'image_url is required' });
+    if (!DATA_TYPES.has(dataType)) {
+      return json(400, { error: `data_type must be one of ${[...DATA_TYPES].join(', ')}` });
+    }
     if (!STATUSES.has(status)) {
       return json(400, { error: `status must be one of ${[...STATUSES].join(', ')}` });
     }
     const rows = await exec('dbo.sp_history_insert_v2', [
-      ['slip_no', sql.NVarChar(100), strOrNull(b.slip_no, 100)],
-      // Not length-capped, to match the NVARCHAR(MAX) column and parameter.
-      ['image_url', sql.NVarChar(sql.MAX), strOrNull(b.image_url)],
-      ['image_blob_path', sql.NVarChar(500), strOrNull(b.image_blob_path, 500)],
-      ['preview_blob_path', sql.NVarChar(500), strOrNull(b.preview_blob_path, 500)],
+      ['slip_no', sql.NVarChar(100), slipNo],
+      ['image_url', sql.NVarChar(sql.MAX), imageUrl],
       ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
       ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
       ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],
       ['employee_id', sql.NVarChar(50), employeeId],
       ['recipient_name', sql.NVarChar(200), strOrNull(b.recipient_name, 200)],
-      ['recipient_department_id', sql.Int, intOrNull(b.recipient_department_id)],
       ['recipient_department_name', sql.NVarChar(200), strOrNull(b.recipient_department_name, 200)],
       ['status', sql.VarChar(20), status],
+      ['data_type', sql.VarChar(20), dataType],
       ['notified_at', sql.DateTime2, dateOrNull(b.notified_at)],
       ['planner_task_id', sql.NVarChar(100), strOrNull(b.planner_task_id, 100)],
     ], context);
@@ -325,7 +317,8 @@ app.http('historyInsert', {
 /* ------------------------------------------------- POST /api/images
    Called by EDS-NotifySelected before POST /api/history.
    Body: { content: "<base64 or data URI>", content_type?: "image/jpeg" }
-   Stores the original and a 320 px preview; returns image_blob_path / preview_blob_path.
+   Stores the original and a 320 px preview; returns image_url (blob URL) and
+   image_blob_path / preview_blob_path.
    Only registered when BLOB_ACCOUNT_URL is set (see blobImages.js). */
 if (blobImages.enabled()) {
   app.http('imageUpload', {
@@ -393,9 +386,8 @@ app.http('historySetDelivered', {
 
 /* ------------------------------------- GET /api/employees
    Employee page with server-side pagination, same shape as historyList.
-   department_id filters by department; search_keyword is a contains match on
-   社員番号 (employee_code), 社員氏名 (full_name), Eメール (email) and 部署
-   (department_name). Other columns do not match. */
+   department_name filters by department. search_keyword matches employee_id, full_name,
+   email, department_name, and the displayed created/updated times. */
 app.http('employeeList', {
   methods: ['GET'],
   authLevel: 'function',
@@ -403,8 +395,7 @@ app.http('employeeList', {
   handler: handler('employeeList', async (request, context) => {
     const q = request.query;
 
-    const departmentId = intOrNull(q.get('department_id'));
-    // Same normalization as normalizeSearch, plus date keywords (2026/10/8, 2026年10月8日 14:30, …).
+    const departmentName = strOrNull(q.get('department_name'), 200);
     const keyword = historySearch.prepareKeyword(q.get('search_keyword'));
     const tzOffset = historySearch.tzOffsetOrDefault(q.get('tz_offset'));
 
@@ -419,19 +410,17 @@ app.http('employeeList', {
       const rows = await exec('dbo.sp_employee_list', [
         ['page', sql.Int, page],
         ['page_size', sql.Int, pageSize],
-        ['department_id', sql.Int, departmentId],
+        ['department_name', sql.NVarChar(200), departmentName],
         ['search_keyword', sql.NVarChar(200), null],
       ], context);
       const totalCount = Number(rows[0]?.total_count ?? 0);
       return json(200, pageBody(page, pageSize, totalCount, rows.map(toEmployee)));
     }
 
-    // Keyword: the procedure's own keyword match is prefix-only on employee_code,
-    // so fetch every row (same order), match here, then page.
     const all = await exec('dbo.sp_employee_list', [
       ['page', sql.Int, 1],
       ['page_size', sql.Int, FETCH_ALL],
-      ['department_id', sql.Int, departmentId],
+      ['department_name', sql.NVarChar(200), departmentName],
       ['search_keyword', sql.NVarChar(200), null],
     ], context);
     if (all.length >= FETCH_ALL) context.warn(`employeeList: keyword search capped at ${FETCH_ALL} rows`);
@@ -441,17 +430,6 @@ app.http('employeeList', {
   }),
 });
 
-/* ------------------------------------ POST /api/employees/import
-   CSV import (messages 51-56). Body: { "csv": "<file text>" } or
-   { "csv_base64": "<file content>" }. Columns: 社員番号,社員氏名,メール,部署.
-   Each row is validated on its own; valid rows are upserted by employee_code
-   (existing code -> updated, new code -> inserted) in one transaction, invalid
-   rows are skipped and returned as errorFile.
-     200  some or all rows written: messages 51 or 52, plus 54 when codes were updated
-     413  file too large / too many rows: message 55
-     422  every row invalid, nothing written: message 53
-     503  connection lost while writing, transaction rolled back: message 56
-     400  not a readable CSV or a required column is missing (no message id yet) */
 app.http('employeeImport', {
   methods: ['POST'],
   authLevel: 'function',
@@ -480,14 +458,13 @@ app.http('employeeImport', {
     try {
       upserted = await exec('dbo.sp_employee_upsert', [
         ['rows', sql.NVarChar(sql.MAX), JSON.stringify(checked.valid.map((r) => ({
-          employee_code: r.employee_code,
+          employee_id: r.employee_id,
           full_name: r.full_name,
           email: r.email,
           department_name: r.department_name,
         })))],
       ], context);
     } catch (e) {
-      // The procedure runs with XACT_ABORT in one transaction, so nothing was kept.
       if (isRetryable(e)) {
         context.error(`employeeImport: connection lost, rolled back: ${e.message}`);
         return json(503, { success: false, messages: [message(56)] });
@@ -512,7 +489,7 @@ app.http('employeeMatch', {
 
     const rows = await exec('dbo.sp_match_candidates', [
       ['name_normalized', sql.NVarChar(200), name],
-      ['department_id', sql.Int, intOrNull(q.get('department_id'))],
+      ['department_name', sql.NVarChar(200), strOrNull(q.get('department_name'), 200)],
       ['top', sql.Int, clampTop(q.get('top'), 10, 50)],
     ], context);
     return json(200, { count: rows.length, value: rows });
@@ -563,42 +540,56 @@ app.http('employeeInsert', {
   handler: handler('employeeInsert', async (request, context) => {
     const b = await request.json().catch(() => ({}));
 
-    const employeeId = intOrNull(b.employee_id);
-    const employeeCode = strOrNull(b.employee_code, 50);
+    const employeeId = strOrNull(b.employee_id, 50);
     const fullName = strOrNull(b.full_name, 200);
+    const departmentName = strOrNull(b.department_name, 200);
+    const email = strOrNull(b.email, 320);
 
-    if (!employeeId || employeeId <= 0) {
-      return json(400, {
-        error: 'employee_id must be a positive integer'
-      });
-    }
-
-    if (!employeeCode) {
-      return json(400, {
-        error: 'employee_code is required'
-      });
-    }
-
-    if (!fullName) {
-      return json(400, {
-        error: 'full_name is required'
-      });
-    }
+    if (!employeeId) return json(400, { error: 'employee_id is required' });
+    if (!fullName) return json(400, { error: 'full_name is required' });
+    if (!departmentName) return json(400, { error: 'department_name is required' });
+    if (!email) return json(400, { error: 'email is required' });
 
     const rows = await exec('dbo.sp_employee_insert', [
-      ['employee_id', sql.Int, employeeId],
-      ['employee_code', sql.NVarChar(50), employeeCode],
+      ['employee_id', sql.NVarChar(50), employeeId],
       ['full_name', sql.NVarChar(200), fullName],
-      ['name_normalized', sql.NVarChar(200), strOrNull(b.name_normalized, 200)],
-      ['department_id', sql.Int, intOrNull(b.department_id)],
-      ['department_name', sql.NVarChar(200), strOrNull(b.department_name, 200)],
-      ['email', sql.NVarChar(320), strOrNull(b.email, 320)],
-      ['is_active', sql.Bit, b.is_active === undefined ? true : Boolean(b.is_active)],
+      ['department_name', sql.NVarChar(200), departmentName],
+      ['email', sql.NVarChar(320), email],
     ], context);
 
     return json(201, {
       value: rows[0]
     });
+  }),
+});
+
+/* ------------------------------------------ PATCH /api/employees/{id}
+   Updates full_name, department_name, and email. employee_id is not changed. */
+app.http('employeeUpdate', {
+  methods: ['PATCH'],
+  authLevel: 'function',
+  route: 'employees/{id}',
+  handler: handler('employeeUpdate', async (request, context) => {
+    const employeeId = strOrNull(request.params.id, 50);
+    const b = await request.json().catch(() => ({}));
+    const fullName = strOrNull(b.full_name, 200);
+    const departmentName = strOrNull(b.department_name, 200);
+    const email = strOrNull(b.email, 320);
+
+    if (!employeeId) return json(400, { error: 'id is required' });
+    if (!fullName) return json(400, { error: 'full_name is required' });
+    if (!departmentName) return json(400, { error: 'department_name is required' });
+    if (!email) return json(400, { error: 'email is required' });
+
+    const rows = await exec('dbo.sp_employee_update', [
+      ['employee_id', sql.NVarChar(50), employeeId],
+      ['full_name', sql.NVarChar(200), fullName],
+      ['department_name', sql.NVarChar(200), departmentName],
+      ['email', sql.NVarChar(320), email],
+    ], context);
+    return rows[0]
+      ? json(200, { value: rows[0] })
+      : json(404, { error: 'employee_id not found' });
   }),
 });
 
@@ -609,13 +600,13 @@ app.http('employeeDelete', {
   authLevel: 'function',
   route: 'employees/{id}',
   handler: handler('employeeDelete', async (request, context) => {
-    const employeeId = intOrNull(request.params.id);
-    if (!employeeId || employeeId <= 0) {
-      return json(400, { error: 'id must be a positive integer' });
+    const employeeId = strOrNull(request.params.id, 50);
+    if (!employeeId) {
+      return json(400, { error: 'id is required' });
     }
 
     const rows = await exec('dbo.sp_employee_delete', [
-      ['employee_id', sql.Int, employeeId],
+      ['employee_id', sql.NVarChar(50), employeeId],
     ], context);
     const deleted = rows[0]?.rows_deleted ?? 0;
     return deleted
@@ -624,53 +615,52 @@ app.http('employeeDelete', {
   }),
 });
 
-/* -------------------------------------------- GET /api/departments */
-app.http('departmentList', {
-  methods: ['GET'],
-  authLevel: 'function',
-  route: 'departments',
-  handler: handler('departmentList', async (request, context) => {
-    const rows = await exec('dbo.sp_department_list', [], context);
-    return json(200, { count: rows.length, value: rows });
-  }),
-});
-
-/* ------------------------------------------- POST /api/departments */
-app.http('departmentInsert', {
-  methods: ['POST'],
-  authLevel: 'function',
-  route: 'departments',
-  handler: handler('departmentInsert', async (request, context) => {
-    const b = await request.json().catch(() => ({}));
-    const name = strOrNull(b.department_name, 200);
-    if (!name) return json(400, { error: 'department_name is required' });
-
-    const rows = await exec('dbo.sp_department_insert', [
-      ['department_name', sql.NVarChar(200), name],
-    ], context);
-    return json(201, { value: rows[0] });
-  }),
-});
-
 /* ------------------------------------------- POST /api/ocr-history
-   Appends one OCR result log. history_id is optional. */
+   Appends one OCR read: confirmed package fields plus raw ocr_ values. */
 app.http('ocrHistoryInsert', {
   methods: ['POST'],
   authLevel: 'function',
   route: 'ocr-history',
   handler: handler('ocrHistoryInsert', async (request, context) => {
     const b = await request.json().catch(() => ({}));
+    const slipNo = strOrNull(b.slip_no, 100);
+    const imageUrl = b.image_url == null || b.image_url === '' ? null : String(b.image_url);
+    const dataType = strOrNull(b.data_type, 20);
+    const status = strOrNull(b.status, 20) || 'Notified';
+    if (!slipNo) return json(400, { error: 'slip_no is required' });
+    if (!imageUrl) return json(400, { error: 'image_url is required' });
+    if (!DATA_TYPES.has(dataType)) {
+      return json(400, { error: 'data_type must be one of Identified, Unknown' });
+    }
+    if (!STATUSES.has(status)) {
+      return json(400, { error: 'status must be one of Notified, Delivered' });
+    }
+
     const rows = await exec('dbo.sp_ocr_history_insert', [
       ['history_id', sql.BigInt, intOrNull(b.history_id)],
-      ['name', sql.NVarChar(200), strOrNull(b.name, 200)],
-      ['department', sql.NVarChar(200), strOrNull(b.department, 200)],
-      ['slip_no', sql.NVarChar(100), strOrNull(b.slip_no, 100)],
+      ['slip_no', sql.NVarChar(100), slipNo],
+      ['image_url', sql.NVarChar(sql.MAX), imageUrl],
       ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
       ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
       ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],
-      ['model_name', sql.NVarChar(200), strOrNull(b.model_name, 200)],
+      ['employee_id', sql.NVarChar(50), strOrNull(b.employee_id, 50)],
+      ['recipient_name', sql.NVarChar(200), strOrNull(b.recipient_name, 200)],
+      ['recipient_department_name', sql.NVarChar(200), strOrNull(b.recipient_department_name, 200)],
+      ['status', sql.VarChar(20), status],
+      ['data_type', sql.VarChar(20), dataType],
+      ['notified_at', sql.DateTime2, dateOrNull(b.notified_at)],
+      ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
+      ['delivered_by', sql.NVarChar(320), strOrNull(b.delivered_by, 320)],
+      ['planner_task_id', sql.NVarChar(100), strOrNull(b.planner_task_id, 100)],
+      ['ocr_receipt_name', sql.NVarChar(200), strOrNull(b.ocr_receipt_name, 200)],
+      ['ocr_receipt_department', sql.NVarChar(200), strOrNull(b.ocr_receipt_department, 200)],
+      ['ocr_slip_no', sql.NVarChar(100), strOrNull(b.ocr_slip_no, 100)],
+      ['ocr_sender_name', sql.NVarChar(200), strOrNull(b.ocr_sender_name, 200)],
+      ['ocr_sender_content', sql.NVarChar(1000), strOrNull(b.ocr_sender_content, 1000)],
+      ['ocr_sender_address', sql.NVarChar(500), strOrNull(b.ocr_sender_address, 500)],
+      ['ocr_model_name', sql.NVarChar(200), strOrNull(b.ocr_model_name, 200)],
     ], context);
-    return json(201, { id: Number(rows[0]?.id) });
+    return json(201, { ocr_id: Number(rows[0]?.ocr_id) });
   }),
 });
 

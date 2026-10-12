@@ -1,36 +1,30 @@
-/* EDS Phase 2 — schema v1.2
+/* EDS Phase 2 — schema v1.1
    Azure SQL Database: eds-db
    Source of truth: EDS_Phase2_DB_Schema_v1.0.xlsx (sheets: employee, history, Index & ràng buộc)
    Convention: snake_case; PK <table>_id; is_* flags; created_at / updated_at in UTC. */
 
 ------------------------------------------------------------------- employee
+-- Read-only replica of the SharePoint employee list.
+-- employee_id is the employee code (社員番号), not an identity integer.
+-- Rebuild when an older shape (employee_code / INT identity) is still present.
+IF OBJECT_ID('dbo.TR_employee_updated_at', 'TR') IS NOT NULL
+    DROP TRIGGER dbo.TR_employee_updated_at;
+GO
+IF OBJECT_ID('dbo.employee', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.employee', 'employee_code') IS NOT NULL
+    DROP TABLE dbo.employee;
+GO
 IF OBJECT_ID('dbo.employee', 'U') IS NULL
 CREATE TABLE dbo.employee
 (
-    employee_id      INT             IDENTITY(1,1) NOT NULL,
-    employee_code    NVARCHAR(50)    NOT NULL,
+    employee_id      NVARCHAR(50)    NOT NULL,
     full_name        NVARCHAR(200)   NOT NULL,
-    name_normalized  NVARCHAR(200)   NULL,
-    department_id    INT             NULL,
-    department_name  NVARCHAR(200)   NULL,
-    email            NVARCHAR(320)   NULL,
-    is_active        BIT             NOT NULL CONSTRAINT DF_employee_is_active  DEFAULT (1),
+    department_name  NVARCHAR(200)   NOT NULL,
+    email            NVARCHAR(320)   NOT NULL,
     created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_created_at DEFAULT (SYSUTCDATETIME()),
     updated_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_updated_at DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT PK_employee       PRIMARY KEY CLUSTERED (employee_id),
-    CONSTRAINT UQ_employee_code  UNIQUE (employee_code)
+    CONSTRAINT PK_employee PRIMARY KEY CLUSTERED (employee_id)
 );
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_employee_name_normalized' AND object_id = OBJECT_ID('dbo.employee'))
-CREATE INDEX IX_employee_name_normalized ON dbo.employee (name_normalized)
-    INCLUDE (full_name, department_id, department_name, email)
-    WHERE is_active = 1;
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_employee_department_id' AND object_id = OBJECT_ID('dbo.employee'))
-CREATE INDEX IX_employee_department_id ON dbo.employee (department_id)
-    WHERE is_active = 1;
 GO
 
 -- SQL Server has no ON UPDATE CURRENT_TIMESTAMP; updated_at is maintained by trigger.
@@ -49,16 +43,16 @@ IF OBJECT_ID('dbo.history', 'U') IS NULL
 CREATE TABLE dbo.history
 (
     history_id                 BIGINT          IDENTITY(1,1) NOT NULL,
-    slip_no                    NVARCHAR(100)   NULL,
-    image_url                  NVARCHAR(MAX)   NULL,  -- SharePoint URL or path of the scanned image
+    slip_no                    NVARCHAR(100)   NOT NULL,
+    image_url                  NVARCHAR(MAX)   NOT NULL,
     sender_name                NVARCHAR(200)   NULL,
     sender_content             NVARCHAR(1000)  NULL,
     sender_address             NVARCHAR(500)   NULL,
-    employee_id                INT             NULL,  -- snapshot id, not a foreign key
-    recipient_name             NVARCHAR(200)   NULL,  -- snapshot at delivery time
-    recipient_department_id    INT             NULL,  -- snapshot
-    recipient_department_name  NVARCHAR(200)   NULL,  -- snapshot
-    status                     VARCHAR(20)     NOT NULL CONSTRAINT DF_history_status     DEFAULT ('Unknown'),
+    employee_id                NVARCHAR(50)    NULL,  -- snapshot of employee code, not a foreign key
+    recipient_name             NVARCHAR(200)   NULL,
+    recipient_department_name  NVARCHAR(200)   NULL,
+    status                     VARCHAR(20)     NOT NULL CONSTRAINT DF_history_status     DEFAULT ('Notified'),
+    data_type                  VARCHAR(20)     NOT NULL,
     notified_at                DATETIME2(0)    NULL,
     delivered_at               DATETIME2(0)    NULL,
     delivered_by               NVARCHAR(320)   NULL,
@@ -66,7 +60,8 @@ CREATE TABLE dbo.history
     created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_created_at DEFAULT (SYSUTCDATETIME()),
     updated_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_updated_at DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT PK_history          PRIMARY KEY CLUSTERED (history_id),
-    CONSTRAINT CK_history_status   CHECK (status IN ('Unknown', 'Identified'))
+    CONSTRAINT CK_history_status    CHECK (status IN ('Notified', 'Delivered')),
+    CONSTRAINT CK_history_data_type CHECK (data_type IN ('Identified', 'Unknown'))
 );
 GO
 
@@ -77,27 +72,54 @@ IF COL_LENGTH('dbo.history', 'sender_content') IS NULL
     ALTER TABLE dbo.history ADD sender_content NVARCHAR(1000) NULL;
 IF COL_LENGTH('dbo.history', 'sender_address') IS NULL
     ALTER TABLE dbo.history ADD sender_address NVARCHAR(500) NULL;
+IF COL_LENGTH('dbo.history', 'data_type') IS NULL
+    ALTER TABLE dbo.history ADD data_type VARCHAR(20) NULL;
 GO
 
--- Existing databases created before v1.2: widen image_url (long enough for a base64 image,
--- see branch feature/history-base64; harmless for URLs).
-IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.history') AND name = 'image_url' AND max_length <> -1)
-    ALTER TABLE dbo.history ALTER COLUMN image_url NVARCHAR(MAX) NULL;
-GO
-
+-- Drop the old status check before rewriting its values.
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
     ALTER TABLE dbo.history DROP CONSTRAINT CK_history_status;
-GO
-UPDATE dbo.history
-SET    status = CASE WHEN status IN ('Notified', 'Delivered', 'Identified') THEN 'Identified' ELSE 'Unknown' END;
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_data_type' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history DROP CONSTRAINT CK_history_data_type;
 GO
 IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
     ALTER TABLE dbo.history DROP CONSTRAINT DF_history_status;
 GO
+
+-- Move the old status vocabulary (Unknown | Identified) into data_type.
+-- status becomes the handover state: Delivered when delivered_at is set, otherwise Notified.
+IF EXISTS (SELECT 1 FROM dbo.history WHERE status IN ('Unknown', 'Identified'))
+BEGIN
+    UPDATE dbo.history
+    SET    data_type = CASE
+               WHEN status = 'Identified' THEN 'Identified'
+               WHEN status = 'Unknown' THEN 'Unknown'
+               ELSE data_type
+           END
+    WHERE  status IN ('Unknown', 'Identified');
+
+    UPDATE dbo.history
+    SET    status = CASE WHEN delivered_at IS NOT NULL THEN 'Delivered' ELSE 'Notified' END
+    WHERE  status IN ('Unknown', 'Identified');
+END
+GO
+UPDATE dbo.history
+SET    data_type = CASE WHEN employee_id IS NOT NULL THEN 'Identified' ELSE 'Unknown' END
+WHERE  data_type IS NULL;
+UPDATE dbo.history SET slip_no = N'' WHERE slip_no IS NULL;
+UPDATE dbo.history SET image_url = N'' WHERE image_url IS NULL;
+GO
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = 'DF_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
-    ALTER TABLE dbo.history ADD CONSTRAINT DF_history_status DEFAULT ('Unknown') FOR status;
+    ALTER TABLE dbo.history ADD CONSTRAINT DF_history_status DEFAULT ('Notified') FOR status;
+ALTER TABLE dbo.history ALTER COLUMN image_url NVARCHAR(MAX) NOT NULL;
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_slip_no' AND object_id = OBJECT_ID('dbo.history'))
+    DROP INDEX IX_history_slip_no ON dbo.history;
+ALTER TABLE dbo.history ALTER COLUMN slip_no NVARCHAR(100) NOT NULL;
+ALTER TABLE dbo.history ALTER COLUMN data_type VARCHAR(20) NOT NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_status' AND parent_object_id = OBJECT_ID('dbo.history'))
-    ALTER TABLE dbo.history ADD CONSTRAINT CK_history_status CHECK (status IN ('Unknown', 'Identified'));
+    ALTER TABLE dbo.history ADD CONSTRAINT CK_history_status CHECK (status IN ('Notified', 'Delivered'));
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_history_data_type' AND parent_object_id = OBJECT_ID('dbo.history'))
+    ALTER TABLE dbo.history ADD CONSTRAINT CK_history_data_type CHECK (data_type IN ('Identified', 'Unknown'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_created_at' AND object_id = OBJECT_ID('dbo.history'))
@@ -112,8 +134,15 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_employee_id' AND object_id = OBJECT_ID('dbo.history'))
 CREATE INDEX IX_history_employee_id ON dbo.history (employee_id);
 GO
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_department' AND object_id = OBJECT_ID('dbo.history'))
-CREATE INDEX IX_history_department ON dbo.history (recipient_department_id);
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_department' AND object_id = OBJECT_ID('dbo.history'))
+    DROP INDEX IX_history_department ON dbo.history;
+GO
+IF COL_LENGTH('dbo.history', 'recipient_department_id') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN recipient_department_id;
+IF COL_LENGTH('dbo.history', 'image_blob_path') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN image_blob_path;
+IF COL_LENGTH('dbo.history', 'preview_blob_path') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN preview_blob_path;
 GO
 -- One Planner task maps to exactly one package; NULLs are not constrained.
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_history_planner_task' AND object_id = OBJECT_ID('dbo.history'))
@@ -125,6 +154,26 @@ GO
 -- deleting history rows that still store that employee_id.
 IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_history_employee' AND parent_object_id = OBJECT_ID('dbo.history'))
     ALTER TABLE dbo.history DROP CONSTRAINT FK_history_employee;
+GO
+
+-- Older history rows stored the integer identity. Keep the digits as text.
+-- The index must be dropped before the column type can change.
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns c
+    JOIN sys.types t ON c.user_type_id = t.user_type_id
+    WHERE c.object_id = OBJECT_ID('dbo.history')
+      AND c.name = 'employee_id'
+      AND t.name = 'int'
+)
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_employee_id' AND object_id = OBJECT_ID('dbo.history'))
+        DROP INDEX IX_history_employee_id ON dbo.history;
+    ALTER TABLE dbo.history ALTER COLUMN employee_id NVARCHAR(50) NULL;
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_employee_id' AND object_id = OBJECT_ID('dbo.history'))
+CREATE INDEX IX_history_employee_id ON dbo.history (employee_id);
 GO
 
 IF COL_LENGTH('dbo.history', 'ocr_name') IS NOT NULL
@@ -157,22 +206,44 @@ END
 GO
 
 --------------------------------------------------------------- ocr_history
--- Log of one OCR read. history_id is optional; deleting the package sets it NULL.
+-- One row per OCR read: package columns plus the raw OCR values.
+-- history_id is nullable so ON DELETE SET NULL can clear it when the package is removed.
+-- Rebuild when the previous shape (column id, no ocr_id) is still present.
+IF OBJECT_ID('dbo.ocr_history', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.ocr_history', 'ocr_id') IS NULL
+    DROP TABLE dbo.ocr_history;
+GO
 IF OBJECT_ID('dbo.ocr_history', 'U') IS NULL
 CREATE TABLE dbo.ocr_history
 (
-    id               BIGINT          IDENTITY(1,1) NOT NULL,
-    history_id       BIGINT          NULL,
-    name             NVARCHAR(200)   NULL,
-    department       NVARCHAR(200)   NULL,
-    slip_no          NVARCHAR(100)   NULL,
-    sender_name      NVARCHAR(200)   NULL,
-    sender_content   NVARCHAR(1000)  NULL,
-    sender_address   NVARCHAR(500)   NULL,
-    model_name       NVARCHAR(200)   NULL,
-    created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_ocr_history_created_at DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT PK_ocr_history PRIMARY KEY CLUSTERED (id),
-    CONSTRAINT FK_ocr_history_history FOREIGN KEY (history_id) REFERENCES dbo.history (history_id) ON DELETE SET NULL
+    ocr_id                     BIGINT          IDENTITY(1,1) NOT NULL,
+    history_id                 BIGINT          NULL,
+    slip_no                    NVARCHAR(100)   NOT NULL,
+    image_url                  NVARCHAR(MAX)   NOT NULL,
+    sender_name                NVARCHAR(200)   NULL,
+    sender_content             NVARCHAR(1000)  NULL,
+    sender_address             NVARCHAR(500)   NULL,
+    employee_id                NVARCHAR(50)    NULL,
+    recipient_name             NVARCHAR(200)   NULL,
+    recipient_department_name  NVARCHAR(200)   NULL,
+    status                     VARCHAR(20)     NOT NULL CONSTRAINT DF_ocr_history_status DEFAULT ('Notified'),
+    data_type                  VARCHAR(20)     NOT NULL,
+    notified_at                DATETIME2(0)    NULL,
+    delivered_at               DATETIME2(0)    NULL,
+    delivered_by               NVARCHAR(320)   NULL,
+    planner_task_id            NVARCHAR(100)   NULL,
+    ocr_receipt_name           NVARCHAR(200)   NULL,
+    ocr_receipt_department     NVARCHAR(200)   NULL,
+    ocr_slip_no                NVARCHAR(100)   NULL,
+    ocr_sender_name            NVARCHAR(200)   NULL,
+    ocr_sender_content         NVARCHAR(1000)  NULL,
+    ocr_sender_address         NVARCHAR(500)   NULL,
+    ocr_model_name             NVARCHAR(200)   NULL,
+    created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_ocr_history_created_at DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_ocr_history PRIMARY KEY CLUSTERED (ocr_id),
+    CONSTRAINT FK_ocr_history_history FOREIGN KEY (history_id) REFERENCES dbo.history (history_id) ON DELETE SET NULL,
+    CONSTRAINT CK_ocr_history_status CHECK (status IN ('Notified', 'Delivered')),
+    CONSTRAINT CK_ocr_history_data_type CHECK (data_type IN ('Identified', 'Unknown'))
 );
 GO
 

@@ -38,25 +38,33 @@
           {
             "name": "status",
             "in": "query",
-            "description": "Unknown | Identified.",
+            "description": "Notified | Delivered. A value of Identified or Unknown is applied to data_type.",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "Notified",
+                "Delivered"
+              ]
             }
           },
           {
-            "name": "department_id",
+            "name": "data_type",
             "in": "query",
-            "description": "Recipient department id, 1-20.",
+            "description": "Identified | Unknown.",
             "schema": {
-              "type": "integer"
+              "type": "string",
+              "enum": [
+                "Identified",
+                "Unknown"
+              ]
             }
           },
           {
             "name": "employee_id",
             "in": "query",
-            "description": "Recipient employee id.",
+            "description": "Recipient employee code.",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -111,13 +119,16 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "slip_no",
+                  "image_url"
+                ],
                 "properties": {
                   "slip_no": {
                     "type": "string"
                   },
                   "image_url": {
-                    "type": "string",
-                    "description": "SharePoint URL or path of the scanned image. Not length-capped."
+                    "type": "string"
                   },
                   "sender_name": {
                     "type": "string"
@@ -129,14 +140,10 @@
                     "type": "string"
                   },
                   "employee_id": {
-                    "type": "string",
-                    "description": "Text, like dbo.employee (some ids do not fit in INT)"
+                    "type": "string"
                   },
                   "recipient_name": {
                     "type": "string"
-                  },
-                  "recipient_department_id": {
-                    "type": "integer"
                   },
                   "recipient_department_name": {
                     "type": "string"
@@ -144,8 +151,16 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "Unknown",
-                      "Identified"
+                      "Notified",
+                      "Delivered"
+                    ],
+                    "default": "Notified"
+                  },
+                  "data_type": {
+                    "type": "string",
+                    "enum": [
+                      "Identified",
+                      "Unknown"
                     ]
                   },
                   "notified_at": {
@@ -155,28 +170,20 @@
                   "planner_task_id": {
                     "type": "string",
                     "nullable": true
-                  },
-                  "image_blob_path": {
-                    "type": "string",
-                    "description": "From POST /images"
-                  },
-                  "preview_blob_path": {
-                    "type": "string",
-                    "description": "From POST /images"
                   }
                 }
               },
               "example": {
-                "slip_no": "SLP-20260910-0001",
-                "image_url": "https://smartosc.sharepoint.com/sites/eds/PackageSlips/20260910/slip_00001.jpg",
+                "slip_no": "1989-2173-2192",
+                "image_url": "data:image/jpeg;base64,...",
                 "sender_name": "山田 花子",
                 "sender_content": "契約書類",
                 "sender_address": "東京都千代田区丸の内1-1-1",
-                "employee_id": 1838,
-                "recipient_name": "田中 太郎",
-                "recipient_department_id": 17,
-                "recipient_department_name": "総務部",
-                "status": "Identified",
+                "employee_id": "1060002002",
+                "recipient_name": "大野朱音",
+                "recipient_department_name": "経営企画部",
+                "status": "Notified",
+                "data_type": "Identified",
                 "notified_at": "2026-09-10T10:00:00.0000000+00:00",
                 "planner_task_id": null
               }
@@ -193,7 +200,7 @@
     "/history/delivered": {
       "post": {
         "summary": "Mark delivered",
-        "description": "Records delivered_at. Idempotent - replaying a completion does not move delivered_at. Identify the package by planner_task_id or history_id. Status stays Unknown or Identified.",
+        "description": "Records delivered_at and sets status to Delivered. Replaying a completion does not move delivered_at. Identify the package by planner_task_id or history_id.",
         "operationId": "history-delivered",
         "requestBody": {
           "content": {
@@ -253,7 +260,7 @@
     "/employees": {
       "get": {
         "summary": "List employees",
-        "description": "Paginated employees, same response shape as List history. department_id and search_keyword are optional and combine with AND.",
+        "description": "Paginated employees. department_name and search_keyword are optional and combine with AND.",
         "operationId": "employee-list",
         "parameters": [
           {
@@ -275,17 +282,17 @@
             }
           },
           {
-            "name": "department_id",
+            "name": "department_name",
             "in": "query",
-            "description": "Restrict to one department.",
+            "description": "Restrict to one department name.",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
             "name": "search_keyword",
             "in": "query",
-            "description": "Match full_name, department_name, or email (contains), plus name_normalized and employee_code prefix.",
+            "description": "Match full_name, department_name, or email (contains), or employee_id prefix.",
             "schema": {
               "type": "string"
             }
@@ -299,7 +306,7 @@
       },
       "post": {
         "summary": "Insert employee",
-        "description": "Inserts a new employee. employee_id, employee_code and full_name are required.",
+        "description": "Inserts a new employee. employee_id is the employee code. full_name, department_name, and email are required.",
         "operationId": "employee-insert",
         "requestBody": {
           "required": true,
@@ -309,47 +316,30 @@
                 "type": "object",
                 "required": [
                   "employee_id",
-                  "employee_code",
-                  "full_name"
+                  "full_name",
+                  "department_name",
+                  "email"
                 ],
                 "properties": {
                   "employee_id": {
-                    "type": "integer"
-                  },
-                  "employee_code": {
                     "type": "string"
                   },
                   "full_name": {
                     "type": "string"
-                  },
-                  "name_normalized": {
-                    "type": "string"
-                  },
-                  "department_id": {
-                    "type": "integer",
-                    "nullable": true
                   },
                   "department_name": {
                     "type": "string"
                   },
                   "email": {
                     "type": "string"
-                  },
-                  "is_active": {
-                    "type": "boolean",
-                    "default": true
                   }
                 }
               },
               "example": {
-                "employee_id": 2100,
-                "employee_code": "demo-2100",
-                "full_name": "田中 太郎",
-                "name_normalized": "たなかたろう",
-                "department_id": 17,
-                "department_name": "総務部",
-                "email": "taro.tanaka@example.co.jp",
-                "is_active": true
+                "employee_id": "1060002002",
+                "full_name": "大野朱音",
+                "department_name": "経営企画部",
+                "email": "a-ono@exeo-digitalsolutions.co.jp"
               }
             }
           }
@@ -362,7 +352,52 @@
             "description": "Missing required fields."
           },
           "409": {
-            "description": "employee_id or employee_code already exists."
+            "description": "employee_id or email is already used by another employee."
+          }
+        }
+      }
+    },
+    "/employees/import": {
+      "post": {
+        "summary": "Import employees",
+        "description": "Upserts employees from a CSV. Send the file text in csv, or the base64 file bytes in csv_base64. Header columns: 社員番号, 社員氏名, メール, 部署.",
+        "operationId": "employee-import",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "csv": {
+                    "type": "string"
+                  },
+                  "csv_base64": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "csv_base64": "<base64 of the CSV file>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import finished. Body has success, total, inserted, updated, skipped, messages, and errorFile."
+          },
+          "400": {
+            "description": "csv and csv_base64 are missing, or the CSV cannot be parsed."
+          },
+          "413": {
+            "description": "File is too large."
+          },
+          "422": {
+            "description": "No valid data rows."
+          },
+          "503": {
+            "description": "Database connection was lost and the import was rolled back."
           }
         }
       }
@@ -383,11 +418,11 @@
             }
           },
           {
-            "name": "department_id",
+            "name": "department_name",
             "in": "query",
-            "description": "OCR department, adds to the match score.",
+            "description": "OCR department name, adds to the match score.",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -526,6 +561,64 @@
       }
     },
     "/employees/{id}": {
+      "patch": {
+        "summary": "Update employee",
+        "description": "Updates full_name, department_name, and email for an existing employee_id. The id itself is not changed.",
+        "operationId": "employee-update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "employee_id to update.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "full_name",
+                  "department_name",
+                  "email"
+                ],
+                "properties": {
+                  "full_name": {
+                    "type": "string"
+                  },
+                  "department_name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "full_name": "前川 雄亮",
+                "department_name": "第２営業本部",
+                "email": "kietna2@smartosc.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated. Body contains value with the employee row."
+          },
+          "400": {
+            "description": "Missing required fields."
+          },
+          "404": {
+            "description": "employee_id not found."
+          }
+        }
+      },
       "delete": {
         "summary": "Delete employee",
         "description": "Deletes the employee by employee_id. History rows keep the employee_id snapshot.",
@@ -537,7 +630,7 @@
             "description": "employee_id to delete.",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -551,72 +644,30 @@
         }
       }
     },
-    "/departments": {
-      "get": {
-        "summary": "List departments",
-        "operationId": "department-list",
-        "responses": {
-          "200": {
-            "description": "Department catalog."
-          }
-        }
-      },
-      "post": {
-        "summary": "Insert department",
-        "operationId": "department-insert",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "department_name"
-                ],
-                "properties": {
-                  "department_name": {
-                    "type": "string"
-                  }
-                }
-              },
-              "example": {
-                "department_name": "総務部"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created."
-          },
-          "409": {
-            "description": "department_name already exists."
-          }
-        }
-      }
-    },
     "/ocr-history": {
       "post": {
         "summary": "Append OCR log",
-        "description": "Stores one OCR result. history_id is optional.",
+        "description": "Stores one OCR read. slip_no, image_url, and data_type are required. status defaults to Notified. data_type is Identified or Unknown. status is Notified or Delivered.",
         "operationId": "ocr-history-insert",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "slip_no",
+                  "image_url",
+                  "data_type"
+                ],
                 "properties": {
                   "history_id": {
                     "type": "integer",
                     "nullable": true
                   },
-                  "name": {
-                    "type": "string"
-                  },
-                  "department": {
-                    "type": "string"
-                  },
                   "slip_no": {
+                    "type": "string"
+                  },
+                  "image_url": {
                     "type": "string"
                   },
                   "sender_name": {
@@ -628,27 +679,91 @@
                   "sender_address": {
                     "type": "string"
                   },
-                  "model_name": {
+                  "employee_id": {
+                    "type": "string"
+                  },
+                  "recipient_name": {
+                    "type": "string"
+                  },
+                  "recipient_department_name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "Notified",
+                      "Delivered"
+                    ],
+                    "default": "Notified"
+                  },
+                  "data_type": {
+                    "type": "string",
+                    "enum": [
+                      "Identified",
+                      "Unknown"
+                    ]
+                  },
+                  "notified_at": {
+                    "type": "string"
+                  },
+                  "delivered_at": {
+                    "type": "string"
+                  },
+                  "delivered_by": {
+                    "type": "string"
+                  },
+                  "planner_task_id": {
+                    "type": "string"
+                  },
+                  "ocr_receipt_name": {
+                    "type": "string"
+                  },
+                  "ocr_receipt_department": {
+                    "type": "string"
+                  },
+                  "ocr_slip_no": {
+                    "type": "string"
+                  },
+                  "ocr_sender_name": {
+                    "type": "string"
+                  },
+                  "ocr_sender_content": {
+                    "type": "string"
+                  },
+                  "ocr_sender_address": {
+                    "type": "string"
+                  },
+                  "ocr_model_name": {
                     "type": "string"
                   }
                 }
               },
               "example": {
                 "history_id": 12,
-                "name": "前川 雄亮",
-                "department": "総務部",
-                "slip_no": "SLP-20260910-0001",
+                "slip_no": "1989-2173-2192",
+                "image_url": "data:image/jpeg;base64,...",
                 "sender_name": "山田 花子",
                 "sender_content": "契約書類",
                 "sender_address": "東京都千代田区丸の内1-1-1",
-                "model_name": "gpt-4o"
+                "employee_id": "1060002002",
+                "recipient_name": "大野朱音",
+                "recipient_department_name": "経営企画部",
+                "status": "Notified",
+                "data_type": "Identified",
+                "ocr_receipt_name": "大野 朱音",
+                "ocr_receipt_department": "経営企画部",
+                "ocr_slip_no": "1989-2173-2192",
+                "ocr_sender_name": "山田 花子",
+                "ocr_sender_content": "契約書類",
+                "ocr_sender_address": "東京都千代田区丸の内1-1-1",
+                "ocr_model_name": "gpt-4o"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Created; body contains id."
+            "description": "Created; body contains ocr_id."
           }
         }
       }
@@ -656,7 +771,7 @@
     "/images": {
       "post": {
         "summary": "Store a scanned image and its preview",
-        "description": "Stores the original and a 320 px JPEG preview in Blob Storage (container history-images). Returns the blob paths to pass to POST /history. Called by EDS-NotifySelected.",
+        "description": "Stores the original and a 320 px JPEG preview in Blob Storage (container history-images). Returns image_url (the blob URL stored in dbo.history.image_url) and the blob paths; pass image_blob_path to POST /history. Called by EDS-NotifySelected.",
         "operationId": "image-upload",
         "requestBody": {
           "required": true,
