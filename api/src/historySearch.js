@@ -1,12 +1,20 @@
-/* History keyword search, shared by the History screen (GET /api/history) and the
-   CSV download (GET /api/history/export), so both return exactly the same rows.
+/* History search, shared by the History screen (GET /api/history) and the CSV
+   download (GET /api/history/export), so both return exactly the same rows.
 
-   A row matches when the keyword is contained in any of the values the History
-   screen shows:
-     伝票番号, 受取人 (不明 when empty), 処理状況 (通知済み | 荷物受取済み),
-     データ区分 (受取人指定あり | 受取人不明), 通知日時 (yyyy/mm/dd hh:mm, caller's time zone)
+   The History screen's 検索条件 panel sends one parameter per field:
+     slip_no          伝票番号  - contains
+     recipient_name   受取人    - contains (a row without a recipient shows and matches 不明)
+     status           処理状態  - Notified | Delivered (通知済み | 受取済み)
+     data_type        データ区分 - Identified | Unknown (受取人指定あり | 指定なし（不明）)
+     notified_start / notified_end   通知日時 From / To (ISO datetime, inclusive)
+   status, data_type and the date ranges are filtered in SQL (sp_history_list_v2);
+   slip_no, recipient_name and search_keyword are filtered here, after SQL.
 
-   Comparison ignores case, full-width / half-width (NFKC) and spaces, so
+   search_keyword (older app versions) still works: a row matches when the keyword
+   is contained in any of the values the History screen shows:
+     伝票番号, 受取人, 処理状態, データ区分, 通知日時 (yyyy/mm/dd hh:mm, caller's time zone)
+
+   Text comparison ignores case, full-width / half-width (NFKC) and spaces, so
    "林健太" matches "林 健太" and "２０２６" matches "2026".
    A date keyword (yyyy/mm/dd, also with - or 年月日, optional hh:mm) is rewritten to the
    display format: "2026/9/24" matches that day, "2026/9/24 14:30" that minute.
@@ -19,11 +27,17 @@ const DEFAULT_TZ_OFFSET = -540;
 const text = (v) => (v === undefined || v === null ? '' : String(v));
 const pad = (n) => String(n).padStart(2, '0');
 
+// Screen labels. Keep in step with the app (srcHistory / cmpPager fetch formulas).
+const STATUS_LABEL = { Notified: '通知済み', Delivered: '受取済み' };
+const DATA_TYPE_LABEL = { Identified: '受取人指定あり', Unknown: '指定なし（不明）' };
+// Labels used before 2026-10-13, still accepted as keywords.
+const OLD_LABELS = { Delivered: '荷物受取済み', Unknown: '受取人不明' };
+
 /** Labels the History screen shows for a row. */
 const labels = (row) => ({
   recipient: text(row.recipient_name) === '' ? '不明' : text(row.recipient_name),
-  status: text(row.delivered_at) === '' ? '通知済み' : '荷物受取済み',
-  dataType: row.data_type === 'Identified' ? '受取人指定あり' : '受取人不明',
+  status: text(row.delivered_at) === '' && row.status !== 'Delivered' ? STATUS_LABEL.Notified : STATUS_LABEL.Delivered,
+  dataType: text(row.data_type).toLowerCase() === 'identified' ? DATA_TYPE_LABEL.Identified : DATA_TYPE_LABEL.Unknown,
 });
 
 /** Parses tz_offset (minutes, UTC minus local); falls back to Japan. */
@@ -57,18 +71,122 @@ function canonicalKeyword(keyword) {
 /** Normalized keyword, or '' when there is none. */
 const prepareKeyword = (keyword) => canonicalKeyword(normalize(keyword));
 
-/** Rows matching the keyword (all rows when the keyword is empty). */
-function filterRows(rows, keyword, tzOffset = DEFAULT_TZ_OFFSET) {
-  const kw = prepareKeyword(keyword);
-  if (!kw) return rows;
+/** True when any field contains the keyword (from prepareKeyword or normalize). */
+const matchesKeyword = (keyword, fields) => fields.some((f) => normalize(f).includes(keyword));
+
+/* ---------------------------------------------------------------- query parameters */
+
+// Accepted spellings (compared after normalize) -> stored value.
+const STATUS_IN = {
+  notified: 'Notified', delivered: 'Delivered',
+  通知済み: 'Notified', 受取済み: 'Delivered', 荷物受取済み: 'Delivered',
+};
+const DATA_TYPE_IN = {
+  identified: 'Identified', unknown: 'Unknown',
+  受取人指定あり: 'Identified', [normalize('指定なし（不明）')]: 'Unknown', 指定なし: 'Unknown', 受取人不明: 'Unknown',
+};
+
+const trimmed = (v, max = 200) => {
+  const t = text(v).trim();
+  return t === '' ? null : t.slice(0, max);
+};
+
+/** Parses an ISO datetime; undefined when the value is set but invalid. */
+function dateParam(v) {
+  if (v === undefined || v === null || text(v).trim() === '') return null;
+  const d = new Date(text(v).trim());
+  return Number.isNaN(+d) ? undefined : d;
+}
+
+/**
+ * Reads the History filters from the request query (`get(name)` returns a string or null).
+ * Returns `{ error }` for an invalid value, else the filters:
+ *   status, dataType, employeeId, notifiedStart, notifiedEnd, deliveredStart, deliveredEnd (SQL)
+ *   slipNo, recipientName, keyword, tzOffset (filtered here)
+ */
+function parseFilters(get) {
+  let status = trimmed(get('status'), 20);
+  let dataType = trimmed(get('data_type'), 20);
+
+  // Before data_type existed, status carried Identified | Unknown.
+  if (status && DATA_TYPE_IN[normalize(status)] && !STATUS_IN[normalize(status)]) {
+    dataType = dataType || status;
+    status = null;
+  }
+  if (status) {
+    status = STATUS_IN[normalize(status)];
+    if (!status) return { error: 'status must be one of Notified, Delivered' };
+  }
+  if (dataType) {
+    dataType = DATA_TYPE_IN[normalize(dataType)];
+    if (!dataType) return { error: 'data_type must be one of Identified, Unknown' };
+  }
+
+  const dates = {};
+  for (const [key, name] of [['notifiedStart', 'notified_start'], ['notifiedEnd', 'notified_end'],
+    ['deliveredStart', 'delivered_start'], ['deliveredEnd', 'delivered_end']]) {
+    dates[key] = dateParam(get(name));
+    if (dates[key] === undefined) return { error: `${name} must be a valid datetime` };
+  }
+  if (dates.notifiedStart && dates.notifiedEnd && dates.notifiedStart > dates.notifiedEnd) {
+    return { error: 'notified_start must not be after notified_end' };
+  }
+
+  return {
+    status: status || null,
+    dataType: dataType || null,
+    employeeId: trimmed(get('employee_id'), 50),
+    ...dates,
+    slipNo: trimmed(get('slip_no')),
+    recipientName: trimmed(get('recipient_name')),
+    keyword: trimmed(get('search_keyword')),
+    tzOffset: tzOffsetOrDefault(get('tz_offset')),
+  };
+}
+
+/** True when some filter has to run here rather than in SQL. */
+const needsRowFilter = (f) => Boolean(f.slipNo || f.recipientName || f.keyword);
+
+/** Rows matching slip_no, recipient_name and search_keyword (all rows when none is set). */
+function applyRowFilters(rows, f) {
+  const slip = f.slipNo ? normalize(f.slipNo) : '';
+  const recipient = f.recipientName ? normalize(f.recipientName) : '';
+  const kw = f.keyword ? prepareKeyword(f.keyword) : '';
+  if (!slip && !recipient && !kw) return rows;
+  const tzOffset = f.tzOffset ?? DEFAULT_TZ_OFFSET;
   return rows.filter((row) => {
     const l = labels(row);
-    return [row.slip_no, l.recipient, l.status, l.dataType, formatTime(row.notified_at, tzOffset)]
-      .some((f) => normalize(f).includes(kw));
+    if (slip && !normalize(row.slip_no).includes(slip)) return false;
+    if (recipient && !normalize(l.recipient).includes(recipient)) return false;
+    if (kw) {
+      const old = [
+        l.status === STATUS_LABEL.Delivered ? OLD_LABELS.Delivered : '',
+        l.dataType === DATA_TYPE_LABEL.Unknown ? OLD_LABELS.Unknown : '',
+      ];
+      if (!matchesKeyword(kw, [row.slip_no, l.recipient, l.status, l.dataType,
+        formatTime(row.notified_at, tzOffset), ...old])) return false;
+    }
+    return true;
   });
 }
 
-/** True when any field contains the keyword (from prepareKeyword). Used by the Employee search. */
-const matchesKeyword = (keyword, fields) => fields.some((f) => normalize(f).includes(keyword));
+/** Rows matching the keyword (all rows when the keyword is empty). Kept for older callers. */
+const filterRows = (rows, keyword, tzOffset = DEFAULT_TZ_OFFSET) =>
+  applyRowFilters(rows, { keyword, tzOffset });
 
-module.exports = { filterRows, prepareKeyword, matchesKeyword, labels, formatTime, tzOffsetOrDefault, DEFAULT_TZ_OFFSET };
+module.exports = {
+  parseFilters,
+  needsRowFilter,
+  applyRowFilters,
+  filterRows,
+  prepareKeyword,
+  matchesKeyword,
+  normalize,
+  dateParam,
+  labels,
+  formatTime,
+  tzOffsetOrDefault,
+  DEFAULT_TZ_OFFSET,
+  STATUS_LABEL,
+  DATA_TYPE_LABEL,
+};
