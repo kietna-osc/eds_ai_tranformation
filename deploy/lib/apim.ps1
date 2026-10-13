@@ -49,11 +49,25 @@ function Deploy-Apim($Cfg) {
         Set-ApimNamedValue $Cfg $a.KeyNamedValue $key $true
     }
 
-    Invoke-Az apim api import -g $Cfg.ResourceGroup -n $a.Name --api-id $a.ApiId --path $a.Path `
-        --display-name $a.DisplayName --specification-format OpenApiJson `
-        --specification-path (Join-Path $RepoRoot 'apim\eds-data-api.openapi.json') `
-        --service-url $a.ServiceUrl --protocols https --subscription-required false -o none
-    Write-Note 'Operations imported from apim/eds-data-api.openapi.json'
+    # Imported through ARM, not `az apim api import`: az reads the file in the Windows
+    # ANSI code page and fails on the spec's Japanese text.
+    $spec = [IO.File]::ReadAllText((Join-Path $RepoRoot 'apim\eds-data-api.openapi.json'))
+    $apiPath = "$(Get-ApimPath $Cfg)/apis/$($a.ApiId)"
+    Invoke-Arm PUT "${apiPath}?api-version=$ApimApiVersion" @{ properties = @{
+        format = 'openapi+json'; value = $spec; path = $a.Path; displayName = $a.DisplayName
+        serviceUrl = $a.ServiceUrl; protocols = @('https'); subscriptionRequired = $false } } | Out-Null
+    # The import finishes asynchronously; wait until every operation in the spec exists.
+    $expected = 0
+    foreach ($p in ($spec | ConvertFrom-Json).paths.PSObject.Properties) {
+        $expected += @($p.Value.PSObject.Properties | Where-Object { $_.Name -match '^(get|put|post|patch|delete|head|options)$' }).Count
+    }
+    $count = 0
+    for ($i = 0; $i -lt 30 -and $count -lt $expected; $i++) {
+        Start-Sleep -Seconds 4
+        try { $count = @((Invoke-Arm GET "$apiPath/operations?api-version=$ApimApiVersion").value).Count } catch { $count = 0 }
+    }
+    if ($count -lt $expected) { throw "APIM imported $count of $expected operations into $($a.ApiId)" }
+    Write-Note "$count operations imported from apim/eds-data-api.openapi.json"
 
     $policyPath = "$(Get-ApimPath $Cfg)/apis/$($a.ApiId)/policies/policy?api-version=$ApimApiVersion"
     Invoke-Arm PUT $policyPath @{ properties = @{ format = 'rawxml'; value = (Get-ApimPolicy $Cfg) } } | Out-Null

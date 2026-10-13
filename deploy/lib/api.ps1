@@ -35,17 +35,20 @@ function Deploy-Api($Cfg, [string]$Zip) {
     Write-Step "Deploy the package to $app"
     Invoke-Az functionapp deployment source config-zip -g $Cfg.ResourceGroup -n $app --src $Zip --timeout 600 -o none
 
-    # On Linux Consumption the function list stays empty until triggers are synced,
-    # even though the deployment itself succeeded.
+    # On Linux Consumption the function list only changes after a trigger sync, and a
+    # sync right after the deployment still sees the old package. So: wait, sync, and
+    # repeat until the app lists as many functions as api/src registers.
+    $expected = @(Get-ChildItem (Join-Path $RepoRoot 'api\src') -Filter *.js |
+        Select-String -Pattern "app\.http\('" -AllMatches | ForEach-Object { $_.Matches }).Count
     $site = "$(Get-ResourceGroupPath $Cfg)/providers/Microsoft.Web/sites/$app"
-    Invoke-Arm POST "$site/syncfunctiontriggers?api-version=2023-12-01" | Out-Null
-
-    # The app indexes its functions on start; an empty list means it failed to load src/index.js.
     $count = 0
-    for ($i = 1; $i -le 12 -and $count -eq 0; $i++) {
+    for ($i = 1; $i -le 8 -and $count -ne $expected; $i++) {
+        Start-Sleep -Seconds 20
+        Invoke-Arm POST "$site/syncfunctiontriggers?api-version=2023-12-01" | Out-Null
         Start-Sleep -Seconds 10
         $count = @(Invoke-Az functionapp function list -g $Cfg.ResourceGroup -n $app --query '[].name' -o tsv).Count
     }
     if ($count -eq 0) { throw "$app reports no functions after deployment. Check its logs in Application Insights." }
-    Write-Note "$app is running $count functions"
+    if ($count -ne $expected) { Write-Warn "$app lists $count functions; api/src registers $expected." }
+    else { Write-Note "$app is running all $count functions" }
 }
