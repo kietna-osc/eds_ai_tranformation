@@ -114,3 +114,6 @@ employee_name_department.csv
 
 # Local handover folder: contains secrets and personal data
 /powerapps/
+
+# Deploy script outputs (packages, exported solution with its client secret, temporary images)
+/deploy/.out/
