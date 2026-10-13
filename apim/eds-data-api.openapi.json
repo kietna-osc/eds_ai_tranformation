@@ -102,6 +102,38 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "slip_no",
+            "in": "query",
+            "description": "伝票番号 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipient_name",
+            "in": "query",
+            "description": "受取人 (contains; 不明 = no recipient)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_keyword",
+            "in": "query",
+            "description": "Any of 伝票番号, 受取人, 処理状態, データ区分, 通知日時 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz_offset",
+            "in": "query",
+            "description": "Power Fx TimeZoneOffset() (minutes, UTC minus local). Default -540 (Japan).",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -282,19 +314,69 @@
             }
           },
           {
-            "name": "department_name",
+            "name": "employee_id",
             "in": "query",
-            "description": "Restrict to one department name.",
+            "description": "社員番号 (contains)",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "search_keyword",
+            "name": "full_name",
             "in": "query",
-            "description": "Match full_name, department_name, or email (contains), or employee_id prefix.",
+            "description": "社員氏名 (contains)",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "description": "メール (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_name",
+            "in": "query",
+            "description": "部署 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "created_start",
+            "in": "query",
+            "description": "登録日時 From (inclusive)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "created_end",
+            "in": "query",
+            "description": "登録日時 To (inclusive)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search_keyword",
+            "in": "query",
+            "description": "Any of 社員番号, 社員氏名, メール, 部署, 登録日時, 更新日時 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz_offset",
+            "in": "query",
+            "description": "Power Fx TimeZoneOffset() (minutes, UTC minus local). Default -540 (Japan).",
+            "schema": {
+              "type": "integer"
             }
           }
         ],
@@ -398,6 +480,103 @@
           },
           "503": {
             "description": "Database connection was lost and the import was rolled back."
+          }
+        }
+      }
+    },
+    "/employees/export": {
+      "get": {
+        "summary": "Download employees as CSV",
+        "operationId": "employee-export",
+        "description": "Builds a CSV (社員番号, 社員氏名, メール, 部署 - the import file columns) of the employees matching the same filters as GET /employees except 登録日時 (created_start / created_end are ignored) (all when none) in Blob Storage and returns a 15-minute download link.",
+        "parameters": [
+          {
+            "name": "employee_id",
+            "in": "query",
+            "description": "社員番号 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "full_name",
+            "in": "query",
+            "description": "社員氏名 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "description": "メール (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_name",
+            "in": "query",
+            "description": "部署 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search_keyword",
+            "in": "query",
+            "description": "Any of 社員番号, 社員氏名, メール, 部署, 登録日時, 更新日時 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz_offset",
+            "in": "query",
+            "description": "Power Fx TimeZoneOffset() (minutes, UTC minus local). Default -540 (Japan).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer"
+                    },
+                    "totalCount": {
+                      "type": "integer"
+                    },
+                    "file": {
+                      "type": "object",
+                      "properties": {
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "contentType": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "expiresOn": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Blob Storage not configured"
           }
         }
       }
@@ -839,11 +1018,96 @@
       "get": {
         "summary": "Download History as CSV",
         "operationId": "history-export",
-        "description": "Builds a CSV of dbo.history (all rows, or with search_keyword the rows the History screen search shows) in Blob Storage and returns a 15-minute download link.",
+        "description": "Builds a CSV of the History rows matching the same filters as GET /history (all rows when none) in Blob Storage and returns a 15-minute download link.",
         "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Notified | Delivered. A value of Identified or Unknown is applied to data_type.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Notified",
+                "Delivered"
+              ]
+            }
+          },
+          {
+            "name": "data_type",
+            "in": "query",
+            "description": "Identified | Unknown.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Identified",
+                "Unknown"
+              ]
+            }
+          },
+          {
+            "name": "employee_id",
+            "in": "query",
+            "description": "Recipient employee code.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "notified_start",
+            "in": "query",
+            "description": "Inclusive lower bound on notified_at.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "notified_end",
+            "in": "query",
+            "description": "Inclusive upper bound on notified_at.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "delivered_start",
+            "in": "query",
+            "description": "Inclusive lower bound on delivered_at.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "delivered_end",
+            "in": "query",
+            "description": "Inclusive upper bound on delivered_at.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "slip_no",
+            "in": "query",
+            "description": "伝票番号 (contains)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipient_name",
+            "in": "query",
+            "description": "受取人 (contains; 不明 = no recipient)",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "search_keyword",
             "in": "query",
+            "description": "Any of 伝票番号, 受取人, 処理状態, データ区分, 通知日時 (contains)",
             "schema": {
               "type": "string"
             }

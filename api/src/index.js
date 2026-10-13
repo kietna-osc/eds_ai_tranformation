@@ -9,6 +9,7 @@ const HISTORY_SEARCH_MAX_ROWS = 100000;
 const { CsvParseError } = require('./csv');
 const { message } = require('./messages');
 const employeeCsv = require('./employeeCsv');
+const employeeSearch = require('./employeeSearch');
 
 /* Every route is authLevel 'function' and the app additionally restricts inbound
    traffic to the APIM gateway IP, so these handlers are never reached directly.
@@ -99,15 +100,6 @@ const pageBody = (page, pageSize, totalCount, value) => ({
 const paginate = (rows, page, pageSize) =>
   rows.slice((page - 1) * pageSize, page * pageSize);
 
-const employeeMatches = (keyword, tzOffset) => (row) => historySearch.matchesKeyword(keyword, [
-  row.employee_id,
-  row.full_name,
-  row.email,
-  row.department_name,
-  historySearch.formatTime(row.created_at, tzOffset),
-  historySearch.formatTime(row.updated_at, tzOffset),
-]);
-
 /** Wraps a handler so an unexpected failure never leaks SQL detail to the client. */
 const handler = (name, fn) => async (request, context) => {
   try {
@@ -129,89 +121,60 @@ const handler = (name, fn) => async (request, context) => {
 };
 
 /* ------------------------------------------------- GET /api/history
-   History page with server-side pagination.
-   Filters are applied in DB first, then page/pageSize are used
-   to return the requested chunk. Each row includes sender_name,
-   sender_content, sender_address, status Notified | Delivered,
-   and data_type Identified | Unknown. */
+   History page with server-side pagination. Filters (see historySearch.js):
+     SQL:  status, data_type, employee_id, notified_start/end, delivered_start/end
+     here: slip_no, recipient_name, search_keyword (all matching rows are read, then paged)
+   Each row includes sender_name, sender_content, sender_address,
+   status Notified | Delivered and data_type Identified | Unknown. */
+
+/** sp_history_list_v2 parameters for the SQL part of the History filters. */
+const historySqlFilters = (f) => [
+  ['status', sql.VarChar(20), f.status],
+  ['data_type', sql.VarChar(20), f.dataType],
+  ['employee_id', sql.NVarChar(50), f.employeeId],
+  ['notified_start', sql.DateTime2, f.notifiedStart],
+  ['notified_end', sql.DateTime2, f.notifiedEnd],
+  ['delivered_start', sql.DateTime2, f.deliveredStart],
+  ['delivered_end', sql.DateTime2, f.deliveredEnd],
+];
+
+/** Every History row matching all filters, newest first. */
+async function historyMatching(f, maxRows, context, label) {
+  const all = await exec('dbo.sp_history_list_v2', [
+    ['page', sql.Int, 1],
+    ['page_size', sql.Int, maxRows],
+    ...historySqlFilters(f),
+  ], context);
+  if (all.length >= maxRows) context.warn(`${label}: capped at ${maxRows} rows`);
+  return { all, matched: historySearch.applyRowFilters(all, f) };
+}
+
 app.http('historyList', {
   methods: ['GET'],
   authLevel: 'function',
   route: 'history',
   handler: handler('historyList', async (request, context) => {
     const q = request.query;
-
-    let status = strOrNull(q.get('status'), 20);
-    let dataType = strOrNull(q.get('data_type'), 20);
-    const employeeId = strOrNull(q.get('employee_id'), 50);
-    if (status === 'Identified' || status === 'Unknown') {
-      dataType = dataType || status;
-      status = null;
-    }
-    const notifiedStart = dateOrNull(q.get('notified_start'));
-    const notifiedEnd = dateOrNull(q.get('notified_end'));
-    const deliveredStart = dateOrNull(q.get('delivered_start'));
-    const deliveredEnd = dateOrNull(q.get('delivered_end'));
+    const f = historySearch.parseFilters((name) => q.get(name));
+    if (f.error) return json(400, { error: f.error });
 
     const pageSize = clampTop(q.get('pageSize'), 50, 200);
-
     const pageValue = parseInt(q.get('page'), 10);
     const page = Number.isFinite(pageValue) && pageValue > 0
       ? pageValue
       : 1;
 
-    if (status && !STATUSES.has(status)) {
-      return json(400, {
-        error: `status must be one of ${[...STATUSES].join(', ')}`
-      });
-    }
-    if (dataType && !DATA_TYPES.has(dataType)) {
-      return json(400, {
-        error: `data_type must be one of ${[...DATA_TYPES].join(', ')}`
-      });
-    }
-    if (q.get('notified_start') && !notifiedStart) {
-      return json(400, { error: 'notified_start must be a valid datetime' });
-    }
-    if (q.get('notified_end') && !notifiedEnd) {
-      return json(400, { error: 'notified_end must be a valid datetime' });
-    }
-    if (q.get('delivered_start') && !deliveredStart) {
-      return json(400, { error: 'delivered_start must be a valid datetime' });
-    }
-    if (q.get('delivered_end') && !deliveredEnd) {
-      return json(400, { error: 'delivered_end must be a valid datetime' });
-    }
-
-    const filters = [
-      ['status', sql.VarChar(20), status],
-      ['data_type', sql.VarChar(20), dataType],
-      ['employee_id', sql.NVarChar(50), employeeId],
-      ['notified_start', sql.DateTime2, notifiedStart],
-      ['notified_end', sql.DateTime2, notifiedEnd],
-      ['delivered_start', sql.DateTime2, deliveredStart],
-      ['delivered_end', sql.DateTime2, deliveredEnd],
-    ];
-
-    const keyword = strOrNull(String(q.get('search_keyword') ?? '').trim(), 200);
     let rows;
     let totalCount;
-    if (keyword) {
-      const tzOffset = historySearch.tzOffsetOrDefault(q.get('tz_offset'));
-      const all = await exec('dbo.sp_history_list_v2', [
-        ['page', sql.Int, 1],
-        ['page_size', sql.Int, HISTORY_SEARCH_MAX_ROWS],
-        ...filters,
-      ], context);
-      if (all.length >= HISTORY_SEARCH_MAX_ROWS) context.warn(`historyList: search capped at ${HISTORY_SEARCH_MAX_ROWS} rows`);
-      const matched = historySearch.filterRows(all, keyword, tzOffset);
+    if (historySearch.needsRowFilter(f)) {
+      const { matched } = await historyMatching(f, HISTORY_SEARCH_MAX_ROWS, context, 'historyList');
       totalCount = matched.length;
-      rows = matched.slice((page - 1) * pageSize, page * pageSize);
+      rows = paginate(matched, page, pageSize);
     } else {
       rows = await exec('dbo.sp_history_list_v2', [
         ['page', sql.Int, page],
         ['page_size', sql.Int, pageSize],
-        ...filters,
+        ...historySqlFilters(f),
       ], context);
       totalCount = Number(rows[0]?.total_count ?? 0);
     }
@@ -234,6 +197,9 @@ app.http('historyList', {
 
 const EXPORT_MAX_ROWS = 100000;
 
+/* ------------------------------------------- GET /api/history/export
+   CSV of the rows the History screen shows for the same filters (same parameters as
+   GET /api/history, without paging), stored in Blob Storage; returns a short-lived link. */
 app.http('historyExport', {
   methods: ['GET'],
   authLevel: 'function',
@@ -241,24 +207,18 @@ app.http('historyExport', {
   handler: handler('historyExport', async (request, context) => {
     if (!blobImages.enabled()) return json(503, { error: 'download is not configured (BLOB_ACCOUNT_URL)' });
     const q = request.query;
-    const searchKeyword = strOrNull(String(q.get('search_keyword') ?? '').trim(), 200);
-    const tzOffset = historyCsv.tzOffsetOrDefault(q.get('tz_offset'));
+    const f = historySearch.parseFilters((name) => q.get(name));
+    if (f.error) return json(400, { error: f.error });
 
-    const rows = await exec('dbo.sp_history_list_v2', [
-      ['page', sql.Int, 1],
-      ['page_size', sql.Int, EXPORT_MAX_ROWS],
-    ], context);
-    if (rows.length >= EXPORT_MAX_ROWS) context.warn(`historyExport: capped at ${EXPORT_MAX_ROWS} rows`);
-
-    const matched = historyCsv.filterRows(rows, searchKeyword, tzOffset);
-    const fileName = historyCsv.fileName(new Date(), tzOffset);
-    const { url, expiresOn } = await blobImages.storeExport(fileName, historyCsv.buildCsv(matched, tzOffset));
-    context.log(`historyExport: ${matched.length} of ${rows.length} rows, keyword ${searchKeyword ? 'set' : 'none'}`);
+    const { all, matched } = await historyMatching(f, EXPORT_MAX_ROWS, context, 'historyExport');
+    const fileName = historyCsv.fileName(new Date(), f.tzOffset);
+    const { url, expiresOn } = await blobImages.storeExport(fileName, historyCsv.buildCsv(matched, f.tzOffset));
+    context.log(`historyExport: ${matched.length} of ${all.length} rows`);
 
     return json(200, {
       rowCount: matched.length,
-      totalCount: rows.length,
-      searchKeyword,
+      totalCount: all.length,
+      searchKeyword: f.keyword,
       file: { fileName, contentType: 'text/csv', url, expiresOn },
     });
   }),
@@ -386,47 +346,82 @@ app.http('historySetDelivered', {
 
 /* ------------------------------------- GET /api/employees
    Employee page with server-side pagination, same shape as historyList.
-   department_name filters by department. search_keyword matches employee_id, full_name,
-   email, department_name, and the displayed created/updated times. */
+   Filters (employeeSearch.js), each "contains": employee_id, full_name, email,
+   department_name; created_start / created_end (登録日時); search_keyword (any column).
+   Without a filter the page comes straight from SQL; with one, every employee is
+   read, filtered here, then paged. */
+
+/** Every employee matching the filters. */
+async function employeesMatching(f, context, label) {
+  const all = await exec('dbo.sp_employee_list', [
+    ['page', sql.Int, 1],
+    ['page_size', sql.Int, FETCH_ALL],
+    ['department_name', sql.NVarChar(200), null],
+    ['search_keyword', sql.NVarChar(200), null],
+  ], context);
+  if (all.length >= FETCH_ALL) context.warn(`${label}: capped at ${FETCH_ALL} rows`);
+  return { all, matched: employeeSearch.applyFilters(all, f) };
+}
+
 app.http('employeeList', {
   methods: ['GET'],
   authLevel: 'function',
   route: 'employees',
   handler: handler('employeeList', async (request, context) => {
     const q = request.query;
-
-    const departmentName = strOrNull(q.get('department_name'), 200);
-    const keyword = historySearch.prepareKeyword(q.get('search_keyword'));
-    const tzOffset = historySearch.tzOffsetOrDefault(q.get('tz_offset'));
+    const f = employeeSearch.parseFilters((name) => q.get(name));
+    if (f.error) return json(400, { error: f.error });
 
     const pageSize = clampTop(q.get('pageSize'), 50, 200);
-
     const pageValue = parseInt(q.get('page'), 10);
     const page = Number.isFinite(pageValue) && pageValue > 0
       ? pageValue
       : 1;
 
-    if (!keyword) {
+    if (!employeeSearch.hasFilter(f)) {
       const rows = await exec('dbo.sp_employee_list', [
         ['page', sql.Int, page],
         ['page_size', sql.Int, pageSize],
-        ['department_name', sql.NVarChar(200), departmentName],
+        ['department_name', sql.NVarChar(200), null],
         ['search_keyword', sql.NVarChar(200), null],
       ], context);
       const totalCount = Number(rows[0]?.total_count ?? 0);
       return json(200, pageBody(page, pageSize, totalCount, rows.map(toEmployee)));
     }
 
-    const all = await exec('dbo.sp_employee_list', [
-      ['page', sql.Int, 1],
-      ['page_size', sql.Int, FETCH_ALL],
-      ['department_name', sql.NVarChar(200), departmentName],
-      ['search_keyword', sql.NVarChar(200), null],
-    ], context);
-    if (all.length >= FETCH_ALL) context.warn(`employeeList: keyword search capped at ${FETCH_ALL} rows`);
-    const matched = all.filter(employeeMatches(keyword, tzOffset));
+    const { matched } = await employeesMatching(f, context, 'employeeList');
     return json(200, pageBody(page, pageSize, matched.length,
       paginate(matched, page, pageSize).map(toEmployee)));
+  }),
+});
+
+/* ------------------------------------- GET /api/employees/export
+   CSV of the employees matching the Employee screen's filters, except that dates are
+   ignored: created_start / created_end (登録日時) are not applied. Columns are the
+   import file's four: 社員番号, 社員氏名, メール, 部署 (no 登録日時 / 更新日時), so the
+   file can be edited and imported again. Stored in Blob Storage; returns a short-lived link. */
+app.http('employeeExport', {
+  methods: ['GET'],
+  authLevel: 'function',
+  route: 'employees/export',
+  handler: handler('employeeExport', async (request, context) => {
+    if (!blobImages.enabled()) return json(503, { error: 'download is not configured (BLOB_ACCOUNT_URL)' });
+    const q = request.query;
+    // The download ignores 登録日時: drop the date parameters before parsing.
+    const f = employeeSearch.parseFilters((name) =>
+      (name === 'created_start' || name === 'created_end' ? null : q.get(name)));
+    if (f.error) return json(400, { error: f.error });
+
+    const { all, matched } = await employeesMatching(f, context, 'employeeExport');
+    const fileName = employeeSearch.fileName(new Date(), f.tzOffset);
+    const { url, expiresOn } = await blobImages.storeExport(fileName, employeeSearch.buildCsv(matched));
+    context.log(`employeeExport: ${matched.length} of ${all.length} rows`);
+
+    return json(200, {
+      rowCount: matched.length,
+      totalCount: all.length,
+      file: { fileName, contentType: 'text/csv', url, expiresOn },
+    });
   }),
 });
 

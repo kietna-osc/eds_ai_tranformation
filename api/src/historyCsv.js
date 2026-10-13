@@ -1,16 +1,16 @@
 /* History CSV download (GET /api/history/export).
 
-   The keyword filter is the History search (historySearch.js), so the file holds
-   exactly the rows the screen shows for that keyword. No keyword: every row.
+   The filters are the History search (historySearch.js), so the file holds exactly
+   the rows the screen shows for the same 検索条件. No filter: every row.
 
    Times are stored in UTC. They are written in the caller's time zone, given as
    Power Fx TimeZoneOffset() (minutes, UTC minus local: -540 for Japan), so the file
    shows the same times as the screen. */
 
 const { toCsv } = require('./csv');
-const { filterRows, labels, formatTime, tzOffsetOrDefault } = require('./historySearch');
+const { filterRows, applyRowFilters, labels, formatTime, tzOffsetOrDefault } = require('./historySearch');
 
-const HEADER = ['履歴ID', '伝票番号', '処理状況', 'データ区分', '受取人', '受取部署',
+const HEADER = ['履歴ID', '伝票番号', '処理状態', 'データ区分', '受取人', '受取部署',
   '品名', '送り主', '送り主住所', '通知日時', '受取日時', '受取担当者'];
 
 const text = (v) => (v === undefined || v === null ? '' : String(v));
@@ -40,4 +40,4 @@ function fileName(now, tzOffset) {
     + `${pad(l.getUTCHours())}${pad(l.getUTCMinutes())}${pad(l.getUTCSeconds())}.csv`;
 }
 
-module.exports = { filterRows, buildCsv, fileName, tzOffsetOrDefault, HEADER };
+module.exports = { filterRows, applyRowFilters, buildCsv, fileName, tzOffsetOrDefault, HEADER };
