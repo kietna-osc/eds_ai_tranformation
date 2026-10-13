@@ -3,7 +3,9 @@ srcHome As screen:
     Fill: =RGBA(248, 250, 252, 1)
     LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
     OnVisible: |-
-        =If(IsBlank(gblRoleAt) || !(gblMyRole in ["Owner", "CanEdit"]) || DateDiff(gblRoleAt, Now(), TimeUnit.Seconds) > 60, Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now()););
+        =Set(varShowNotifyFailed, false);
+        Set(varNotifyErrorMessage, "");
+        If(IsBlank(gblRoleAt) || !(gblMyRole in ["Owner", "CanEdit"]) || DateDiff(gblRoleAt, Now(), TimeUnit.Seconds) > 60, Set(gblMyRole, IfError(LookUp(PowerAppsforMakers.GetAppRoleAssignment(LookUp(PowerAppsforMakers.GetApps().value, Lower(Trim(properties.displayName)) = "eds-app-desktop-phase2").name).value, Lower(Trim(properties.principal.email)) = Lower(Trim(User().Email))).properties.roleName, "CanView"));Set(gblRoleAt, Now()););
         Set(gblIsMobile, App.Width < 768);
         Set(varActiveTab, "home");
         Set(varHeaderTitle, "荷物ラベルをスキャン");
@@ -584,4 +586,130 @@ srcHome As screen:
                     Size: =App.Height * 0.015
                     Text: ="続行"
                     ZIndex: =2
+
+    conFlowErrorOverlayHome As groupContainer.manualLayoutContainer:
+        Fill: =RGBA(0, 0, 0, 0.4)
+        Height: =App.Height
+        Visible: =varShowNotifyFailed
+        Width: =App.Width
+        ZIndex: =7
+
+        conFlowErrorCardHome As groupContainer.horizontalAutoLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =App.Height * 0.42
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.018
+            LayoutGridColumnMinWidth: =0
+            LayoutGridColumns: =6
+            LayoutGridRowMinHeight: =0
+            LayoutGridRows: =6
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMode: =LayoutMode.Auto
+            PaddingBottom: =App.Height * 0.028
+            PaddingLeft: =App.Width * 0.02
+            PaddingRight: =App.Width * 0.02
+            PaddingTop: =App.Height * 0.028
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            Visible: =varShowNotifyFailed
+            Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+            X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+            Y: =App.Height * 0.28
+            ZIndex: =5
+
+            conFlowErrorIconHome As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                BorderColor: =RGBA(220, 38, 38, 1)
+                BorderThickness: =2
+                Fill: =RGBA(254, 226, 226, 1)
+                FillPortions: =0
+                Height: =App.Height * 0.08
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutGridColumnMinWidth: =0
+                LayoutGridColumns: =6
+                LayoutGridRowMinHeight: =0
+                LayoutGridRows: =6
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.04
+                RadiusBottomRight: =App.Height * 0.04
+                RadiusTopLeft: =App.Height * 0.04
+                RadiusTopRight: =App.Height * 0.04
+                Width: =App.Height * 0.08
+                ZIndex: =1
+
+                lblFlowErrorIconHome As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0,0,0,0)
+                    Color: =RGBA(220, 38, 38, 1)
+                    Fill: =RGBA(0, 0, 0 ,0)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.06
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.028
+                    Text: ="x"
+                    Width: =App.Height * 0.06
+                    ZIndex: =1
+
+            lblFlowErrorTitleHome As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.038
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.021
+                Text: ="エラーが発生しました"
+                Width: =Parent.Width
+                ZIndex: =2
+
+            lblFlowErrorBodyHome As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.1
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingBottom: =6
+                PaddingTop: =6
+                Size: =App.Height * 0.015
+                Text: =varNotifyErrorMessage
+                Width: =Parent.Width
+                ZIndex: =3
+
+            btnFlowErrorOkHome As modernButton:
+                AlignInContainer: =AlignInContainer.Stretch
+                BasePaletteColor: =RGBA(220, 38, 38, 1)
+                BorderStyle: =BorderStyle.None
+                Color: =RGBA(255, 255, 255, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.055
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                OnSelect: |-
+                    =Set(varShowNotifyFailed, false);
+                    Set(varNotifyErrorMessage, "");
+                    Set(varError, "")
+                RadiusBottomLeft: =10
+                RadiusBottomRight: =10
+                RadiusTopLeft: =10
+                RadiusTopRight: =10
+                Size: =App.Height * 0.016
+                Text: ="OK"
+                Width: =Parent.Width * 0.9
+                ZIndex: =4
 

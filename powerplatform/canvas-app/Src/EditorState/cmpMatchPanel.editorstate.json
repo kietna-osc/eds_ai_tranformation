@@ -1020,7 +1020,7 @@
         {
           "AFDDataSourceName": "",
           "AutoRuleBindingEnabled": false,
-          "AutoRuleBindingString": "If(\n    varBusy\n    || IsBlank(Trim(Coalesce(varOcrDeliverySlip, \"\")))\n    || CountRows(\n        Filter(\n            colSelected,\n            is_cc = false && !IsBlank(employee_id)\n        )\n    ) = 0,\n    DisplayMode.Disabled,\n    DisplayMode.Edit\n)",
+          "AutoRuleBindingString": "If(\n    varBusy\n    || CountRows(\n        Filter(\n            colSelected,\n            is_cc = false && !IsBlank(employee_id)\n        )\n    ) = 0,\n    DisplayMode.Disabled,\n    DisplayMode.Edit\n)",
           "InvariantPropertyName": "DisplayMode",
           "IsLockable": false,
           "NameMapSourceSchema": "?"
@@ -1030,7 +1030,7 @@
         {
           "AFDDataSourceName": "",
           "AutoRuleBindingEnabled": false,
-          "AutoRuleBindingString": "If(\n    IsBlank(Trim(Coalesce(txtDeliverySlip.Text, \"\"))),\n    Set(varSlipRequiredError, true);\n    Notify(\"伝票番号を入力してください\", NotificationType.Error),\n    !varFromUnknownList && CountRows(Filter(colSelected, is_cc = false && !IsBlank(employee_id))) = 0,\n    Notify(\"受取人を選択してください\", NotificationType.Error),\n    Set(varBusy, true);\n    Set(varError, \"\");\n    Set(varNotifyErrorMessage, \"\");\n    If(IsBlank(varPackageId), Set(varPackageId, Text(GUID())));\n    With(\n        {\n            packageDetails: Concat(\n                Filter(\n                    Table(\n                        {\n                            label: \"伝票番号\",\n                            value: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, \"\"))\n                        },\n                        {\n                            label: \"荷物内容\",\n                            value: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, \"\"))\n                        },\n                        {\n                            label: \"差出人名\",\n                            value: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, \"\"))\n                        },\n                        {\n                            label: \"差出人部署\",\n                            value: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, \"\"))\n                        }\n                    ),\n                    !IsBlank(value)\n                ),\n                label & \": \" & value,\n                Char(10) & Char(10)\n            ),\n            absoluteImageUrl: With(\n                {\n                    siteHost: \"https://smartosc0.sharepoint.com\",\n                    sitePath: \"/sites/Teamresponsibleforreceivingexpressshipments\",\n                    queueRow: LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId))\n                },\n                With(\n                    {\n                        raw: Trim(\n                            Coalesce(\n                                If(Left(Lower(Coalesce(varImageUrl, \"\")), 4) = \"http\", varImageUrl, Blank()),\n                                If(Left(Lower(Coalesce(queueRow.file_url, \"\")), 4) = \"http\", queueRow.file_url, Blank()),\n                                queueRow.file_url,\n                                queueRow.path,\n                                varImageUrl,\n                                \"\"\n                            )\n                        )\n                    },\n                    With(\n                        {\n                            normalized: Substitute(\n                                If(\n                                    Left(raw, 11) = \"/Documents/\",\n                                    \"/Shared Documents/\" & Mid(raw, 12, 2000),\n                                    Left(raw, 10) = \"Documents/\",\n                                    \"/Shared Documents/\" & Mid(raw, 11, 2000),\n                                    raw\n                                ),\n                                \" \",\n                                \"%20\"\n                            )\n                        },\n                        If(\n                            Left(Lower(normalized), 4) = \"http\",\n                            normalized,\n                            Left(normalized, 6) = \"/sites\",\n                            siteHost & normalized,\n                            !IsBlank(normalized),\n                            siteHost & sitePath & If(Left(normalized, 1) = \"/\", normalized, \"/\" & normalized),\n                            \"\"\n                        )\n                    )\n                )\n            )\n        },\n        ClearCollect(\n            colNotifyPayload,\n            ForAll(\n                colSelected As selectedEmp,\n                {\n                    employee_id: Text(selectedEmp.employee_id),\n                    package_id: Text(varPackageId),\n                    name: Text(selectedEmp.name),\n                    department: Text(selectedEmp.department),\n                    email: Text(selectedEmp.email),\n                    teams_id: Text(selectedEmp.teams_id),\n                    score: Coalesce(selectedEmp.score, 0),\n                    is_cc: Coalesce(selectedEmp.is_cc, false),\n                    slip_no: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, \"\")),\n                    sender_info: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, \"\")),\n                    sender_name: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, \"\")),\n                    sender_address: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, \"\")),\n                    content_message:\n                        Text(selectedEmp.name) &\n                        \"（部署: \" &\n                        Text(selectedEmp.department) &\n                        If(\n                            IsBlank(packageDetails),\n                            \"）に新しい荷物があります。\",\n                            \"）に新しい荷物があります。\" & Char(10) & Char(10) & \"詳細:\" & Char(10) & Char(10) & packageDetails\n                        ),\n                    image_url: Coalesce(absoluteImageUrl, \"\")\n                }\n            )\n        )\n    );\n    Set(\n        varNotifyJson,\n        JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData)\n    );\n    IfError(\n        Set(\n            varNotifyResult,\n            'EDS-NotifySelected'.Run(\n                {\n                    text_5: varNotifyJson\n                }\n            )\n        );\n        Set(varBusy, false);\n        If(\n            Lower(Text(Coalesce(varNotifyResult.success, \"\"))) <> \"true\",\n            Set(varShowNotifyFailed, true),\n            Set(varNotifyNavUnknown, varFromUnknownList && !IsBlank(varPackageId));\n            If(\n                varNotifyNavUnknown,\n                Patch(\n                    PackageSlipLog,\n                    LookUp(PackageSlipLog, PackageId = varPackageId),\n                    {\n                        IsUnknown: false,\n                        Status: {Value: \"Resolved\"},\n                        SelectedRecipientsJson: JSON(colSelected, JSONFormat.IgnoreBinaryData)\n                    }\n                );\n                Refresh(PackageSlipLog)\n            );\n            Set(varShowNotifySuccess, true)\n        ),\n        Set(varBusy, false);\n        Set(varShowNotifyFailed, true)\n    )\n)",
+          "AutoRuleBindingString": "If(\n    IsBlank(Trim(Coalesce(txtDeliverySlip.Text, \"\"))),\n    Set(varSlipRequiredError, true),\nSet(varSlipRequiredError, false);\nIf(\n    !varFromUnknownList && CountRows(Filter(colSelected, is_cc = false && !IsBlank(employee_id))) = 0,\n    Notify(\"受取人を選択してください\", NotificationType.Error),\n    Set(varBusy, true);\n    Set(varError, \"\");\n    Set(varNotifyErrorMessage, \"\");\n    If(IsBlank(varPackageId), Set(varPackageId, Text(GUID())));\n    With(\n        {\n            packageDetails: Concat(\n                Filter(\n                    Table(\n                        {\n                            label: \"伝票番号\",\n                            value: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, \"\"))\n                        },\n                        {\n                            label: \"荷物内容\",\n                            value: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, \"\"))\n                        },\n                        {\n                            label: \"差出人名\",\n                            value: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, \"\"))\n                        },\n                        {\n                            label: \"差出人部署\",\n                            value: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, \"\"))\n                        }\n                    ),\n                    !IsBlank(value)\n                ),\n                label & \": \" & value,\n                Char(10) & Char(10)\n            ),\n            absoluteImageUrl: With(\n                {\n                    siteHost: \"https://smartosc0.sharepoint.com\",\n                    sitePath: \"/sites/Teamresponsibleforreceivingexpressshipments\",\n                    queueRow: LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId))\n                },\n                With(\n                    {\n                        raw: Trim(\n                            Coalesce(\n                                If(Left(Lower(Coalesce(varImageUrl, \"\")), 4) = \"http\", varImageUrl, Blank()),\n                                If(Left(Lower(Coalesce(queueRow.file_url, \"\")), 4) = \"http\", queueRow.file_url, Blank()),\n                                queueRow.file_url,\n                                queueRow.path,\n                                varImageUrl,\n                                \"\"\n                            )\n                        )\n                    },\n                    With(\n                        {\n                            normalized: Substitute(\n                                If(\n                                    Left(raw, 11) = \"/Documents/\",\n                                    \"/Shared Documents/\" & Mid(raw, 12, 2000),\n                                    Left(raw, 10) = \"Documents/\",\n                                    \"/Shared Documents/\" & Mid(raw, 11, 2000),\n                                    raw\n                                ),\n                                \" \",\n                                \"%20\"\n                            )\n                        },\n                        If(\n                            Left(Lower(normalized), 4) = \"http\",\n                            normalized,\n                            Left(normalized, 6) = \"/sites\",\n                            siteHost & normalized,\n                            !IsBlank(normalized),\n                            siteHost & sitePath & If(Left(normalized, 1) = \"/\", normalized, \"/\" & normalized),\n                            \"\"\n                        )\n                    )\n                )\n            )\n        },\n        ClearCollect(\n            colNotifyPayload,\n            ForAll(\n                colSelected As selectedEmp,\n                {\n                    employee_id: Text(selectedEmp.employee_id),\n                    package_id: Text(varPackageId),\n                    name: Text(selectedEmp.name),\n                    department: Text(selectedEmp.department),\n                    email: Text(selectedEmp.email),\n                    teams_id: Text(selectedEmp.teams_id),\n                    score: Coalesce(selectedEmp.score, 0),\n                    is_cc: Coalesce(selectedEmp.is_cc, false),\n                    slip_no: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, \"\")),\n                    sender_info: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, \"\")),\n                    sender_name: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, \"\")),\n                    sender_address: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, \"\")),\n                    content_message:\n                        Text(selectedEmp.name) &\n                        \"（部署: \" &\n                        Text(selectedEmp.department) &\n                        If(\n                            IsBlank(packageDetails),\n                            \"）に新しい荷物があります。\",\n                            \"）に新しい荷物があります。\" & Char(10) & Char(10) & \"詳細:\" & Char(10) & Char(10) & packageDetails\n                        ),\n                    image_url: Coalesce(absoluteImageUrl, \"\")\n                }\n            )\n        )\n    );\n    Set(\n        varNotifyJson,\n        JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData)\n    );\n    IfError(\n        Set(\n            varNotifyResult,\n            IfError('EDS-NotifySelected'.Run(\n                {\n                    text_5: varNotifyJson\n                }\n            ), Blank())\n        );\n        Set(varBusy, false);\n        If(IsBlank(varNotifyResult), Set(varNotifyErrorMessage, \"一時的な接続エラーにより通知を送信できませんでした。システムが自動的に再試行しています。データは失われません。\"); Set(varShowNotifyFailed, true), !IsBlank(Trim(Coalesce(Text(varNotifyResult.error), \"\"))), Set(varNotifyErrorMessage, Text(varNotifyResult.error)); Set(varShowNotifyFailed, true), Lower(Text(Coalesce(varNotifyResult.success, \"\"))) <> \"true\", Set(varNotifyErrorMessage, \"メッセージの送信に失敗しました。時間をおいて再度お試しください。\"); Set(varShowNotifyFailed, true), \n            Set(varNotifyNavUnknown, varFromUnknownList && !IsBlank(varPackageId));\n            If(\n                varNotifyNavUnknown,\n                Patch(\n                    PackageSlipLog,\n                    LookUp(PackageSlipLog, PackageId = varPackageId),\n                    {\n                        IsUnknown: false,\n                        Status: {Value: \"Resolved\"},\n                        SelectedRecipientsJson: JSON(colSelected, JSONFormat.IgnoreBinaryData)\n                    }\n                );\n                Refresh(PackageSlipLog)\n            );\n            Set(varShowNotifySuccess, true)\n        ),\n        Set(varBusy, false); Set(varNotifyErrorMessage, Coalesce(FirstError.Message, \"メッセージの送信に失敗しました。時間をおいて再度お試しください。\")); Set(varShowNotifyFailed, true)\n    )\n)\n)",
           "InvariantPropertyName": "OnSelect",
           "IsLockable": false,
           "NameMapSourceSchema": "?"
@@ -2789,7 +2789,7 @@
       "MetaDataIDKey": "",
       "Name": "conCCBtnRow",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 1,
+      "ParentIndex": 15,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3101,7 +3101,7 @@
       "MetaDataIDKey": "",
       "Name": "conMatchBtnRow",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 15,
+      "ParentIndex": 14,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3669,7 +3669,7 @@
       "MetaDataIDKey": "",
       "Name": "conSearchWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 12,
+      "ParentIndex": 11,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -3981,7 +3981,7 @@
       "MetaDataIDKey": "",
       "Name": "conSlipLabelWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 3,
+      "ParentIndex": 1,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -4293,7 +4293,7 @@
       "MetaDataIDKey": "",
       "Name": "conTableHeader",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 13,
+      "ParentIndex": 12,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -4605,7 +4605,7 @@
       "MetaDataIDKey": "",
       "Name": "conTableWrap",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 14,
+      "ParentIndex": 13,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -5282,7 +5282,7 @@
       "MetaDataIDKey": "",
       "Name": "lblAssignRecipient",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 11,
+      "ParentIndex": 10,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -7530,7 +7530,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldContents",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 5,
+      "ParentIndex": 4,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -7914,7 +7914,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldDept",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 9,
+      "ParentIndex": 8,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -8298,7 +8298,7 @@
       "MetaDataIDKey": "",
       "Name": "lblFieldSender",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 7,
+      "ParentIndex": 6,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -9017,7 +9017,7 @@
       "MetaDataIDKey": "",
       "Name": "lblMatchPanelTitle",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 2,
+      "ParentIndex": 0,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -12406,7 +12406,7 @@
       "MetaDataIDKey": "",
       "Name": "lblSlipRequired",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 0,
+      "ParentIndex": 3,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -13480,7 +13480,7 @@
       "MetaDataIDKey": "",
       "Name": "txtDeliverySlip",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 4,
+      "ParentIndex": 2,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -13823,7 +13823,7 @@
       "MetaDataIDKey": "",
       "Name": "txtPackageContents",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 10,
+      "ParentIndex": 9,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -14460,7 +14460,7 @@
       "MetaDataIDKey": "",
       "Name": "txtSenderCompany",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 6,
+      "ParentIndex": 5,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {
@@ -14803,7 +14803,7 @@
       "MetaDataIDKey": "",
       "Name": "txtSenderName",
       "OptimizeForDevices": "Off",
-      "ParentIndex": 8,
+      "ParentIndex": 7,
       "PersistMetaDataIDKey": false,
       "Properties": [
         {

@@ -237,14 +237,11 @@ ComponentDefinitions:
                               Clear(colEmployeeSearch);
                               Set(varSearchText, ""),
                               Set(varSearchText, Trim(Self.Text));
-                              Set(
-                                  varEmpApi,
-                                  'EDS-APIManagement1'.Run(
+                              Set(varEmpApi, 'EDS-APIManagement1'.Run(
                                       "employee",
-                                      JSON({page_size:10000, page:1, search_keyword:Trim(Self.Text)}),
+                                      JSON({pageSize:200, page:1, search_keyword:Trim(Self.Text)}),
                                       "employeeList"
-                                  )
-                              );
+                                  )); If(!IsBlank(Trim(Coalesce(Text(varEmpApi.error), ""))), Set(varNotifyErrorMessage, Text(varEmpApi.error)); Set(varShowNotifyFailed, true); Clear(colEmployeeSearch), 
                               ClearCollect(
                                   colEmployeeSearch,
                                   ForAll(
@@ -258,7 +255,7 @@ ComponentDefinitions:
                                           score: 0
                                       }
                                   )
-                              )
+                              ))
                           )
                         Placeholder: ="氏名・メール・部署・IDで検索"
                         Required: =
@@ -882,17 +879,6 @@ ComponentDefinitions:
                                               Blank()
                                           )
                                       ),
-                                      saveName: Text(varPackageId) & ".jpg",
-                                      ocrName: If(IsBlank(Trim(Coalesce(varOcrName, ""))), "不明", Trim(varOcrName)),
-                                      ocrDept: If(IsBlank(Trim(Coalesce(varOcrDept, ""))), "不明", Trim(varOcrDept)),
-                                      ocrConf: Coalesce(varOcrConf, 0),
-                                      matchScore: Coalesce(varMatchScore, 0),
-                                      tierVal: Coalesce(varTier, "low"),
-                                      candidatesJson: JSON(varCandidates, JSONFormat.IgnoreBinaryData),
-                                      slipNo: Trim(Coalesce(txtDeliverySlip.Text, varOcrDeliverySlip, "")),
-                                      packageContent: Trim(Coalesce(txtSenderCompany.Text, varOcrSenderInfo, "")),
-                                      senderName: Trim(Coalesce(txtSenderName.Text, varOcrSenderName, "")),
-                                      senderAddress: Trim(Coalesce(txtPackageContents.Text, varOcrSenderDepartment, "")),
                                       sharepointUrl: If(
                                           Lower(Text(LookUp(colHomeQueue, id = Coalesce(varHomeQueueId, varHomeSelectedId)).source)) = "sharepoint",
                                           Coalesce(
@@ -940,28 +926,7 @@ ComponentDefinitions:
                                       Notify("保存する画像がありません", NotificationType.Error),
 
                                       IfError(
-                                          Set(
-                                              varSaveUnknownResult,
-                                              'EDS-SaveUnknownPackage'.Run(
-                                                  {
-                                                      contentBytes: fileBytes,
-                                                      name: saveName
-                                                  },
-                                                  ocrName,
-                                                  ocrDept,
-                                                  ocrConf,
-                                                  matchScore,
-                                                  tierVal,
-                                                  candidatesJson,
-                                                  Text(varPackageId),
-                                                  slipNo,
-                                                  packageContent,
-                                                  senderName,
-                                                  senderAddress,
-                                                  sharepointUrl
-                                              )
-                                          );
-                                          Set(varImageUrl, Coalesce(Text(varSaveUnknownResult.image_url), sharepointUrl, remoteUrl));
+                                          Set(varImageUrl, Coalesce(sharepointUrl, remoteUrl));
                                           ClearCollect(
                                               colNotifyPayload,
                                               {
@@ -989,13 +954,13 @@ ComponentDefinitions:
                                           Set(varNotifyJson, JSON(colNotifyPayload, JSONFormat.IgnoreBinaryData));
                                           Set(
                                               varNotifyResult,
-                                              'EDS-NotifySelected'.Run(
+                                              IfError('EDS-NotifySelected'.Run(
                                                   {
                                                       text_5: varNotifyJson
                                                   }
-                                              )
+                                              ), Blank())
                                           );
-                                          Set(varBusy, false);
+                                          If(IsBlank(varNotifyResult), Set(varBusy, false); Set(varNotifyErrorMessage, "一時的な接続エラーにより通知を送信できませんでした。システムが自動的に再試行しています。データは失われません。"); Set(varShowNotifyFailed, true), !IsBlank(Trim(Coalesce(Text(varNotifyResult.error), ""))), Set(varBusy, false); Set(varNotifyErrorMessage, Text(varNotifyResult.error)); Set(varShowNotifyFailed, true), Set(varBusy, false);
                                           Refresh(PackageSlipLog);
                                           Set(varMatchStep, 1);
                                           Clear(varCandidates);
@@ -1050,8 +1015,8 @@ ComponentDefinitions:
                                               varShowContinuePopup,
                                               varBatchTotal > 0 && CountRows(colHomeQueue) > 0
                                           );
-                                          Notify("不明荷物として登録しました", NotificationType.Success);
-                                          Navigate(srcHome, ScreenTransition.None),
+                                          Set(varShowNotifyFailed, false);
+                          Set(varShowUnknownSuccess, true)),
 
                                           Set(varBusy, false);
                                           Set(varError, "不明登録に失敗しました。もう一度お試しください。");
@@ -1228,7 +1193,6 @@ ComponentDefinitions:
                         DisplayMode: |-
                           =If(
                               varBusy
-                              || IsBlank(Trim(Coalesce(varOcrDeliverySlip, "")))
                               || CountRows(
                                   Filter(
                                       colSelected,
@@ -1244,8 +1208,9 @@ ComponentDefinitions:
                         OnSelect: |-
                           =If(
                               IsBlank(Trim(Coalesce(txtDeliverySlip.Text, ""))),
-                              Set(varSlipRequiredError, true);
-                              Notify("伝票番号を入力してください", NotificationType.Error),
+                              Set(varSlipRequiredError, true),
+                          Set(varSlipRequiredError, false);
+                          If(
                               !varFromUnknownList && CountRows(Filter(colSelected, is_cc = false && !IsBlank(employee_id))) = 0,
                               Notify("受取人を選択してください", NotificationType.Error),
                               Set(varBusy, true);
@@ -1363,16 +1328,14 @@ ComponentDefinitions:
                               IfError(
                                   Set(
                                       varNotifyResult,
-                                      'EDS-NotifySelected'.Run(
+                                      IfError('EDS-NotifySelected'.Run(
                                           {
                                               text_5: varNotifyJson
                                           }
-                                      )
+                                      ), Blank())
                                   );
                                   Set(varBusy, false);
-                                  If(
-                                      Lower(Text(Coalesce(varNotifyResult.success, ""))) <> "true",
-                                      Set(varShowNotifyFailed, true),
+                                  If(IsBlank(varNotifyResult), Set(varNotifyErrorMessage, "一時的な接続エラーにより通知を送信できませんでした。システムが自動的に再試行しています。データは失われません。"); Set(varShowNotifyFailed, true), !IsBlank(Trim(Coalesce(Text(varNotifyResult.error), ""))), Set(varNotifyErrorMessage, Text(varNotifyResult.error)); Set(varShowNotifyFailed, true), Lower(Text(Coalesce(varNotifyResult.success, ""))) <> "true", Set(varNotifyErrorMessage, "メッセージの送信に失敗しました。時間をおいて再度お試しください。"); Set(varShowNotifyFailed, true), 
                                       Set(varNotifyNavUnknown, varFromUnknownList && !IsBlank(varPackageId));
                                       If(
                                           varNotifyNavUnknown,
@@ -1389,9 +1352,9 @@ ComponentDefinitions:
                                       );
                                       Set(varShowNotifySuccess, true)
                                   ),
-                                  Set(varBusy, false);
-                                  Set(varShowNotifyFailed, true)
+                                  Set(varBusy, false); Set(varNotifyErrorMessage, Coalesce(FirstError.Message, "メッセージの送信に失敗しました。時間をおいて再度お試しください。")); Set(varShowNotifyFailed, true)
                               )
+                          )
                           )
                         RadiusBottomLeft: =10
                         RadiusBottomRight: =10

@@ -1,0 +1,324 @@
+cmpDatePicker As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =768
+    Visible: =true
+    Width: =1366
+    X: =0
+    Y: =0
+
+    recCalBackdrop As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(15, 23, 42, 0.06)
+        Height: =App.Height
+        OnSelect: =Set(gblCalTarget, "")
+        Width: =App.Width
+        ZIndex: =1
+
+    recCalCard As rectangle:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.425
+        Width: =App.Width * 0.305
+        X: =App.Width * (Min(gblCalX, 0.685) + 0)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0)
+        ZIndex: =2
+
+    btnCalPrev As modernButton:
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.036
+        OnSelect: =Set(gblCalMonth, DateAdd(gblCalMonth, -1, TimeUnit.Months))
+        Size: =App.Height * 0.022
+        Text: ="‹"
+        Tooltip: ="前の月"
+        Width: =App.Width * 0.026
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.008)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.012)
+        ZIndex: =3
+
+    lblCalMonth As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.017
+        Text: =Year(gblCalMonth) & "年" & Month(gblCalMonth) & "月"
+        Width: =App.Width * 0.14
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.036)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.012)
+        ZIndex: =4
+
+    btnCalNext As modernButton:
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.036
+        OnSelect: =Set(gblCalMonth, DateAdd(gblCalMonth, 1, TimeUnit.Months))
+        Size: =App.Height * 0.022
+        Text: ="›"
+        Tooltip: ="次の月"
+        Width: =App.Width * 0.026
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.178)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.012)
+        ZIndex: =5
+
+    galCalWeek As gallery.galleryVertical:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * 0.03
+        Items: =["日", "月", "火", "水", "木", "金", "土"]
+        Layout: =Layout.Vertical
+        ShowScrollbar: =false
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.03
+        Width: =App.Width * 0.196
+        WrapCount: =7
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.008)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.056)
+        ZIndex: =6
+
+        lblCalWeekDay As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =If(ThisItem.Value = "日", RGBA(220, 38, 38, 1), ThisItem.Value = "土", RGBA(37, 99, 235, 1), RGBA(71, 85, 105, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =Parent.TemplateHeight
+            PaddingLeft: =0
+            Size: =App.Height * 0.012
+            Text: =ThisItem.Value
+            Width: =Parent.TemplateWidth
+            ZIndex: =1
+
+    galCalDays As gallery.galleryVertical:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * 0.228
+        Items: |-
+            =With({s: DateAdd(gblCalMonth, -(Weekday(gblCalMonth) - 1), TimeUnit.Days)},
+            ForAll(Sequence(42) As q, {d: DateAdd(s, q.Value - 1, TimeUnit.Days)}))
+        Layout: =Layout.Vertical
+        ShowScrollbar: =false
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.038
+        Width: =App.Width * 0.196
+        WrapCount: =7
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.008)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.088)
+        ZIndex: =7
+
+        lblCalDay As label:
+            Align: =Align.Center
+            BorderColor: =If(Text(ThisItem.d, "yyyymmdd") = Text(Today(), "yyyymmdd"), RGBA(0, 102, 204, 1), RGBA(0, 0, 0, 0))
+            BorderThickness: =1
+            Color: =If(Text(ThisItem.d, "yyyymmdd") = Text(gblCalVal, "yyyymmdd"), RGBA(255, 255, 255, 1), Month(ThisItem.d) <> Month(gblCalMonth), RGBA(203, 213, 225, 1), Weekday(ThisItem.d) = 1, RGBA(220, 38, 38, 1), Weekday(ThisItem.d) = 7, RGBA(37, 99, 235, 1), RGBA(15, 23, 42, 1))
+            Fill: =If(Text(ThisItem.d, "yyyymmdd") = Text(gblCalVal, "yyyymmdd"), RGBA(0, 102, 204, 1), RGBA(0, 0, 0, 0))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(Text(ThisItem.d, "yyyymmdd") = Text(gblCalVal, "yyyymmdd") || Text(ThisItem.d, "yyyymmdd") = Text(Today(), "yyyymmdd"), FontWeight.Bold, FontWeight.Normal)
+            Height: =Parent.TemplateHeight - 4
+            HoverFill: =If(Text(ThisItem.d, "yyyymmdd") = Text(gblCalVal, "yyyymmdd"), RGBA(0, 102, 204, 1), RGBA(219, 234, 254, 1))
+            OnSelect: =Set(gblCalVal, DateTime(Year(ThisItem.d), Month(ThisItem.d), Day(ThisItem.d), If(IsBlank(gblCalVal), If(EndsWith(gblCalTarget, "To"), 23, 0), Hour(gblCalVal)), If(IsBlank(gblCalVal), If(EndsWith(gblCalTarget, "To"), 59, 0), Minute(gblCalVal)), 0));If(Month(ThisItem.d) <> Month(gblCalMonth), Set(gblCalMonth, DateTime(Year(ThisItem.d), Month(ThisItem.d), 1, 0, 0, 0)))
+            PaddingLeft: =0
+            Size: =App.Height * 0.0135
+            Text: =Day(ThisItem.d)
+            Width: =Parent.TemplateWidth - 4
+            X: =2
+            Y: =2
+            ZIndex: =1
+
+    lblCalTimeTitle As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.015
+        Text: ="時刻"
+        Width: =App.Width * 0.085
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.212)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.012)
+        ZIndex: =8
+
+    lblCalHourCap As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.03
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="時"
+        Width: =App.Width * 0.04
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.212)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.056)
+        ZIndex: =9
+
+    lblCalMinCap As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.03
+        PaddingLeft: =0
+        Size: =App.Height * 0.012
+        Text: ="分"
+        Width: =App.Width * 0.04
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.257)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.056)
+        ZIndex: =10
+
+    galCalHour As gallery.galleryVertical:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.228
+        Items: =Sequence(24, 0)
+        Layout: =Layout.Vertical
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.032
+        Width: =App.Width * 0.04
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.212)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.088)
+        ZIndex: =11
+
+        lblCalHourItem As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =If(!IsBlank(gblCalVal) && Hour(gblCalVal) = ThisItem.Value, RGBA(255, 255, 255, 1), RGBA(15, 23, 42, 1))
+            Fill: =If(!IsBlank(gblCalVal) && Hour(gblCalVal) = ThisItem.Value, RGBA(0, 102, 204, 1), RGBA(0, 0, 0, 0))
+            Font: =Font.'Segoe UI'
+            Height: =Parent.TemplateHeight
+            HoverFill: =If(!IsBlank(gblCalVal) && Hour(gblCalVal) = ThisItem.Value, RGBA(0, 102, 204, 1), RGBA(219, 234, 254, 1))
+            OnSelect: |-
+                =Set(gblCalVal, With({b: Coalesce(gblCalVal, DateTime(Year(Today()), Month(Today()), Day(Today()), 0, 0, 0))}, DateTime(Year(b), Month(b), Day(b), ThisItem.Value, If(IsBlank(gblCalVal), If(IsBlank(gblCalVal), If(EndsWith(gblCalTarget, "To"), 59, 0), Minute(gblCalVal)), Minute(b)), 0)))
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: =Text(ThisItem.Value, "00")
+            Width: =Parent.TemplateWidth
+            ZIndex: =1
+
+    galCalMin As gallery.galleryVertical:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.228
+        Items: =Sequence(60, 0)
+        Layout: =Layout.Vertical
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.032
+        Width: =App.Width * 0.04
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.257)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.088)
+        ZIndex: =12
+
+        lblCalMinItem As label:
+            Align: =Align.Center
+            BorderColor: =RGBA(0, 0, 0, 0)
+            Color: =If(!IsBlank(gblCalVal) && Minute(gblCalVal) = ThisItem.Value, RGBA(255, 255, 255, 1), RGBA(15, 23, 42, 1))
+            Fill: =If(!IsBlank(gblCalVal) && Minute(gblCalVal) = ThisItem.Value, RGBA(0, 102, 204, 1), RGBA(0, 0, 0, 0))
+            Font: =Font.'Segoe UI'
+            Height: =Parent.TemplateHeight
+            HoverFill: =If(!IsBlank(gblCalVal) && Minute(gblCalVal) = ThisItem.Value, RGBA(0, 102, 204, 1), RGBA(219, 234, 254, 1))
+            OnSelect: |-
+                =Set(gblCalVal, With({b: Coalesce(gblCalVal, DateTime(Year(Today()), Month(Today()), Day(Today()), 0, 0, 0))}, DateTime(Year(b), Month(b), Day(b), If(IsBlank(gblCalVal), If(IsBlank(gblCalVal), If(EndsWith(gblCalTarget, "To"), 23, 0), Hour(gblCalVal)), Hour(b)), ThisItem.Value, 0)))
+            PaddingLeft: =0
+            Size: =App.Height * 0.013
+            Text: =Text(ThisItem.Value, "00")
+            Width: =Parent.TemplateWidth
+            ZIndex: =1
+
+    lblCalValue As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =If(IsBlank(gblCalVal), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.032
+        PaddingLeft: =0
+        Size: =App.Height * 0.0145
+        Text: |-
+            =If(IsBlank(gblCalVal), "未選択", Text(gblCalVal, "yyyy年mm月dd日") & "（" & Mid("日月火水木金土", Weekday(gblCalVal), 1) & "）" & Text(gblCalVal, "hh:mm"))
+        Width: =App.Width * 0.28
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.012)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.326)
+        ZIndex: =13
+
+    btnCalToday As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: =Set(gblCalVal, DateTime(Year(Now()), Month(Now()), Day(Now()), Hour(Now()), Minute(Now()), 0));Set(gblCalMonth, DateTime(Year(Now()), Month(Now()), 1, 0, 0, 0))
+        Size: =App.Height * 0.015
+        Text: ="今日"
+        Width: =App.Width * 0.05
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.012)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.368)
+        ZIndex: =14
+
+    btnCalClear As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: =Set(gblCalVal, If(false, Now()))
+        Size: =App.Height * 0.015
+        Text: ="クリア"
+        Width: =App.Width * 0.055
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.066)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.368)
+        ZIndex: =15
+
+    btnCalCancel As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: =Set(gblCalTarget, "")
+        Size: =App.Height * 0.015
+        Text: ="キャンセル"
+        Width: =App.Width * 0.068
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.155)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.368)
+        ZIndex: =16
+
+    btnCalOk As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.042
+        OnSelect: |-
+            =// 選択値を呼び出し元の変数へ反映 (日付項目を追加したらここに case を追加)
+            Switch(
+                gblCalTarget,
+                "histFrom", Set(gblHsFrom, gblCalVal),
+                "histTo", Set(gblHsTo, gblCalVal),
+                "empFrom", Set(gblEsFrom, gblCalVal),
+                "empTo", Set(gblEsTo, gblCalVal)
+            );
+            Set(gblCalTarget, "")
+        Size: =App.Height * 0.015
+        Text: ="決定"
+        Width: =App.Width * 0.064
+        X: =App.Width * (Min(gblCalX, 0.685) + 0.229)
+        Y: =App.Height * (Min(gblCalY, 0.56) + 0.368)
+        ZIndex: =17
+

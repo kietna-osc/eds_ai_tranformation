@@ -182,7 +182,7 @@ ComponentDefinitions:
 
                               Set(varBusy, true);
                               Set(varError, "");
-                              Set(varFromUnknownList, false);
+                              Set(varFromUnknownList, false); Set(varShowNotifyFailed, false);
                               Set(varHomeQueueId, Coalesce(varHomeSelectedId, ""));
                               Clear(varCandidates);
                               Clear(colSelected);
@@ -207,14 +207,13 @@ ComponentDefinitions:
                                                   uploadName: Lower(GUID()) & ".jpg",
                                                   uploadFolder: Text(DateAdd(DateAdd(Now(), TimeZoneOffset(), TimeUnit.Minutes), 9, TimeUnit.Hours), "dd - mm - yyyy")
                                               },
-                                              'EDS-UploadCaptureImage'.Run(
+                                              With({uploadResult: IfError('EDS-UploadCaptureImage'.Run(
                                                   {
                                                       contentBytes: captureImage,
                                                       name: uploadName
                                                   },
                                                   uploadName
-                                              );
-                                              Patch(
+                                              ), Blank())}, If(IsBlank(uploadResult), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); Set(varBusy, false), !IsBlank(Trim(Coalesce(Text(uploadResult.error), ""))), Set(varNotifyErrorMessage, Text(uploadResult.error)); Set(varShowNotifyFailed, true); Set(varBusy, false), Patch(
                                                   colHomeQueue,
                                                   LookUp(colHomeQueue, id = varHomeSelectedId),
                                                   {
@@ -222,14 +221,13 @@ ComponentDefinitions:
                                                       folder: uploadFolder,
                                                       path: gblSpCaptureRoot & uploadFolder & "/" & uploadName
                                                   }
-                                              );
-                                              Set(varImageName, uploadName)
+                                              ); Set(varImageName, uploadName)))
                                           )
                                       )
                                   );
-                                  Set(
+                                  If(!varShowNotifyFailed, Set(
                                       varResult,
-                                      'EDS-ProcessLabel'.Run(
+                                      IfError('EDS-ProcessLabel'.Run(
                                           {
                                               contentBytes: Coalesce(
                                                   If(!IsBlank(varImage) && varImage <> SampleImage, varImage, Blank()),
@@ -247,10 +245,10 @@ ComponentDefinitions:
                                                   )
                                               )
                                           }
-                                      )
+                                      ), Blank())
                                   );
 
-                                  If(
+                                  If( IsBlank(varResult), Set(varNotifyErrorMessage, "接続エラーにより画像の処理を開始できませんでした。もう一度お試しください。"); Set(varShowNotifyFailed, true); Set(varBusy, false), !IsBlank(Trim(Coalesce(Text(varResult.error), ""))), Set(varNotifyErrorMessage, Text(varResult.error)); Set(varShowNotifyFailed, true); Set(varBusy, false), 
                                       !Coalesce(varResult.is_package_label, false),
                                       Set(varError, "無効な画像です。もう一度お試しください");
                                       Set(varBusy, false),
@@ -304,7 +302,7 @@ ComponentDefinitions:
                                       Set(varError, "");
                                       Set(varBusy, false);
                                       Navigate(srcMatchResult, ScreenTransition.None)
-                                  ),
+                                  )),
 
                                   Set(
                                       varError,

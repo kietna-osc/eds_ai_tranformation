@@ -7,7 +7,9 @@
         <property name="text_5" type="string" />
       </object>
       <string name="ResponseActionOutput_success_def" />
+      <string name="ResponseActionOutput_error_def" />
       <object name="ResponseActionOutput">
+        <property name="error" type="string" />
         <property name="success" type="string" />
       </object>
       <object name="Run_responses_default_def" />

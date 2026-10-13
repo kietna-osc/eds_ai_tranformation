@@ -22,7 +22,9 @@
       <string name="ResponseActionOutput_sender_name_def" />
       <string name="ResponseActionOutput_sender_info_def" />
       <string name="ResponseActionOutput_sender_department_def" />
+      <string name="ResponseActionOutput_error_def" />
       <object name="ResponseActionOutput">
+        <property name="error" type="string" />
         <property name="tier" type="string" />
         <property name="match_score" type="number" />
         <property name="receiver_name" type="string" />

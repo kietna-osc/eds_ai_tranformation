@@ -23,3 +23,6 @@ EditorState:
     - cmpBottomNav
     - cmpHeader
     - Component1
+    - cmpHistSearch
+    - cmpEmpSearch
+    - cmpDatePicker

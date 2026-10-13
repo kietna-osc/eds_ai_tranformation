@@ -12,9 +12,15 @@ Screens:
       Fill: =RGBA(248, 250, 252, 1)
       LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
       OnVisible: |-
-        =Set(gblIsMobile, App.Width < 768);
+        =Set(varShowNotifyFailed, false);
+        Set(varNotifyErrorMessage, "");
+        Set(gblIsMobile, App.Width < 768);
         Set(varBusy, false);
-        Set(varCaptureTaken, false)
+        Set(varCaptureTaken, false);
+        Set(varCameraReady, false);
+        Set(varCameraProbeDone, false);
+        Set(varCameraProbeStart, false);
+        Set(varCameraProbeStart, true)
     Children:
       - conCaptureRoot:
           Control: GroupContainer@1.5.0
@@ -35,12 +41,73 @@ Screens:
                 Control: Label@2.5.1
                 Properties:
                   BorderColor: =RGBA(0, 0, 0, 0)
-                  Color: =RGBA(15, 23, 42, 1)
+                  Color: |-
+                    =If(
+                        !varCaptureTaken && varCameraProbeDone && !varCameraReady,
+                        RGBA(185, 28, 28, 1),
+                        RGBA(15, 23, 42, 1)
+                    )
                   Font: =Font.'Segoe UI'
                   FontWeight: =FontWeight.Bold
                   Height: =App.Height * 0.04
                   Size: =App.Height * 0.024
-                  Text: ="写真を撮る"
+                  Text: |-
+                    =If(
+                        !varCaptureTaken && varCameraProbeDone && !varCameraReady,
+                        "カメラを使用できません",
+                        "写真を撮る"
+                    )
+                  Width: =Parent.Width
+            - tmrCameraProbe:
+                Control: Timer@2.1.0
+                Properties:
+                  Align: =%Align.RESERVED%.Center
+                  AutoPause: =false
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  BorderStyle: =BorderStyle.None
+                  BorderThickness: =0
+                  Color: =RGBA(0, 0, 0, 0)
+                  DisabledBorderColor: =ColorFade(Self.BorderColor, 70%)
+                  DisabledColor: =ColorFade(Self.Fill, 90%)
+                  DisabledFill: =ColorFade(Self.Fill, 70%)
+                  Duration: =2500
+                  Fill: =RGBA(255, 255, 255, 0)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =%FontWeight.RESERVED%.Normal
+                  Height: =1
+                  HoverBorderColor: =ColorFade(Self.BorderColor, 20%)
+                  HoverColor: =Self.Color
+                  HoverFill: =ColorFade(Self.Fill, 20%)
+                  LayoutMinHeight: =0
+                  LayoutMinWidth: =0
+                  OnTimerEnd: |-
+                    =Set(varCameraProbeDone, true);
+                    If(
+                        !varCameraReady,
+                        Notify("カメラを使用できません", NotificationType.Error)
+                    )
+                  PressedBorderColor: =Self.Fill
+                  PressedColor: =Self.Fill
+                  PressedFill: =Self.Color
+                  Size: =1
+                  Start: =varCameraProbeStart
+                  Text: =""
+                  VerticalAlign: =%VerticalAlign.RESERVED%.Middle
+                  Width: =1
+            - lblCameraError:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  BorderThickness: =1
+                  Color: =RGBA(185, 28, 28, 1)
+                  Fill: =RGBA(255, 255, 255, 1)
+                  Font: =Font.'Segoe UI'
+                  FontWeight: =FontWeight.Semibold
+                  Height: =App.Height * 0.72
+                  Size: =App.Height * 0.022
+                  Text: ="カメラを使用できません"
+                  Visible: =!varCaptureTaken && varCameraProbeDone && !varCameraReady
                   Width: =Parent.Width
             - camCapture:
                 Control: Camera@2.4.0
@@ -50,8 +117,9 @@ Screens:
                   Height: =App.Height * 0.72
                   LayoutMinHeight: =App.Height * 0.01
                   LayoutMinWidth: =App.Width * 0.01
+                  OnStream: =Set(varCameraReady, true)
                   StreamRate: =100
-                  Visible: =!varCaptureTaken
+                  Visible: =!varCaptureTaken && (varCameraReady || !varCameraProbeDone)
                   Width: =Parent.Width
             - imgCapturePreview:
                 Control: Image@2.2.3
@@ -113,7 +181,12 @@ Screens:
                         BasePaletteColor: =RGBA(0, 102, 204, 1)
                         BorderStyle: =BorderStyle.None
                         Color: =RGBA(255, 255, 255, 1)
-                        DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+                        DisplayMode: |-
+                          =If(
+                              varBusy || (!varCameraReady && !varCameraProbeDone),
+                              DisplayMode.Disabled,
+                              DisplayMode.Edit
+                          )
                         FillPortions: =1
                         Font: =Font.'Segoe UI'
                         FontWeight: =FontWeight.Semibold
@@ -122,8 +195,12 @@ Screens:
                         LayoutMinHeight: =App.Height * 0.01
                         LayoutMinWidth: =App.Width * 0.01
                         OnSelect: |-
-                          =Set(varCaptureShot, camCapture.Stream);
-                          Set(varCaptureTaken, true)
+                          =If(
+                              varCameraReady,
+                              Set(varCaptureShot, camCapture.Stream);
+                              Set(varCaptureTaken, true),
+                              Notify("カメラを使用できません", NotificationType.Error)
+                          )
                         RadiusBottomLeft: =App.Width * 0.031
                         RadiusBottomRight: =App.Width * 0.031
                         RadiusTopLeft: =App.Width * 0.031
@@ -200,23 +277,16 @@ Screens:
                           With(
                               {uploadName: Lower(GUID()) & ".jpg"},
                               IfError(
-                                  'EDS-UploadCaptureImage'.Run(
+                                  With({uploadResult: 'EDS-UploadCaptureImage'.Run(
                                       {
                                           contentBytes: imgCapturePreview.Image,
                                           name: uploadName
                                       },
                                       uploadName
-                                  );
-                                  Set(varImageName, uploadName);
-                                  Notify("SharePointに保存しました", NotificationType.Success);
+                                  )}, If(!IsBlank(Trim(Coalesce(Text(uploadResult.error), ""))), Set(varNotifyErrorMessage, Text(uploadResult.error)); Set(varShowNotifyFailed, true); Set(varBusy, false), Set(varImageName, uploadName);
                                   Set(varBusy, false);
-                                  Set(varCaptureTaken, false);
-                                  Navigate(srcHome, ScreenTransition.None),
-                                  Notify(
-                                      "アップロードに失敗しました: " & Coalesce(FirstError.Message, "もう一度お試しください。"),
-                                      NotificationType.Error
-                                  );
-                                  Set(varBusy, false)
+                                  Set(varShowUploadSuccess, true))),
+                                  Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); Set(varBusy, false)
                               )
                           )
                         RadiusBottomLeft: =App.Width * 0.031
@@ -227,3 +297,250 @@ Screens:
                         Text: =If(varBusy, "保存中...", "SharePointに保存")
                         Visible: =varCaptureTaken
                         Width: =App.Width * 0.22
+      - conFlowErrorOverlayCapture:
+          Control: GroupContainer@1.5.0
+          Variant: ManualLayout
+          Properties:
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(0, 0, 0, 0.4)
+            Height: =App.Height
+            RadiusBottomLeft: =0
+            RadiusBottomRight: =0
+            RadiusTopLeft: =0
+            RadiusTopRight: =0
+            Visible: =varShowNotifyFailed
+            Width: =App.Width
+          Children:
+            - conFlowErrorCardCapture:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  BorderThickness: =1
+                  DropShadow: =DropShadow.None
+                  Fill: =RGBA(255, 255, 255, 1)
+                  Height: =App.Height * 0.42
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutGap: =App.Height * 0.018
+                  LayoutJustifyContent: =LayoutJustifyContent.Center
+                  PaddingBottom: =App.Height * 0.028
+                  PaddingLeft: =App.Width * 0.02
+                  PaddingRight: =App.Width * 0.02
+                  PaddingTop: =App.Height * 0.028
+                  RadiusBottomLeft: =16
+                  RadiusBottomRight: =16
+                  RadiusTopLeft: =16
+                  RadiusTopRight: =16
+                  Visible: =varShowNotifyFailed
+                  Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+                  X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+                  Y: =App.Height * 0.28
+                Children:
+                  - conFlowErrorIconCapture:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Center
+                        BorderColor: =RGBA(220, 38, 38, 1)
+                        BorderThickness: =2
+                        DropShadow: =DropShadow.None
+                        Fill: =RGBA(254, 226, 226, 1)
+                        FillPortions: =0
+                        Height: =App.Height * 0.08
+                        LayoutAlignItems: =LayoutAlignItems.Center
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutJustifyContent: =LayoutJustifyContent.Center
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =App.Height * 0.04
+                        RadiusBottomRight: =App.Height * 0.04
+                        RadiusTopLeft: =App.Height * 0.04
+                        RadiusTopRight: =App.Height * 0.04
+                        Width: =App.Height * 0.08
+                      Children:
+                        - lblFlowErrorIconCapture:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Center
+                              BorderColor: =RGBA(0,0,0,0)
+                              Color: =RGBA(220, 38, 38, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Fill: =RGBA(0, 0, 0 ,0)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Bold
+                              Height: =App.Height * 0.06
+                              Size: =App.Height * 0.028
+                              Text: ="x"
+                              Width: =App.Height * 0.06
+                  - lblFlowErrorTitleCapture:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Center
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(15, 23, 42, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Bold
+                        Height: =App.Height * 0.038
+                        Size: =App.Height * 0.021
+                        Text: ="エラーが発生しました"
+                        Width: =Parent.Width
+                  - lblFlowErrorBodyCapture:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Center
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(100, 116, 139, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        Height: =App.Height * 0.1
+                        PaddingBottom: =6
+                        PaddingTop: =6
+                        Size: =App.Height * 0.015
+                        Text: =varNotifyErrorMessage
+                        Width: =Parent.Width
+                  - btnFlowErrorOkCapture:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        BasePaletteColor: =RGBA(220, 38, 38, 1)
+                        BorderStyle: =BorderStyle.None
+                        Color: =RGBA(255, 255, 255, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Bold
+                        Height: =App.Height * 0.055
+                        OnSelect: |-
+                          =Set(varShowNotifyFailed, false);
+                          Set(varNotifyErrorMessage, "");
+                          Set(varError, "")
+                        RadiusBottomLeft: =10
+                        RadiusBottomRight: =10
+                        RadiusTopLeft: =10
+                        RadiusTopRight: =10
+                        Size: =App.Height * 0.016
+                        Text: ="OK"
+                        Width: =Parent.Width * 0.9
+      - conUploadSuccessOverlayCapture:
+          Control: GroupContainer@1.5.0
+          Variant: ManualLayout
+          Properties:
+            DropShadow: =DropShadow.None
+            Fill: =RGBA(0, 0, 0, 0.4)
+            Height: =App.Height
+            RadiusBottomLeft: =0
+            RadiusBottomRight: =0
+            RadiusTopLeft: =0
+            RadiusTopRight: =0
+            Visible: =varShowUploadSuccess
+            Width: =App.Width
+          Children:
+            - conUploadSuccessCardCapture:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  BorderColor: =RGBA(226, 232, 240, 1)
+                  BorderThickness: =1
+                  DropShadow: =DropShadow.None
+                  Fill: =RGBA(255, 255, 255, 1)
+                  Height: =App.Height * 0.42
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutGap: =App.Height * 0.018
+                  LayoutJustifyContent: =LayoutJustifyContent.Center
+                  PaddingBottom: =App.Height * 0.028
+                  PaddingLeft: =App.Width * 0.02
+                  PaddingRight: =App.Width * 0.02
+                  PaddingTop: =App.Height * 0.028
+                  RadiusBottomLeft: =16
+                  RadiusBottomRight: =16
+                  RadiusTopLeft: =16
+                  RadiusTopRight: =16
+                  Visible: =varShowUploadSuccess
+                  Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+                  X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+                  Y: =App.Height * 0.28
+                Children:
+                  - conUploadSuccessIconCapture:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Center
+                        BorderColor: =RGBA(13, 148, 136, 1)
+                        BorderThickness: =2
+                        DropShadow: =DropShadow.None
+                        Fill: =RGBA(230, 244, 241, 1)
+                        FillPortions: =0
+                        Height: =App.Height * 0.08
+                        LayoutAlignItems: =LayoutAlignItems.Center
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutJustifyContent: =LayoutJustifyContent.Center
+                        LayoutMinHeight: =32
+                        LayoutMinWidth: =32
+                        RadiusBottomLeft: =App.Height * 0.04
+                        RadiusBottomRight: =App.Height * 0.04
+                        RadiusTopLeft: =App.Height * 0.04
+                        RadiusTopRight: =App.Height * 0.04
+                        Width: =App.Height * 0.08
+                      Children:
+                        - lblUploadSuccessIconCapture:
+                            Control: Label@2.5.1
+                            Properties:
+                              Align: =Align.Center
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              Color: =RGBA(13, 148, 136, 1)
+                              DisabledColor: =RGBA(186, 186, 186, 1)
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Bold
+                              Height: =App.Height * 0.06
+                              Size: =App.Height * 0.028
+                              Text: ="✓"
+                              Width: =App.Height * 0.06
+                  - lblUploadSuccessTitleCapture:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Center
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(15, 23, 42, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Bold
+                        Height: =App.Height * 0.038
+                        Size: =App.Height * 0.021
+                        Text: ="保存しました"
+                        Width: =Parent.Width
+                  - lblUploadSuccessBodyCapture:
+                      Control: Label@2.5.1
+                      Properties:
+                        Align: =Align.Center
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(100, 116, 139, 1)
+                        DisabledColor: =RGBA(186, 186, 186, 1)
+                        Font: =Font.'Segoe UI'
+                        Height: =App.Height * 0.05
+                        PaddingBottom: =6
+                        PaddingTop: =6
+                        Size: =App.Height * 0.015
+                        Text: ="SharePointへの画像の保存に成功しました。"
+                        Width: =Parent.Width
+                  - btnUploadSuccessOkCapture:
+                      Control: ModernButton@1.0.0
+                      Properties:
+                        AlignInContainer: =AlignInContainer.Stretch
+                        BasePaletteColor: =RGBA(13, 148, 136, 1)
+                        BorderStyle: =BorderStyle.None
+                        Color: =RGBA(255, 255, 255, 1)
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Bold
+                        Height: =App.Height * 0.055
+                        OnSelect: |-
+                          =Set(varShowUploadSuccess, false);
+                          Set(varCaptureTaken, false);
+                          Navigate(srcHome, ScreenTransition.None)
+                        RadiusBottomLeft: =10
+                        RadiusBottomRight: =10
+                        RadiusTopLeft: =10
+                        RadiusTopRight: =10
+                        Size: =App.Height * 0.016
+                        Text: ="OK"
+                        Width: =Parent.Width * 0.9

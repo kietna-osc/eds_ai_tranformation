@@ -8,6 +8,9 @@ App As appinfo:
         Set(gblIsMobile, App.Width < 768);
         // 一覧画面の1ページあたりの件数。本番データ投入後は 20 に戻す
         Set(gblPageSize, 10);
+        // ===== 検索条件パネルの初期値 (各一覧画面の OnVisible でも同じ値に戻す) =====
+        Set(gblHsOpen, true);Set(gblHsDd, "");Set(gblHsRun, false);Set(gblCalTarget, "");Set(gblHsSlip, "");Set(gblHsRecipient, "");Set(gblHsDept, "");Set(gblHsStatus, "通知済み");Set(gblHsDType, "");Set(gblHsFrom, If(false, Now()));Set(gblHsTo, If(false, Now()));
+        Set(gblEsOpen, true);Set(gblEsDd, "");Set(gblEsRun, false);Set(gblCalTarget, "");Set(gblEsId, "");Set(gblEsName, "");Set(gblEsMail, "");Set(gblEsDept, "");Set(gblEsFrom, If(false, Now()));Set(gblEsTo, If(false, Now()));
         // ===== SharePoint 保存先の設定 (ここだけ直せばパスを変更できる) =====
         //   gblSpBrowseRoot : Power Apps 側の '{Path}' 表記。SharePoint ブラウザ画面の初期フォルダー。
         //   gblSpCaptureRoot: 撮影画像のパス。Power Automate が保存する場所を colHomeQueue.path に記録する。
@@ -110,6 +113,8 @@ App As appinfo:
         Set(varHomeQueueId, "");
         Set(varNotifyJson, "");
         Set(varShowNotifySuccess, false);
+        Set(varShowUploadSuccess, false);
+        Set(varShowUnknownSuccess, false);
         Set(varNotifyNavUnknown, false);
         Set(varFormReset, 0);
         Set(varShowNotifyFailed, false);

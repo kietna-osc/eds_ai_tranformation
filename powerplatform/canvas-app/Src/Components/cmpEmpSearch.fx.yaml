@@ -1,0 +1,305 @@
+cmpEmpSearch As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =180
+    Visible: =true
+    Width: =1366
+    X: =0
+    Y: =0
+
+    recEsBackdrop As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * 0.45
+        OnSelect: =Set(gblEsDd, "")
+        Visible: =gblEsDd <> ""
+        Width: =App.Width
+        ZIndex: =1
+
+    recEsCard As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * If(gblEsOpen, 0.165, 0.06)
+        Width: =App.Width * 0.966
+        X: =App.Width * 0.017
+        ZIndex: =2
+
+    lblEsTitle As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.017
+        Text: ="検索条件"
+        Width: =App.Width * 0.07
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.012
+        ZIndex: =3
+
+    btnEsToggle As modernButton:
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.036
+        OnSelect: =Set(gblEsOpen, !gblEsOpen);Set(gblEsDd, "")
+        Size: =App.Height * 0.014
+        Text: =If(gblEsOpen, "▲ 折りたたむ", "▼ 展開する")
+        Width: =App.Width * 0.09
+        X: =App.Width * 0.88
+        Y: =App.Height * 0.012
+        ZIndex: =4
+
+    recEsLine As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(226, 232, 240, 1)
+        Height: =1
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.966
+        X: =App.Width * 0.017
+        Y: =App.Height * 0.055
+        ZIndex: =5
+
+    lblEsSummary As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: |-
+            =With({p: Filter(Table(
+                {t: If(IsBlank(gblEsId), "", "社員番号：" & gblEsId)},
+                {t: If(IsBlank(gblEsName), "", "社員氏名：" & gblEsName)},
+                {t: If(IsBlank(gblEsMail), "", "メール：" & gblEsMail)},
+                {t: If(IsBlank(gblEsDept), "", "部署：" & gblEsDept)},
+                {t: If(IsBlank(gblEsFrom) && IsBlank(gblEsTo), "", "登録日時：" & If(IsBlank(gblEsFrom), "", Text(gblEsFrom, "yyyy/mm/dd hh:mm")) & " ～ " & If(IsBlank(gblEsTo), "", Text(gblEsTo, "yyyy/mm/dd hh:mm")))}
+            ), !IsBlank(t))},
+            If(IsEmpty(p), "条件なし", Concat(p, t, "　／　")))
+        Visible: =!gblEsOpen
+        Width: =App.Width * 0.77
+        X: =App.Width * 0.1
+        Y: =App.Height * 0.012
+        ZIndex: =6
+
+    lblEsIdCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="社員番号"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.068
+        ZIndex: =7
+
+    txtEsId As modernTextInput:
+        Default: =gblEsId
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblEsId, Trim(Self.Text))
+        Placeholder: ="社員番号を入力"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.085
+        Y: =App.Height * 0.068
+        ZIndex: =8
+
+    lblEsNameCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="社員氏名"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.24
+        Y: =App.Height * 0.068
+        ZIndex: =9
+
+    txtEsName As modernTextInput:
+        Default: =gblEsName
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblEsName, Trim(Self.Text))
+        Placeholder: ="社員氏名を入力"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.295
+        Y: =App.Height * 0.068
+        ZIndex: =10
+
+    lblEsDateCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="登録日時"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.45
+        Y: =App.Height * 0.068
+        ZIndex: =11
+
+    lblEsFrom As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblEsFrom), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: |-
+            =Set(gblEsDd, "");Set(gblCalVal, gblEsFrom);Set(gblCalMonth, With({b: Coalesce(gblEsFrom, Now())}, DateTime(Year(b), Month(b), 1, 0, 0, 0)));Set(gblCalX, 0.505);Set(gblCalY, 0.282);Set(gblCalTarget, "empFrom")
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: |-
+            =If(IsBlank(gblEsFrom), "開始日時を選択", Text(gblEsFrom, "yyyy/mm/dd hh:mm"))
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.12
+        X: =App.Width * 0.505
+        Y: =App.Height * 0.068
+        ZIndex: =12
+
+    lblEsTilde As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="～"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.02
+        X: =App.Width * 0.628
+        Y: =App.Height * 0.068
+        ZIndex: =13
+
+    lblEsTo As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblEsTo), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: |-
+            =Set(gblEsDd, "");Set(gblCalVal, gblEsTo);Set(gblCalMonth, With({b: Coalesce(gblEsTo, Now())}, DateTime(Year(b), Month(b), 1, 0, 0, 0)));Set(gblCalX, 0.65);Set(gblCalY, 0.282);Set(gblCalTarget, "empTo")
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: |-
+            =If(IsBlank(gblEsTo), "終了日時を選択", Text(gblEsTo, "yyyy/mm/dd hh:mm"))
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.12
+        X: =App.Width * 0.65
+        Y: =App.Height * 0.068
+        ZIndex: =14
+
+    btnEsSearch As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        OnSelect: |-
+            =Set(gblEsId, Trim(txtEsId.Text));Set(gblEsName, Trim(txtEsName.Text));Set(gblEsMail, Trim(txtEsMail.Text));Set(gblEsDept, Trim(txtEsDept.Text));Set(gblEsDd, "");
+            If(
+                !IsBlank(gblEsFrom) && !IsBlank(gblEsTo) && gblEsFrom > gblEsTo,
+                Notify("登録日時の開始が終了より後になっています", NotificationType.Warning),
+                // TODO: 項目別の検索条件・登録日時の API 連携は未対応 (現状は入力済みの最初の項目を search_keyword で送信)
+                Set(varEmpSearch, Coalesce(gblEsId, gblEsName, gblEsMail, gblEsDept, ""));Set(gblPage, 1);Set(gblEsRun, true)
+            )
+        Size: =App.Height * 0.015
+        Text: ="検索"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.08
+        X: =App.Width * 0.8
+        Y: =App.Height * 0.068
+        ZIndex: =15
+
+    lblEsMailCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="メール"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.115
+        ZIndex: =16
+
+    txtEsMail As modernTextInput:
+        Default: =gblEsMail
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblEsMail, Trim(Self.Text))
+        Placeholder: ="メールアドレスを入力"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.085
+        Y: =App.Height * 0.115
+        ZIndex: =17
+
+    lblEsDeptCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="部署"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.24
+        Y: =App.Height * 0.115
+        ZIndex: =18
+
+    txtEsDept As modernTextInput:
+        Default: =gblEsDept
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblEsDept, Trim(Self.Text))
+        Placeholder: ="部署名を入力"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.295
+        Y: =App.Height * 0.115
+        ZIndex: =19
+
+    btnEsClear As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        OnSelect: =Reset(txtEsId);Reset(txtEsName);Reset(txtEsMail);Reset(txtEsDept);Set(gblEsId, "");Set(gblEsName, "");Set(gblEsMail, "");Set(gblEsDept, "");Set(gblEsFrom, If(false, Now()));Set(gblEsTo, If(false, Now()));Set(gblEsDd, "")
+        Size: =App.Height * 0.015
+        Text: ="クリア"
+        Visible: =gblEsOpen
+        Width: =App.Width * 0.08
+        X: =App.Width * 0.8
+        Y: =App.Height * 0.115
+        ZIndex: =20
+

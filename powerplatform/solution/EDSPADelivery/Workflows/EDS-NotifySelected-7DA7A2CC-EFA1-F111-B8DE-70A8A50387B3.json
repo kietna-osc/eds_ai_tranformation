@@ -2,40 +2,44 @@
   "properties": {
     "connectionReferences": {
       "shared_planner-2": {
-        "api": {
-          "name": "shared_planner"
-        },
+        "runtimeSource": "embedded",
         "connection": {
+          "name": "shared-planner-e61b544f-8dd8-4304-9c12-2c95d280ac69",
           "connectionReferenceLogicalName": "cr1d7_sharedplanner_bc1dd"
         },
-        "runtimeSource": "embedded"
+        "api": {
+          "name": "shared_planner"
+        }
       },
       "shared_teams": {
-        "api": {
-          "name": "shared_teams"
-        },
+        "runtimeSource": "embedded",
         "connection": {
+          "name": "shared-teams-95d06335-274c-40b0-8e16-08de8567d6f8",
           "connectionReferenceLogicalName": "cr1d7_sharedteams_76c77"
         },
-        "runtimeSource": "embedded"
+        "api": {
+          "name": "shared_teams"
+        }
       },
       "shared_teams-1": {
-        "api": {
-          "name": "shared_teams"
-        },
+        "runtimeSource": "embedded",
         "connection": {
+          "name": "shared-teams-95d06335-274c-40b0-8e16-08de8567d6f8",
           "connectionReferenceLogicalName": "cr1d7_sharedteams_76c77"
         },
-        "runtimeSource": "embedded"
+        "api": {
+          "name": "shared_teams"
+        }
       },
       "shared_sharepointonline": {
-        "api": {
-          "name": "shared_sharepointonline"
-        },
+        "runtimeSource": "embedded",
         "connection": {
+          "name": "e3f9b3861b1f40379b272f5b01665402",
           "connectionReferenceLogicalName": "cr1d7_sharedsharepointonline_a7051"
         },
-        "runtimeSource": "embedded"
+        "api": {
+          "name": "shared_sharepointonline"
+        }
       }
     },
     "definition": {
@@ -53,6 +57,9 @@
       },
       "triggers": {
         "manual": {
+          "metadata": {
+            "operationMetadataId": "7f283f42-ca57-43d8-b994-635095f3ab80"
+          },
           "type": "Request",
           "kind": "PowerAppV2",
           "inputs": {
@@ -69,14 +76,15 @@
               },
               "required": []
             }
-          },
-          "metadata": {
-            "operationMetadataId": "7f283f42-ca57-43d8-b994-635095f3ab80"
           }
         }
       },
       "actions": {
         "Parse_JSON": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "2ca99d74-182a-4dcf-aa95-1fd058fe01ef"
+          },
           "type": "ParseJson",
           "inputs": {
             "content": "@triggerBody()?['text_5']",
@@ -142,13 +150,17 @@
                 }
               }
             }
-          },
-          "runAfter": {},
-          "metadata": {
-            "operationMetadataId": "2ca99d74-182a-4dcf-aa95-1fd058fe01ef"
           }
         },
         "List_buckets": {
+          "runAfter": {
+            "Parse_JSON": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "bc85e950-9e17-41c5-b074-067f46e99773"
+          },
           "type": "OpenApiConnection",
           "inputs": {
             "parameters": {
@@ -157,20 +169,21 @@
             },
             "host": {
               "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
-              "operationId": "ListBuckets_V3",
-              "connectionName": "shared_planner-2"
-            }
-          },
+              "connectionName": "shared_planner-2",
+              "operationId": "ListBuckets_V3"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Initialize_variable_2": {
           "runAfter": {
-            "Parse_JSON": [
+            "List_buckets": [
               "Succeeded"
             ]
           },
           "metadata": {
-            "operationMetadataId": "bc85e950-9e17-41c5-b074-067f46e99773"
-          }
-        },
-        "Initialize_variable_2": {
+            "operationMetadataId": "44016043-f784-4ce3-ab22-409e3cde485c"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -180,35 +193,77 @@
                 "value": false
               }
             ]
-          },
-          "runAfter": {
-            "List_buckets": [
-              "Succeeded"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "44016043-f784-4ce3-ab22-409e3cde485c"
           }
         },
         "Condition": {
-          "type": "If",
-          "expression": {
-            "and": [
-              {
-                "equals": [
-                  "@variables('is_unknown')",
-                  "@true"
-                ]
-              }
-            ]
-          },
           "actions": {
             "Apply_to_each_3": {
-              "type": "Foreach",
               "foreach": "@body('Parse_JSON')",
               "actions": {
                 "Condition_3": {
-                  "type": "If",
+                  "actions": {
+                    "Get_an_@mention_token_for_a_user_2": {
+                      "metadata": {
+                        "operationMetadataId": "e3c86e3e-f34d-4711-997a-172ff25fabab"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "userId": "@items('Apply_to_each_3')?['email']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "AtMentionUser"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Append_to_string_variable_4": {
+                      "runAfter": {
+                        "Get_an_@mention_token_for_a_user_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "83566d5a-2653-42ec-b80b-fa7fbd2dd2e8"
+                      },
+                      "type": "AppendToStringVariable",
+                      "inputs": {
+                        "name": "varCC",
+                        "value": "@{outputs('Get_an_@mention_token_for_a_user_2')?['body/atMention']} "
+                      }
+                    },
+                    "Set_variable_1": {
+                      "runAfter": {
+                        "Append_to_string_variable_4": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "494a1584-d2e7-462e-be63-6d5cfbc389f2"
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "varMain",
+                        "value": "@items('Apply_to_each_3')?['content_message']"
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Set_variable_2": {
+                        "metadata": {
+                          "operationMetadataId": "a61cf470-a6e5-4139-b069-c2e6b43b0777"
+                        },
+                        "type": "SetVariable",
+                        "inputs": {
+                          "name": "varMain",
+                          "value": "@items('Apply_to_each_3')?['content_message']"
+                        }
+                      }
+                    }
+                  },
                   "expression": {
                     "and": [
                       {
@@ -221,85 +276,23 @@
                       }
                     ]
                   },
-                  "actions": {
-                    "Get_an_@mention_token_for_a_user_2": {
-                      "type": "OpenApiConnection",
-                      "inputs": {
-                        "parameters": {
-                          "userId": "@items('Apply_to_each_3')?['email']"
-                        },
-                        "host": {
-                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
-                          "operationId": "AtMentionUser",
-                          "connectionName": "shared_teams"
-                        }
-                      },
-                      "metadata": {
-                        "operationMetadataId": "e3c86e3e-f34d-4711-997a-172ff25fabab"
-                      }
-                    },
-                    "Append_to_string_variable_4": {
-                      "type": "AppendToStringVariable",
-                      "inputs": {
-                        "name": "varCC",
-                        "value": "@{outputs('Get_an_@mention_token_for_a_user_2')?['body/atMention']} "
-                      },
-                      "runAfter": {
-                        "Get_an_@mention_token_for_a_user_2": [
-                          "Succeeded"
-                        ]
-                      },
-                      "metadata": {
-                        "operationMetadataId": "83566d5a-2653-42ec-b80b-fa7fbd2dd2e8"
-                      }
-                    },
-                    "Set_variable_1": {
-                      "type": "SetVariable",
-                      "inputs": {
-                        "name": "varMain",
-                        "value": "@items('Apply_to_each_3')?['content_message']"
-                      },
-                      "runAfter": {
-                        "Append_to_string_variable_4": [
-                          "Succeeded"
-                        ]
-                      },
-                      "metadata": {
-                        "operationMetadataId": "494a1584-d2e7-462e-be63-6d5cfbc389f2"
-                      }
-                    }
-                  },
-                  "else": {
-                    "actions": {
-                      "Set_variable_2": {
-                        "type": "SetVariable",
-                        "inputs": {
-                          "name": "varMain",
-                          "value": "@items('Apply_to_each_3')?['content_message']"
-                        },
-                        "metadata": {
-                          "operationMetadataId": "a61cf470-a6e5-4139-b069-c2e6b43b0777"
-                        }
-                      }
-                    }
-                  },
                   "metadata": {
                     "operationMetadataId": "b0de2980-a85c-43b2-b1b0-ebb4c6339059"
-                  }
-                }
-              },
-              "runtimeConfiguration": {
-                "concurrency": {
-                  "repetitions": 1
+                  },
+                  "type": "If"
                 }
               },
               "metadata": {
                 "operationMetadataId": "b0793407-5395-411f-8d51-fd7c1a222ba0"
+              },
+              "type": "Foreach",
+              "runtimeConfiguration": {
+                "concurrency": {
+                  "repetitions": 1
+                }
               }
             },
             "finalMessage_1": {
-              "type": "Compose",
-              "inputs": "@trim(concat(variables('varMain'), variables('varCC'), ';<br>', variables('content_message')))",
               "runAfter": {
                 "Apply_to_each_3": [
                   "Succeeded"
@@ -307,9 +300,19 @@
               },
               "metadata": {
                 "operationMetadataId": "751a1587-7934-4baa-97cc-ebb56bcd1f51"
-              }
+              },
+              "type": "Compose",
+              "inputs": "@trim(concat(variables('varMain'), variables('varCC'), ';<br>', variables('content_message')))"
             },
             "Post_message_in_a_chat_or_channel_3": {
+              "runAfter": {
+                "finalMessage_1": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "a10a11ae-2320-4c87-bf69-03d17e3c7e58"
+              },
               "type": "OpenApiConnection",
               "inputs": {
                 "parameters": {
@@ -321,37 +324,33 @@
                 },
                 "host": {
                   "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
-                  "operationId": "PostMessageToConversation",
-                  "connectionName": "shared_teams"
-                }
-              },
-              "runAfter": {
-                "finalMessage_1": [
-                  "Succeeded"
-                ]
-              },
-              "metadata": {
-                "operationMetadataId": "a10a11ae-2320-4c87-bf69-03d17e3c7e58"
+                  "connectionName": "shared_teams",
+                  "operationId": "PostMessageToConversation"
+                },
+                "authentication": "@parameters('$authentication')"
               }
             }
+          },
+          "runAfter": {
+            "Initialize_content_message": [
+              "Succeeded"
+            ]
           },
           "else": {
             "actions": {
               "Apply_to_each": {
-                "type": "Foreach",
                 "foreach": "@body('Parse_JSON')",
                 "actions": {
                   "Catch": {
-                    "type": "Scope",
                     "actions": {
                       "Set_variable_4": {
+                        "metadata": {
+                          "operationMetadataId": "5b5af04e-b3bf-427d-8380-ccd2c1daea5f"
+                        },
                         "type": "SetVariable",
                         "inputs": {
                           "name": "content_message",
                           "value": "@items('Apply_to_each')?['content_message']"
-                        },
-                        "metadata": {
-                          "operationMetadataId": "5b5af04e-b3bf-427d-8380-ccd2c1daea5f"
                         }
                       }
                     },
@@ -363,12 +362,15 @@
                     },
                     "metadata": {
                       "operationMetadataId": "7fa5f8d7-7d8b-4798-a194-5c0f7514b0c8"
-                    }
+                    },
+                    "type": "Scope"
                   },
                   "Try": {
-                    "type": "Scope",
                     "actions": {
                       "Get_an_@mention_token_for_a_user": {
+                        "metadata": {
+                          "operationMetadataId": "fcaebca7-ccd4-41e7-bfd2-a4930b038c53"
+                        },
                         "type": "OpenApiConnection",
                         "inputs": {
                           "parameters": {
@@ -376,24 +378,52 @@
                           },
                           "host": {
                             "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
-                            "operationId": "AtMentionUser",
-                            "connectionName": "shared_teams-1"
-                          }
-                        },
-                        "metadata": {
-                          "operationMetadataId": "fcaebca7-ccd4-41e7-bfd2-a4930b038c53"
+                            "connectionName": "shared_teams-1",
+                            "operationId": "AtMentionUser"
+                          },
+                          "authentication": "@parameters('$authentication')"
                         }
                       }
                     },
                     "metadata": {
                       "operationMetadataId": "804b5e38-7668-4562-bafb-67e3f4dbf88a"
-                    }
+                    },
+                    "type": "Scope"
                   },
                   "Success": {
-                    "type": "Scope",
                     "actions": {
                       "Condition_2": {
-                        "type": "If",
+                        "actions": {
+                          "Append_to_string_variable": {
+                            "metadata": {
+                              "operationMetadataId": "b643748e-4139-45a0-8bfb-c36530d09559"
+                            },
+                            "type": "AppendToStringVariable",
+                            "inputs": {
+                              "name": "varMain",
+                              "value": "@outputs('Get_an_@mention_token_for_a_user')?['body/atMention']"
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Set_variable_3": [
+                            "Succeeded"
+                          ]
+                        },
+                        "else": {
+                          "actions": {
+                            "Append_to_string_variable_1": {
+                              "metadata": {
+                                "operationMetadataId": "61c45055-4b30-49a0-931f-a172230f2252"
+                              },
+                              "type": "AppendToStringVariable",
+                              "inputs": {
+                                "name": "varCC",
+                                "value": "@{outputs('Get_an_@mention_token_for_a_user')?['body/atMention']} "
+                              }
+                            }
+                          }
+                        },
                         "expression": {
                           "and": [
                             {
@@ -404,49 +434,19 @@
                             }
                           ]
                         },
-                        "actions": {
-                          "Append_to_string_variable": {
-                            "type": "AppendToStringVariable",
-                            "inputs": {
-                              "name": "varMain",
-                              "value": "@outputs('Get_an_@mention_token_for_a_user')?['body/atMention']"
-                            },
-                            "metadata": {
-                              "operationMetadataId": "b643748e-4139-45a0-8bfb-c36530d09559"
-                            }
-                          }
-                        },
-                        "else": {
-                          "actions": {
-                            "Append_to_string_variable_1": {
-                              "type": "AppendToStringVariable",
-                              "inputs": {
-                                "name": "varCC",
-                                "value": "@{outputs('Get_an_@mention_token_for_a_user')?['body/atMention']} "
-                              },
-                              "metadata": {
-                                "operationMetadataId": "61c45055-4b30-49a0-931f-a172230f2252"
-                              }
-                            }
-                          }
-                        },
-                        "runAfter": {
-                          "Set_variable_3": [
-                            "Succeeded"
-                          ]
-                        },
                         "metadata": {
                           "operationMetadataId": "23581553-49b4-4c09-a2c6-c714d24c731e"
-                        }
+                        },
+                        "type": "If"
                       },
                       "Set_variable_3": {
+                        "metadata": {
+                          "operationMetadataId": "432baf83-0f28-41eb-83b3-4910b5278aa9"
+                        },
                         "type": "SetVariable",
                         "inputs": {
                           "name": "content_message",
                           "value": "@items('Apply_to_each')?['content_message']"
-                        },
-                        "metadata": {
-                          "operationMetadataId": "432baf83-0f28-41eb-83b3-4910b5278aa9"
                         }
                       }
                     },
@@ -457,19 +457,29 @@
                     },
                     "metadata": {
                       "operationMetadataId": "543be79d-b6ee-450e-bcef-4a4a6b9f0965"
-                    }
-                  }
-                },
-                "runtimeConfiguration": {
-                  "concurrency": {
-                    "repetitions": 1
+                    },
+                    "type": "Scope"
                   }
                 },
                 "metadata": {
                   "operationMetadataId": "b0793407-5395-411f-8d51-fd7c1a222ba0"
+                },
+                "type": "Foreach",
+                "runtimeConfiguration": {
+                  "concurrency": {
+                    "repetitions": 1
+                  }
                 }
               },
               "Post_message_in_a_chat_or_channel_1": {
+                "runAfter": {
+                  "finalMessage": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "5a27142d-e91d-4e0c-8fda-c3fd49dc634c"
+                },
                 "type": "OpenApiConnection",
                 "inputs": {
                   "parameters": {
@@ -481,22 +491,13 @@
                   },
                   "host": {
                     "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
-                    "operationId": "PostMessageToConversation",
-                    "connectionName": "shared_teams-1"
-                  }
-                },
-                "runAfter": {
-                  "finalMessage": [
-                    "Succeeded"
-                  ]
-                },
-                "metadata": {
-                  "operationMetadataId": "5a27142d-e91d-4e0c-8fda-c3fd49dc634c"
+                    "connectionName": "shared_teams-1",
+                    "operationId": "PostMessageToConversation"
+                  },
+                  "authentication": "@parameters('$authentication')"
                 }
               },
               "finalMessage": {
-                "type": "Compose",
-                "inputs": "@trim(concat(variables('varMain'), variables('varCC'), '; <br>', variables('content_message')))",
                 "runAfter": {
                   "Apply_to_each": [
                     "Succeeded",
@@ -507,20 +508,36 @@
                 },
                 "metadata": {
                   "operationMetadataId": "afd05520-a8cb-4635-8bbe-b9426f1016c2"
-                }
+                },
+                "type": "Compose",
+                "inputs": "@trim(concat(variables('varMain'), variables('varCC'), '; <br>', variables('content_message')))"
               }
             }
           },
-          "runAfter": {
-            "Initialize_content_message": [
-              "Succeeded"
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@variables('is_unknown')",
+                  "@true"
+                ]
+              }
             ]
           },
           "metadata": {
             "operationMetadataId": "43adbdec-5661-44b6-94d6-4e9d4ce97e74"
-          }
+          },
+          "type": "If"
         },
         "Initialize_variable": {
+          "runAfter": {
+            "Apply_to_each_1": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6bbde101-3286-44c1-8eda-30a22bf74a70"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -530,17 +547,17 @@
                 "value": "@''"
               }
             ]
-          },
-          "runAfter": {
-            "Apply_to_each_1": [
-              "SUCCEEDED"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "6bbde101-3286-44c1-8eda-30a22bf74a70"
           }
         },
         "Initialize_variable_1": {
+          "runAfter": {
+            "Initialize_variable": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "9f67f467-64fb-4353-84f9-b213f8b6179d"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -550,17 +567,17 @@
                 "value": "@''"
               }
             ]
-          },
+          }
+        },
+        "Initialize_content_message": {
           "runAfter": {
-            "Initialize_variable": [
+            "Initialize_variable_1": [
               "Succeeded"
             ]
           },
           "metadata": {
-            "operationMetadataId": "9f67f467-64fb-4353-84f9-b213f8b6179d"
-          }
-        },
-        "Initialize_content_message": {
+            "operationMetadataId": "51f0670c-2b34-4d31-90e3-f5be47ac74ff"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -569,17 +586,17 @@
                 "type": "string"
               }
             ]
-          },
+          }
+        },
+        "Initialize_unknown_title": {
           "runAfter": {
-            "Initialize_variable_1": [
+            "Initialize_variable_2": [
               "Succeeded"
             ]
           },
           "metadata": {
-            "operationMetadataId": "51f0670c-2b34-4d31-90e3-f5be47ac74ff"
-          }
-        },
-        "Initialize_unknown_title": {
+            "operationMetadataId": "cc8b5530-e0d7-42c0-ad61-1685413355b1"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -588,22 +605,32 @@
                 "type": "string"
               }
             ]
-          },
-          "runAfter": {
-            "Initialize_variable_2": [
-              "Succeeded"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "cc8b5530-e0d7-42c0-ad61-1685413355b1"
           }
         },
         "Apply_to_each_1": {
-          "type": "Foreach",
           "foreach": "@body('Parse_JSON')",
           "actions": {
             "Condition_1": {
-              "type": "If",
+              "actions": {
+                "Set_variable": {
+                  "metadata": {
+                    "operationMetadataId": "7815b7fa-ec68-44e7-b7f6-edc91c662b6e"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "is_unknown",
+                    "value": true
+                  }
+                }
+              },
+              "runAfter": {
+                "Is_cc_or_Is_Unknown": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {}
+              },
               "expression": {
                 "and": [
                   {
@@ -614,61 +641,213 @@
                   }
                 ]
               },
-              "actions": {
-                "Set_variable": {
-                  "type": "SetVariable",
-                  "inputs": {
-                    "name": "is_unknown",
-                    "value": true
-                  },
-                  "metadata": {
-                    "operationMetadataId": "7815b7fa-ec68-44e7-b7f6-edc91c662b6e"
-                  }
-                }
-              },
-              "else": {
-                "actions": {}
-              },
-              "runAfter": {
-                "Is_cc_or_Is_Unknown": [
-                  "Succeeded"
-                ]
-              },
               "metadata": {
                 "operationMetadataId": "a7bfa874-bae0-42b1-9375-c2f0e74c6a7f"
-              }
+              },
+              "type": "If"
             },
             "Is_cc_or_Is_Unknown": {
-              "type": "If",
-              "expression": {
-                "or": [
-                  {
-                    "equals": [
-                      "@items('Apply_to_each_1')?['is_cc']",
-                      "@false"
-                    ]
-                  },
-                  {
-                    "equals": [
-                      "@items('Apply_to_each_1')?['name']",
-                      "不明"
-                    ]
-                  }
-                ]
-              },
               "actions": {
                 "Filter_array": {
+                  "metadata": {
+                    "operationMetadataId": "6a1f5487-2a3c-482c-b868-dce74fa65192"
+                  },
                   "type": "Query",
                   "inputs": {
                     "from": "@outputs('List_buckets')?['body/value']",
                     "where": "@equals(trim(toLower(item()?['name'])),trim(toLower(items('Apply_to_each_1')?['department'])))"
-                  },
-                  "metadata": {
-                    "operationMetadataId": "6a1f5487-2a3c-482c-b868-dce74fa65192"
                   }
                 },
                 "Check_bucket_exist": {
-                  "type": "If",
+                  "actions": {
+                    "Create_a_task": {
+                      "metadata": {
+                        "operationMetadataId": "f51a288e-75e3-44f1-b83d-c9f23bc0be62"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "body/groupId": "c21aaf6b-d3d0-4af9-99dc-a4dbba9cc69b",
+                          "body/planId": "yiKgz9mJbUmRxmNx_gKtg8kAAuHj",
+                          "body/title": "@concat(items('Apply_to_each_1')?['slip_no'], ' - ', items('Apply_to_each_1')?['name'], ' - ', items('Apply_to_each_1')?['department'])",
+                          "body/bucketId": "@first(body('Filter_array'))?['id']",
+                          "body/assignments": "@items('Apply_to_each_1')?['email']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
+                          "connectionName": "shared_planner-2",
+                          "operationId": "CreateTask_V3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Update_task_details": {
+                      "runAfter": {
+                        "Create_a_task": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "ae09c16d-3dfa-4eee-ac34-e32260a5af92"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "id": "@outputs('Create_a_task')?['body/id']",
+                          "body/description": "@replace(\n  replace(\n    concat('伝票番号', split(items('Apply_to_each_1')?['content_message'], '伝票番号')[1]),\n    decodeUriComponent('%0D%0A%0D%0A'),\n    decodeUriComponent('%0D%0A')\n  ),\n  decodeUriComponent('%0A%0A'),\n  decodeUriComponent('%0A')\n)"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
+                          "connectionName": "shared_planner-2",
+                          "operationId": "UpdateTaskDetails_V2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Set_planner_task_id": {
+                      "runAfter": {
+                        "Update_task_details": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "e6d2ce3d-d7c7-4de3-a863-689ad2a926b2"
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "planner_task_id",
+                        "value": "@outputs('Create_a_task')?['body/id']"
+                      }
+                    },
+                    "Set_email": {
+                      "runAfter": {
+                        "Create_a_task": [
+                          "Skipped",
+                          "TimedOut",
+                          "Failed"
+                        ]
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "to_email",
+                        "value": "@items('Apply_to_each_1')?['email']"
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Get_unknown_bucket": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Create_unknown_task": {
+                        "runAfter": {
+                          "Condition_4": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "f51a288e-75e3-44f1-b83d-c9f23bc0be62"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "body/groupId": "c21aaf6b-d3d0-4af9-99dc-a4dbba9cc69b",
+                            "body/planId": "yiKgz9mJbUmRxmNx_gKtg8kAAuHj",
+                            "body/title": "@variables('unknown_title')",
+                            "body/bucketId": "@first(body('Get_unknown_bucket'))?['id']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
+                            "connectionName": "shared_planner-2",
+                            "operationId": "CreateTask_V3"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Update_unknown_task": {
+                        "runAfter": {
+                          "Create_unknown_task": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "ae09c16d-3dfa-4eee-ac34-e32260a5af92"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "id": "@outputs('Create_unknown_task')?['body/id']",
+                            "body/description": "@replace(\n  replace(\n    concat('伝票番号', split(items('Apply_to_each_1')?['content_message'], '伝票番号')[1]),\n    decodeUriComponent('%0D%0A%0D%0A'),\n    decodeUriComponent('%0D%0A')\n  ),\n  decodeUriComponent('%0A%0A'),\n  decodeUriComponent('%0A')\n)"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
+                            "connectionName": "shared_planner-2",
+                            "operationId": "UpdateTaskDetails_V2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Condition_4": {
+                        "actions": {
+                          "Set_unknown_title": {
+                            "metadata": {
+                              "operationMetadataId": "846bf809-38ff-465e-a685-d9777ba1480c"
+                            },
+                            "type": "SetVariable",
+                            "inputs": {
+                              "name": "unknown_title",
+                              "value": "@concat('宛先不明: ', items('Apply_to_each_1')?['slip_no'])"
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Set_no_bucket_title": {
+                              "metadata": {
+                                "operationMetadataId": "e86b6154-eee8-4ab0-8b4c-dd886ac5e975"
+                              },
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "unknown_title",
+                                "value": "@concat(items('Apply_to_each_1')?['slip_no'], ' - ', items('Apply_to_each_1')?['name'], ' - ', items('Apply_to_each_1')?['department'])"
+                              }
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@first(body('Filter_array'))?['name']",
+                                "宛先不明！！！！！"
+                              ]
+                            }
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "b60b5e5c-4ccd-45cb-bb91-9c8153bc2ab2"
+                        },
+                        "type": "If"
+                      },
+                      "Set_planner_unknown_id": {
+                        "runAfter": {
+                          "Update_unknown_task": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "52e75865-1225-4302-881b-46ad40ebe8ee"
+                        },
+                        "type": "SetVariable",
+                        "inputs": {
+                          "name": "planner_task_id",
+                          "value": "@outputs('Create_unknown_task')?['body/id']"
+                        }
+                      }
+                    }
+                  },
                   "expression": {
                     "and": [
                       {
@@ -687,201 +866,12 @@
                       }
                     ]
                   },
-                  "actions": {
-                    "Create_a_task": {
-                      "type": "OpenApiConnection",
-                      "inputs": {
-                        "parameters": {
-                          "body/groupId": "c21aaf6b-d3d0-4af9-99dc-a4dbba9cc69b",
-                          "body/planId": "yiKgz9mJbUmRxmNx_gKtg8kAAuHj",
-                          "body/title": "@concat(items('Apply_to_each_1')?['slip_no'], ' - ', items('Apply_to_each_1')?['name'], ' - ', items('Apply_to_each_1')?['department'])",
-                          "body/bucketId": "@first(body('Filter_array'))?['id']",
-                          "body/assignments": "@items('Apply_to_each_1')?['email']"
-                        },
-                        "host": {
-                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
-                          "operationId": "CreateTask_V3",
-                          "connectionName": "shared_planner-2"
-                        }
-                      },
-                      "metadata": {
-                        "operationMetadataId": "f51a288e-75e3-44f1-b83d-c9f23bc0be62"
-                      }
-                    },
-                    "Update_task_details": {
-                      "type": "OpenApiConnection",
-                      "inputs": {
-                        "parameters": {
-                          "id": "@outputs('Create_a_task')?['body/id']",
-                          "body/description": "@replace(\n  replace(\n    concat('伝票番号', split(items('Apply_to_each_1')?['content_message'], '伝票番号')[1]),\n    decodeUriComponent('%0D%0A%0D%0A'),\n    decodeUriComponent('%0D%0A')\n  ),\n  decodeUriComponent('%0A%0A'),\n  decodeUriComponent('%0A')\n)"
-                        },
-                        "host": {
-                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
-                          "operationId": "UpdateTaskDetails_V2",
-                          "connectionName": "shared_planner-2"
-                        }
-                      },
-                      "runAfter": {
-                        "Create_a_task": [
-                          "SUCCEEDED"
-                        ]
-                      },
-                      "metadata": {
-                        "operationMetadataId": "ae09c16d-3dfa-4eee-ac34-e32260a5af92"
-                      }
-                    },
-                    "Set_planner_task_id": {
-                      "type": "SetVariable",
-                      "inputs": {
-                        "name": "planner_task_id",
-                        "value": "@outputs('Create_a_task')?['body/id']"
-                      },
-                      "runAfter": {
-                        "Update_task_details": [
-                          "Succeeded"
-                        ]
-                      },
-                      "metadata": {
-                        "operationMetadataId": "e6d2ce3d-d7c7-4de3-a863-689ad2a926b2"
-                      }
-                    },
-                    "Set_email": {
-                      "type": "SetVariable",
-                      "inputs": {
-                        "name": "to_email",
-                        "value": "@items('Apply_to_each_1')?['email']"
-                      },
-                      "runAfter": {
-                        "Create_a_task": [
-                          "SKIPPED",
-                          "TIMEDOUT",
-                          "FAILED"
-                        ]
-                      }
-                    }
-                  },
-                  "else": {
-                    "actions": {
-                      "Create_unknown_task": {
-                        "type": "OpenApiConnection",
-                        "inputs": {
-                          "parameters": {
-                            "body/groupId": "c21aaf6b-d3d0-4af9-99dc-a4dbba9cc69b",
-                            "body/planId": "yiKgz9mJbUmRxmNx_gKtg8kAAuHj",
-                            "body/title": "@variables('unknown_title')",
-                            "body/bucketId": "@first(body('Get_unknown_bucket'))?['id']"
-                          },
-                          "host": {
-                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
-                            "operationId": "CreateTask_V3",
-                            "connectionName": "shared_planner-2"
-                          }
-                        },
-                        "runAfter": {
-                          "Condition_4": [
-                            "Succeeded"
-                          ]
-                        },
-                        "metadata": {
-                          "operationMetadataId": "f51a288e-75e3-44f1-b83d-c9f23bc0be62"
-                        }
-                      },
-                      "Update_unknown_task": {
-                        "type": "OpenApiConnection",
-                        "inputs": {
-                          "parameters": {
-                            "id": "@outputs('Create_unknown_task')?['body/id']",
-                            "body/description": "@replace(\n  replace(\n    concat('伝票番号', split(items('Apply_to_each_1')?['content_message'], '伝票番号')[1]),\n    decodeUriComponent('%0D%0A%0D%0A'),\n    decodeUriComponent('%0D%0A')\n  ),\n  decodeUriComponent('%0A%0A'),\n  decodeUriComponent('%0A')\n)"
-                          },
-                          "host": {
-                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
-                            "operationId": "UpdateTaskDetails_V2",
-                            "connectionName": "shared_planner-2"
-                          }
-                        },
-                        "runAfter": {
-                          "Create_unknown_task": [
-                            "Succeeded"
-                          ]
-                        },
-                        "metadata": {
-                          "operationMetadataId": "ae09c16d-3dfa-4eee-ac34-e32260a5af92"
-                        }
-                      },
-                      "Condition_4": {
-                        "type": "If",
-                        "expression": {
-                          "and": [
-                            {
-                              "equals": [
-                                "@first(body('Filter_array'))?['name']",
-                                "宛先不明！！！！！"
-                              ]
-                            }
-                          ]
-                        },
-                        "actions": {
-                          "Set_unknown_title": {
-                            "type": "SetVariable",
-                            "inputs": {
-                              "name": "unknown_title",
-                              "value": "@concat('宛先不明: ', items('Apply_to_each_1')?['slip_no'])"
-                            },
-                            "metadata": {
-                              "operationMetadataId": "846bf809-38ff-465e-a685-d9777ba1480c"
-                            }
-                          }
-                        },
-                        "else": {
-                          "actions": {
-                            "Set_no_bucket_title": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "unknown_title",
-                                "value": "@concat(items('Apply_to_each_1')?['slip_no'], ' - ', items('Apply_to_each_1')?['name'], ' - ', items('Apply_to_each_1')?['department'])"
-                              },
-                              "metadata": {
-                                "operationMetadataId": "e86b6154-eee8-4ab0-8b4c-dd886ac5e975"
-                              }
-                            }
-                          }
-                        },
-                        "metadata": {
-                          "operationMetadataId": "b60b5e5c-4ccd-45cb-bb91-9c8153bc2ab2"
-                        }
-                      },
-                      "Set_planner_unknown_id": {
-                        "type": "SetVariable",
-                        "inputs": {
-                          "name": "planner_task_id",
-                          "value": "@outputs('Create_unknown_task')?['body/id']"
-                        },
-                        "runAfter": {
-                          "Update_unknown_task": [
-                            "Succeeded"
-                          ]
-                        },
-                        "metadata": {
-                          "operationMetadataId": "52e75865-1225-4302-881b-46ad40ebe8ee"
-                        }
-                      }
-                    }
-                  },
-                  "runAfter": {
-                    "Get_unknown_bucket": [
-                      "Succeeded"
-                    ]
-                  },
                   "metadata": {
                     "operationMetadataId": "02c0d6c3-f6a1-43a8-990a-14bee3d46a1c"
-                  }
+                  },
+                  "type": "If"
                 },
                 "Get_unknown_bucket": {
-                  "type": "Query",
-                  "inputs": {
-                    "from": "@outputs('List_buckets')?['body/value']",
-                    "where": "@equals(trim(toLower(item()?['name'])),'宛先不明！！！！！')"
-                  },
                   "runAfter": {
                     "Filter_array": [
                       "Succeeded"
@@ -889,14 +879,14 @@
                   },
                   "metadata": {
                     "operationMetadataId": "65ac835b-bf7f-4c61-ba41-cb6c0df716a9"
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('List_buckets')?['body/value']",
+                    "where": "@equals(trim(toLower(item()?['name'])),'宛先不明！！！！！')"
                   }
                 },
                 "Set_history_var": {
-                  "type": "SetVariable",
-                  "inputs": {
-                    "name": "history_var",
-                    "value": "@items('Apply_to_each_1')"
-                  },
                   "runAfter": {
                     "Check_bucket_exist": [
                       "Succeeded"
@@ -904,27 +894,58 @@
                   },
                   "metadata": {
                     "operationMetadataId": "c6593ece-05ee-4c0b-9618-aaaa0e3a6162"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "history_var",
+                    "value": "@items('Apply_to_each_1')"
                   }
                 }
               },
               "else": {
                 "actions": {}
               },
+              "expression": {
+                "or": [
+                  {
+                    "equals": [
+                      "@items('Apply_to_each_1')?['is_cc']",
+                      "@false"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@items('Apply_to_each_1')?['name']",
+                      "不明"
+                    ]
+                  }
+                ]
+              },
               "metadata": {
                 "operationMetadataId": "0a085d24-e298-4061-aaa3-b2e056a1e621"
-              }
+              },
+              "type": "If"
             }
           },
           "runAfter": {
             "Initialize_email": [
-              "SUCCEEDED"
+              "Succeeded"
             ]
           },
           "metadata": {
             "operationMetadataId": "dd97a90b-6f8a-4153-a7f5-048db1952d2f"
-          }
+          },
+          "type": "Foreach"
         },
         "Get_auth_token": {
+          "runAfter": {
+            "Condition": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "31783c68-3578-4803-9331-a70bac3807b0"
+          },
           "type": "Http",
           "inputs": {
             "uri": "https://login.microsoftonline.com/d4e484ed-0018-471f-b7c2-3265f48203f3/oauth2/v2.0/token",
@@ -934,11 +955,6 @@
             },
             "body": "grant_type=client_credentials&client_id=53ddbbff-90ae-4085-858e-9923b3c6a3d9&client_secret=<CLIENT_SECRET>&scope=api://652e20e5-6a5a-46c6-a42a-67076fcce01e/.default"
           },
-          "runAfter": {
-            "Condition": [
-              "Succeeded"
-            ]
-          },
           "runtimeConfiguration": {
             "secureData": {
               "properties": [
@@ -946,12 +962,20 @@
                 "outputs"
               ]
             }
-          },
-          "metadata": {
-            "operationMetadataId": "31783c68-3578-4803-9331-a70bac3807b0"
           }
         },
         "Query_history": {
+          "runAfter": {
+            "Upload_to_blob": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a6f9827a-a40e-43db-9120-714c3f4b627f"
+          },
           "type": "Http",
           "inputs": {
             "uri": "https://apim-eds-dev.azure-api.net/eds/history",
@@ -960,22 +984,15 @@
               "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
             },
             "body": {
-              "history_id": "@{guid()}",
               "slip_no": "@{variables('history_var')?['slip_no']}",
               "image_url": "@{variables('history_var')?['image_url']}",
               "employee_id": "@{variables('history_var')?['employee_id']}",
-              "ocr_name": "@{variables('history_var')?['name']}",
-              "ocr_department": "@{variables('history_var')?['department']}",
               "recipient_name": "@{variables('history_var')?['name']}",
-              "recipient_department": "@{variables('history_var')?['department']}",
-              "recipient_department_id": 0,
-              "status": "@if(variables('is_unknown'), 'Unknown', 'Identified')",
+              "recipient_department_name": "@{variables('history_var')?['department']}",
+              "status": "Notified",
+              "data_type": "@if(variables('is_unknown'), 'Unknown', 'Identified')",
               "notified_at": "@{utcNow()}",
-              "delivered_at": "@{string(utcNow())}",
-              "delivered_by": "test@gmail.com",
               "planner_task_id": "@{variables('planner_task_id')}",
-              "created_at": "@{utcNow()}",
-              "updated_at": "@{utcNow()}",
               "sender_name": "@{variables('history_var')?['sender_name']}",
               "sender_address": "@{variables('history_var')?['sender_address']}",
               "sender_content": "@{variables('history_var')?['sender_info']}",
@@ -988,20 +1005,17 @@
               "interval": "PT20S",
               "maximumInterval": "PT2M"
             }
-          },
-          "runAfter": {
-            "Upload_to_blob": [
-              "Succeeded",
-              "Failed",
-              "Skipped",
-              "TimedOut"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "a6f9827a-a40e-43db-9120-714c3f4b627f"
           }
         },
         "Initialize_history_var": {
+          "runAfter": {
+            "Initialize_unknown_title": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "96422a32-351d-4654-914d-0e92aa92b12a"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1011,17 +1025,17 @@
                 "value": "@body('Parse_JSON')[0]"
               }
             ]
-          },
+          }
+        },
+        "Initialize_planner_task_id": {
           "runAfter": {
-            "Initialize_unknown_title": [
+            "Initialize_history_var": [
               "Succeeded"
             ]
           },
           "metadata": {
-            "operationMetadataId": "96422a32-351d-4654-914d-0e92aa92b12a"
-          }
-        },
-        "Initialize_planner_task_id": {
+            "operationMetadataId": "2066cd81-b6dc-4b47-af83-26edec3caba5"
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1030,17 +1044,17 @@
                 "type": "string"
               }
             ]
-          },
+          }
+        },
+        "Respond_to_a_Power_App_or_flow": {
           "runAfter": {
-            "Initialize_history_var": [
+            "Query_history": [
               "Succeeded"
             ]
           },
           "metadata": {
-            "operationMetadataId": "2066cd81-b6dc-4b47-af83-26edec3caba5"
-          }
-        },
-        "Respond_to_a_Power_App_or_flow": {
+            "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
+          },
           "type": "Response",
           "kind": "PowerApp",
           "inputs": {
@@ -1065,17 +1079,14 @@
             "body": {
               "success": "true"
             }
-          },
-          "runAfter": {
-            "Query_history": [
-              "Succeeded"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
           }
         },
         "Initialize_image_value": {
+          "runAfter": {
+            "Initialize_planner_task_id": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1085,40 +1096,23 @@
                 "value": "@''"
               }
             ]
-          },
-          "runAfter": {
-            "Initialize_planner_task_id": [
-              "Succeeded"
-            ]
           }
         },
         "Set_image_value_url": {
-          "type": "SetVariable",
-          "inputs": {
-            "name": "image_value",
-            "value": "@{coalesce(variables('history_var')?['image_url'], '')}"
-          },
           "runAfter": {
             "Get_auth_token": [
               "Succeeded"
             ]
+          },
+          "type": "SetVariable",
+          "inputs": {
+            "name": "image_value",
+            "value": "@{coalesce(variables('history_var')?['image_url'], '')}"
           }
         },
         "Try_get_image": {
-          "type": "Scope",
           "actions": {
             "Is_sharing_link": {
-              "type": "If",
-              "expression": {
-                "and": [
-                  {
-                    "contains": [
-                      "@outputs('Image_source_url')",
-                      "/:"
-                    ]
-                  }
-                ]
-              },
               "actions": {
                 "Get_shared_file_content": {
                   "type": "OpenApiConnection",
@@ -1130,23 +1124,29 @@
                     },
                     "host": {
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                      "operationId": "HttpRequest",
-                      "connectionName": "shared_sharepointonline"
-                    }
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "HttpRequest"
+                    },
+                    "authentication": "@parameters('$authentication')"
                   }
                 },
                 "Set_image_value_shared": {
-                  "type": "SetVariable",
-                  "inputs": {
-                    "name": "image_value",
-                    "value": "@concat('data:', coalesce(body('Get_shared_file_content')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_shared_file_content')?['$content'])"
-                  },
                   "runAfter": {
                     "Get_shared_file_content": [
                       "Succeeded"
                     ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "image_value",
+                    "value": "@concat('data:', coalesce(body('Get_shared_file_content')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_shared_file_content')?['$content'])"
                   }
                 }
+              },
+              "runAfter": {
+                "Image_source_url": [
+                  "Succeeded"
+                ]
               },
               "else": {
                 "actions": {
@@ -1160,30 +1160,37 @@
                       },
                       "host": {
                         "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                        "operationId": "GetFileContentByPath",
-                        "connectionName": "shared_sharepointonline"
-                      }
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "GetFileContentByPath"
+                      },
+                      "authentication": "@parameters('$authentication')"
                     }
                   },
                   "Set_image_value_file": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "image_value",
-                      "value": "@concat('data:', coalesce(body('Get_file_content_using_path')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_file_content_using_path')?['$content'])"
-                    },
                     "runAfter": {
                       "Get_file_content_using_path": [
                         "Succeeded"
                       ]
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "image_value",
+                      "value": "@concat('data:', coalesce(body('Get_file_content_using_path')?['$content-type'], 'image/jpeg'), ';base64,', body('Get_file_content_using_path')?['$content'])"
                     }
                   }
                 }
               },
-              "runAfter": {
-                "Image_source_url": [
-                  "Succeeded"
+              "expression": {
+                "and": [
+                  {
+                    "contains": [
+                      "@outputs('Image_source_url')",
+                      "/:"
+                    ]
+                  }
                 ]
-              }
+              },
+              "type": "If"
             },
             "Image_source_url": {
               "type": "Compose",
@@ -1194,9 +1201,15 @@
             "Set_image_value_url": [
               "Succeeded"
             ]
-          }
+          },
+          "type": "Scope"
         },
         "Initialize_image_blob_path": {
+          "runAfter": {
+            "Initialize_image_value": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1206,14 +1219,14 @@
                 "value": ""
               }
             ]
-          },
-          "runAfter": {
-            "Initialize_image_value": [
-              "Succeeded"
-            ]
           }
         },
         "Initialize_preview_blob_path": {
+          "runAfter": {
+            "Initialize_image_blob_path": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1223,25 +1236,9 @@
                 "value": ""
               }
             ]
-          },
-          "runAfter": {
-            "Initialize_image_blob_path": [
-              "Succeeded"
-            ]
           }
         },
         "Upload_to_blob": {
-          "type": "If",
-          "expression": {
-            "and": [
-              {
-                "startsWith": [
-                  "@variables('image_value')",
-                  "data:"
-                ]
-              }
-            ]
-          },
           "actions": {
             "Upload_image": {
               "type": "Http",
@@ -1264,32 +1261,29 @@
               }
             },
             "Set_image_blob_path": {
-              "type": "SetVariable",
-              "inputs": {
-                "name": "image_blob_path",
-                "value": "@{body('Upload_image')?['image_blob_path']}"
-              },
               "runAfter": {
                 "Upload_image": [
                   "Succeeded"
                 ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "image_blob_path",
+                "value": "@{body('Upload_image')?['image_blob_path']}"
               }
             },
             "Set_preview_blob_path": {
-              "type": "SetVariable",
-              "inputs": {
-                "name": "preview_blob_path",
-                "value": "@{body('Upload_image')?['preview_blob_path']}"
-              },
               "runAfter": {
                 "Set_image_blob_path": [
                   "Succeeded"
                 ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "preview_blob_path",
+                "value": "@{body('Upload_image')?['preview_blob_path']}"
               }
             }
-          },
-          "else": {
-            "actions": {}
           },
           "runAfter": {
             "Try_get_image": [
@@ -1298,9 +1292,33 @@
               "Skipped",
               "TimedOut"
             ]
-          }
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "startsWith": [
+                  "@variables('image_value')",
+                  "data:"
+                ]
+              }
+            ]
+          },
+          "type": "If"
         },
         "Respond_to_a_Power_App_or_flow_1": {
+          "runAfter": {
+            "Apply_to_each_1": [
+              "TimedOut",
+              "Skipped",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
+          },
           "type": "Response",
           "kind": "PowerApp",
           "inputs": {
@@ -1326,19 +1344,14 @@
               "success": "false",
               "error": "@{concat('以下の受取人はTeams/Plannerに存在しないため通知を送信できません： ', variables('to_email'),'。別の受取人を選択するか、管理者にご確認ください。')}"
             }
-          },
-          "runAfter": {
-            "Apply_to_each_1": [
-              "TIMEDOUT",
-              "SKIPPED",
-              "FAILED"
-            ]
-          },
-          "metadata": {
-            "operationMetadataId": "8bf706c8-c80c-4331-8045-cdcec5754036"
           }
         },
         "Initialize_email": {
+          "runAfter": {
+            "Initialize_preview_blob_path": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
@@ -1346,11 +1359,6 @@
                 "name": "to_email",
                 "type": "string"
               }
-            ]
-          },
-          "runAfter": {
-            "Initialize_preview_blob_path": [
-              "Succeeded"
             ]
           }
         }

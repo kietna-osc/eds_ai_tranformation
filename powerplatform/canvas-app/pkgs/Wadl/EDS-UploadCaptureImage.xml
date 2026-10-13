@@ -13,6 +13,11 @@
         <property name="file" typeRef="ManualTriggerInput_file_def" />
         <property name="text" type="string" />
       </object>
+      <string name="ResponseActionOutput_error_def" />
+      <object name="ResponseActionOutput">
+        <property name="error" type="string" />
+      </object>
+      <object name="Run_responses_default_def" />
     </jsonTypes>
   </grammars>
   <resources siena:authenticationProviderHref="#PowerAppAuth" base="https://asia-001.azure-apim.net/apim/logicflows">
@@ -33,6 +38,9 @@
             </param>
           </representation>
         </request>
+        <response>
+          <representation mediaType="application/json" element="service:ResponseActionOutput" />
+        </response>
       </method>
     </resource>
   </resources>

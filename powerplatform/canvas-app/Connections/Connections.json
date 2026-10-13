@@ -105,7 +105,11 @@
     "id": "57e963d7-5b23-4a6e-b9c1-c513b164e2b9"
   },
   "7243c0bf-0d7c-4c65-ae99-e0df7a963af6": {
+    "appActions": [
+      "Run"
+    ],
     "connectionRef": {
+      "apiTier": "Standard",
       "displayName": "Logic flows",
       "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
       "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
@@ -271,45 +275,5 @@
     },
     "dependents": [],
     "id": "984bcd79-de3d-46bd-903e-1f863b601f1e"
-  },
-  "d07c076a-7c2e-4a12-9ca3-a6f6b7fa2f0a": {
-    "appActions": [
-      "Run"
-    ],
-    "connectionRef": {
-      "apiTier": "Standard",
-      "displayName": "Logic flows",
-      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
-      "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
-      "parameterHints": {
-        "workflowDisplayName": {
-          "value": "EDS-SaveUnknownPackage"
-        },
-        "workflowEntityId": {
-          "value": "c6f5f6c0-f1a1-f111-b8de-70a8a50387b3"
-        },
-        "workflowName": {
-          "value": "27e05909-93d4-9f02-df51-c07e5cd5194c"
-        }
-      },
-      "parameterHintsV2": {
-        "workflowDisplayName": {
-          "value": "EDS-SaveUnknownPackage"
-        },
-        "workflowEntityId": {
-          "value": "c6f5f6c0-f1a1-f111-b8de-70a8a50387b3"
-        },
-        "workflowName": {
-          "value": "27e05909-93d4-9f02-df51-c07e5cd5194c"
-        }
-      }
-    },
-    "datasets": {},
-    "dataSources": [
-      "EDS-SaveUnknownPackage"
-    ],
-    "dependencies": {},
-    "dependents": [],
-    "id": "d07c076a-7c2e-4a12-9ca3-a6f6b7fa2f0a"
   }
 }

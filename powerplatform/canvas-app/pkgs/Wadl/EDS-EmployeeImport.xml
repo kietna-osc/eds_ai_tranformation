@@ -13,9 +13,17 @@
       </object>
       <string name="ResponseActionOutput_status_def" />
       <string name="ResponseActionOutput_response_def" />
+      <boolean name="ResponseActionOutput_success_def" />
+      <number name="ResponseActionOutput_success_num_def" />
+      <string name="ResponseActionOutput_error_def" />
+      <string name="ResponseActionOutput_errorFile_def" />
       <object name="ResponseActionOutput">
         <property name="status" type="string" />
         <property name="response" type="string" />
+        <property name="success" type="boolean" />
+        <property name="success_num" type="number" />
+        <property name="error" type="string" />
+        <property name="errorFile" type="string" />
       </object>
       <object name="Run_responses_default_def" />
     </jsonTypes>

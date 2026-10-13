@@ -345,6 +345,47 @@
                             "action": "@{triggerBody()?['text_2']}"
                           }
                         }
+                      },
+                      "Respond_to_a_Power_App_or_flow_8": {
+                        "runAfter": {
+                          "Query_history": [
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "error": "初回読み込み時のAPI／DBエラー"
+                          }
+                        }
                       }
                     }
                   },
@@ -356,66 +397,61 @@
                         "inputs": {
                           "content": "@triggerBody()?['text_1']",
                           "schema": {
+                            "required": [
+                              "slip_no",
+                              "image_url"
+                            ],
                             "type": "object",
                             "properties": {
-                              "history_id": {
-                                "type": "string"
-                              },
                               "slip_no": {
                                 "type": "string"
                               },
                               "image_url": {
                                 "type": "string"
                               },
-                              "employee_id": {
-                                "type": "integer"
-                              },
-                              "ocr_name": {
-                                "type": "string"
-                              },
-                              "ocr_department": {
-                                "type": "string"
-                              },
-                              "recipient_name": {
-                                "type": "string"
-                              },
-                              "recipient_department": {
-                                "type": "string"
-                              },
-                              "recipient_department_id": {
-                                "type": "integer"
-                              },
-                              "status": {
-                                "type": "string"
-                              },
-                              "notified_at": {
-                                "type": "string"
-                              },
-                              "delivered_at": {
-                                "type": "string"
-                              },
-                              "delivered_by": {
-                                "type": "string"
-                              },
-                              "planner_task_id": {
-                                "type": "string"
-                              },
-                              "created_at": {
-                                "type": "string"
-                              },
-                              "updated_at": {
-                                "type": "string"
-                              },
                               "sender_name": {
+                                "type": "string"
+                              },
+                              "sender_content": {
                                 "type": "string"
                               },
                               "sender_address": {
                                 "type": "string"
                               },
-                              "sender_content": {
+                              "employee_id": {
                                 "type": "string"
+                              },
+                              "recipient_name": {
+                                "type": "string"
+                              },
+                              "recipient_department_name": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "enum": [
+                                  "Notified",
+                                  "Delivered"
+                                ],
+                                "type": "string",
+                                "default": "Notified"
+                              },
+                              "data_type": {
+                                "enum": [
+                                  "Identified",
+                                  "Unknown"
+                                ],
+                                "type": "string"
+                              },
+                              "notified_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "planner_task_id": {
+                                "type": "string",
+                                "nullable": true
                               }
-                            }
+                            },
+                            "x-apim-inline": true
                           }
                         }
                       },
@@ -433,22 +469,15 @@
                             "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
                           },
                           "body": {
-                            "history_id": "@{body('Parse_append_params')?['history_id']}",
                             "slip_no": "@{body('Parse_append_params')?['slip_no']}",
                             "image_url": "@{body('Parse_append_params')?['image_url']}",
-                            "ocr_name": "@{body('Parse_append_params')?['ocr_name']}",
-                            "ocr_department": "@{body('Parse_append_params')?['ocr_department']}",
                             "employee_id": "@{body('Parse_append_params')?['employee_id']}",
                             "recipient_name": "@{body('Parse_append_params')?['recipient_name']}",
-                            "recipient_department": "@{body('Parse_append_params')?['recipient_department']}",
-                            "recipient_department_id": "@{body('Parse_append_params')?['recipient_department_id']}",
+                            "recipient_department_name": "@{body('Parse_append_params')?['recipient_department']}",
                             "status": "@{body('Parse_append_params')?['status']}",
+                            "data_type": "@{body('Parse_append_params')?['data_type']}",
                             "notified_at": "@{body('Parse_append_params')?['notified_at']}",
-                            "delivered_at": "@{body('Parse_append_params')?['delivered_at']}",
-                            "delivered_by": "@{body('Parse_append_params')?['delivered_by']}",
                             "planner_task_id": "@{body('Parse_append_params')?['planner_task_id']}",
-                            "created_at": "@{body('Parse_append_params')?['created_at']}",
-                            "updated_at": "@{body('Parse_append_params')?['updated_at']}",
                             "sender_name": "@{body('Parse_append_params')?['sender_name']}",
                             "sender_address": "@{body('Parse_append_params')?['sender_address']}",
                             "sender_content": "@{body('Parse_append_params')?['sender_content']}"
@@ -564,6 +593,9 @@
                           "queries": {
                             "search_keyword": "@{coalesce(body('Parse_export_params')?['search_keyword'], '')}",
                             "tz_offset": "@{coalesce(body('Parse_export_params')?['tz_offset'], -540)}"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
                           }
                         }
                       },
@@ -604,6 +636,47 @@
                           "body": {
                             "response": "@{body('Export_history')}",
                             "action": "@{triggerBody()?['text_2']}"
+                          }
+                        }
+                      },
+                      "Respond_export_1": {
+                        "runAfter": {
+                          "Export_history": [
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "error": "データのダウンロードに時間がかかっています。検索条件を絞るか、しばらくお待ちください。"
                           }
                         }
                       }
@@ -719,25 +792,10 @@
                                   "type": "object",
                                   "properties": {
                                     "employee_id": {
-                                      "type": "integer"
-                                    },
-                                    "employee_code": {
                                       "type": "string"
                                     },
                                     "full_name": {
                                       "type": "string"
-                                    },
-                                    "name_normalized": {
-                                      "type": [
-                                        "string",
-                                        "null"
-                                      ]
-                                    },
-                                    "department_id": {
-                                      "type": [
-                                        "integer",
-                                        "null"
-                                      ]
                                     },
                                     "department_name": {
                                       "type": [
@@ -751,9 +809,6 @@
                                         "null"
                                       ]
                                     },
-                                    "is_active": {
-                                      "type": "boolean"
-                                    },
                                     "created_at": {
                                       "type": "string"
                                     },
@@ -763,13 +818,9 @@
                                   },
                                   "required": [
                                     "employee_id",
-                                    "employee_code",
                                     "full_name",
-                                    "name_normalized",
-                                    "department_id",
                                     "department_name",
                                     "email",
-                                    "is_active",
                                     "created_at",
                                     "updated_at"
                                   ]
@@ -825,6 +876,47 @@
                             "response": "@{body('Parse_JSON_2')}"
                           }
                         }
+                      },
+                      "Respond_to_a_Power_App_or_flow_09": {
+                        "runAfter": {
+                          "Query_employee": [
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "error": "接続エラーにより受取人を検索できませんでした。もう一度お試しください。"
+                          }
+                        }
                       }
                     }
                   },
@@ -839,7 +931,7 @@
                             "type": "object",
                             "properties": {
                               "employee_id": {
-                                "type": "integer"
+                                "type": "string"
                               }
                             }
                           }
@@ -919,31 +1011,22 @@
                             "type": "object",
                             "properties": {
                               "employee_id": {
-                                "type": "integer"
-                              },
-                              "employee_code": {
                                 "type": "string"
                               },
                               "full_name": {
                                 "type": "string"
                               },
-                              "name_normalized": {
-                                "type": "string",
-                                "nullable": true
-                              },
-                              "department_id": {
-                                "type": "integer",
-                                "nullable": true
-                              },
                               "department_name": {
-                                "type": "string"
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               },
                               "email": {
-                                "type": "string"
-                              },
-                              "is_active": {
-                                "type": "boolean",
-                                "default": true
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             }
                           }
@@ -963,13 +1046,10 @@
                             "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
                           },
                           "body": {
-                            "employee_id": "@{body('Parse_insert_employee')?['employee_id']}",
-                            "employee_code": "@{body('Parse_insert_employee')?['employee_code']}",
+                            "employee_id": "@body('Parse_insert_employee')?['employee_id']",
                             "full_name": "@{body('Parse_insert_employee')?['full_name']}",
-                            "name_normalized": "@body('Parse_insert_employee')?['name_normalized']",
-                            "department_id": "@{body('Parse_insert_employee')?['department_id']}",
-                            "email": "@{body('Parse_insert_employee')?['email']}",
-                            "is_active": "@body('Parse_insert_employee')?['is_active']"
+                            "department_name": "@body('Parse_insert_employee')?['department_name']",
+                            "email": "@{body('Parse_insert_employee')?['email']}"
                           },
                           "retryPolicy": {
                             "type": "exponential",
@@ -1032,9 +1112,219 @@
                             "type": "object",
                             "properties": {
                               "employee_id": {
-                                "type": "integer"
+                                "type": "string"
                               }
                             }
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_4_2": {
+                        "runAfter": {
+                          "Parse_JSON_3_1": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "error": "@{body('Parse_JSON_3_1')?['error']}"
+                          }
+                        }
+                      },
+                      "Parse_JSON_3_1": {
+                        "runAfter": {
+                          "Insert_employee": [
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Insert_employee')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "error": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "employeeUpdate": {
+                    "case": "employeeUpdate",
+                    "actions": {
+                      "Parse_update_employee": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@triggerBody()?['text_1']",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "employee_id": {
+                                "type": "string"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "department_name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "email": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "Update_employee": {
+                        "runAfter": {
+                          "Parse_update_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://apim-eds-dev.azure-api.net/eds/employees/@{body('Parse_update_employee')?['employee_id']}",
+                          "method": "PATCH",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Get_auth_token')?['access_token']}"
+                          },
+                          "body": {
+                            "full_name": "@{body('Parse_update_employee')?['full_name']}",
+                            "department_name": "@{body('Parse_update_employee')?['department_name']}",
+                            "email": "@{body('Parse_update_employee')?['email']}"
+                          },
+                          "retryPolicy": {
+                            "type": "exponential",
+                            "count": 4,
+                            "interval": "PT20S",
+                            "maximumInterval": "PT2M"
+                          }
+                        }
+                      },
+                      "Parse_JSON_7": {
+                        "runAfter": {
+                          "Update_employee": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('Update_employee')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "object",
+                                "properties": {
+                                  "employee_id": {
+                                    "type": "string"
+                                  },
+                                  "full_name": {
+                                    "type": "string"
+                                  },
+                                  "department_name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "type": "string"
+                                  },
+                                  "updated_at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "employee_id",
+                                  "full_name",
+                                  "department_name",
+                                  "email",
+                                  "created_at",
+                                  "updated_at"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value"
+                            ]
+                          }
+                        }
+                      },
+                      "Respond_to_a_Power_App_or_flow_4_1": {
+                        "runAfter": {
+                          "Parse_JSON_7": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "title": "action",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "response": {
+                                "title": "response",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "error": {
+                                "title": "error",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "action": "@{triggerBody()?['text_2']}",
+                            "response": "@{body('Parse_JSON_7')}"
                           }
                         }
                       }

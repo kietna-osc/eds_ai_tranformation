@@ -1,0 +1,461 @@
+cmpHistSearch As CanvasComponent:
+    ChildTabPriority: =true
+    ContentLanguage: =""
+    EnableChildFocus: =true
+    Fill: =RGBA(0, 0, 0, 0)
+    Height: =180
+    Visible: =true
+    Width: =1366
+    X: =0
+    Y: =0
+
+    recHsBackdrop As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(0, 0, 0, 0)
+        Height: =App.Height * 0.45
+        OnSelect: =Set(gblHsDd, "")
+        Visible: =gblHsDd <> ""
+        Width: =App.Width
+        ZIndex: =1
+
+    recHsCard As rectangle:
+        BorderColor: =RGBA(226, 232, 240, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * If(gblHsOpen, 0.165, 0.06)
+        Width: =App.Width * 0.966
+        X: =App.Width * 0.017
+        ZIndex: =2
+
+    lblHsTitle As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(15, 23, 42, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.017
+        Text: ="検索条件"
+        Width: =App.Width * 0.07
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.012
+        ZIndex: =3
+
+    btnHsToggle As modernButton:
+        Appearance: =ButtonAppearance.Transparent
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.036
+        OnSelect: =Set(gblHsOpen, !gblHsOpen);Set(gblHsDd, "")
+        Size: =App.Height * 0.014
+        Text: =If(gblHsOpen, "▲ 折りたたむ", "▼ 展開する")
+        Width: =App.Width * 0.09
+        X: =App.Width * 0.88
+        Y: =App.Height * 0.012
+        ZIndex: =4
+
+    recHsLine As rectangle:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Fill: =RGBA(226, 232, 240, 1)
+        Height: =1
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.966
+        X: =App.Width * 0.017
+        Y: =App.Height * 0.055
+        ZIndex: =5
+
+    lblHsSummary As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.036
+        PaddingLeft: =0
+        Size: =App.Height * 0.013
+        Text: |-
+            =With({p: Filter(Table(
+                {t: If(IsBlank(gblHsSlip), "", "伝票番号：" & gblHsSlip)},
+                {t: If(IsBlank(gblHsRecipient), "", "受取人：" & gblHsRecipient)},
+                {t: If(IsBlank(gblHsDept), "", "受取部署：" & gblHsDept)},
+                {t: If(IsBlank(gblHsStatus), "", "処理状態：" & gblHsStatus)},
+                {t: If(IsBlank(gblHsDType), "", "データ区分：" & gblHsDType)},
+                {t: If(IsBlank(gblHsFrom) && IsBlank(gblHsTo), "", "通知日時：" & If(IsBlank(gblHsFrom), "", Text(gblHsFrom, "yyyy/mm/dd hh:mm")) & " ～ " & If(IsBlank(gblHsTo), "", Text(gblHsTo, "yyyy/mm/dd hh:mm")))}
+            ), !IsBlank(t))},
+            If(IsEmpty(p), "条件なし", Concat(p, t, "　／　")))
+        Visible: =!gblHsOpen
+        Width: =App.Width * 0.77
+        X: =App.Width * 0.1
+        Y: =App.Height * 0.012
+        ZIndex: =6
+
+    lblHsSlipCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="伝票番号"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.068
+        ZIndex: =7
+
+    txtHsSlip As modernTextInput:
+        Default: =gblHsSlip
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblHsSlip, Trim(Self.Text))
+        Placeholder: ="伝票番号を入力"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.085
+        Y: =App.Height * 0.068
+        ZIndex: =8
+
+    lblHsRecipientCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="受取人"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.24
+        Y: =App.Height * 0.068
+        ZIndex: =9
+
+    txtHsRecipient As modernTextInput:
+        Default: =gblHsRecipient
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblHsRecipient, Trim(Self.Text))
+        Placeholder: ="受取人名を入力"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.295
+        Y: =App.Height * 0.068
+        ZIndex: =10
+
+    lblHsDateCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="通知日時"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.45
+        Y: =App.Height * 0.068
+        ZIndex: =11
+
+    lblHsFrom As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblHsFrom), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: |-
+            =Set(gblHsDd, "");Set(gblCalVal, gblHsFrom);Set(gblCalMonth, With({b: Coalesce(gblHsFrom, Now())}, DateTime(Year(b), Month(b), 1, 0, 0, 0)));Set(gblCalX, 0.505);Set(gblCalY, 0.217);Set(gblCalTarget, "histFrom")
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: |-
+            =If(IsBlank(gblHsFrom), "開始日時を選択", Text(gblHsFrom, "yyyy/mm/dd hh:mm"))
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.12
+        X: =App.Width * 0.505
+        Y: =App.Height * 0.068
+        ZIndex: =12
+
+    lblHsTilde As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="～"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.02
+        X: =App.Width * 0.628
+        Y: =App.Height * 0.068
+        ZIndex: =13
+
+    lblHsTo As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblHsTo), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: |-
+            =Set(gblHsDd, "");Set(gblCalVal, gblHsTo);Set(gblCalMonth, With({b: Coalesce(gblHsTo, Now())}, DateTime(Year(b), Month(b), 1, 0, 0, 0)));Set(gblCalX, 0.65);Set(gblCalY, 0.217);Set(gblCalTarget, "histTo")
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: |-
+            =If(IsBlank(gblHsTo), "終了日時を選択", Text(gblHsTo, "yyyy/mm/dd hh:mm"))
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.12
+        X: =App.Width * 0.65
+        Y: =App.Height * 0.068
+        ZIndex: =14
+
+    btnHsSearch As modernButton:
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        OnSelect: |-
+            =Set(gblHsSlip, Trim(txtHsSlip.Text));Set(gblHsRecipient, Trim(txtHsRecipient.Text));Set(gblHsDept, Trim(txtHsDept.Text));Set(gblHsDd, "");
+            If(
+                !IsBlank(gblHsFrom) && !IsBlank(gblHsTo) && gblHsFrom > gblHsTo,
+                Notify("通知日時の開始が終了より後になっています", NotificationType.Warning),
+                // TODO: 受取人・受取部署・処理状態・データ区分・通知日時の API 連携は未対応 (現状は伝票番号のみ search_keyword で送信)
+                Set(varHistSearch, gblHsSlip);Set(gblPage, 1);Set(gblHsRun, true)
+            )
+        Size: =App.Height * 0.015
+        Text: ="検索"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.08
+        X: =App.Width * 0.8
+        Y: =App.Height * 0.068
+        ZIndex: =15
+
+    btnHsDownload As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        DisplayMode: =If(varHistLoading, DisplayMode.Disabled, DisplayMode.Edit)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        OnSelect: |-
+            =With(
+                {raw: IfError(With({apiResult: 'EDS-APIManagement1'.Run("history", JSON({search_keyword: Coalesce(varHistSearch, ""), tz_offset: TimeZoneOffset()}), "historyExport")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); "", Set(varShowNotifyFailed, false); apiResult.response)), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); "")},
+                If(
+                    IsBlank(raw) || Left(raw, 8) = "{""error""",
+                    If(varShowNotifyFailed, false, Notify("ダウンロードに失敗しました", NotificationType.Error)),
+                    Notify(Text(ParseJSON(raw).rowCount) & " 件をダウンロードします", NotificationType.Success);
+                    Download(Text(ParseJSON(raw).file.url))
+                )
+            )
+        Size: =App.Height * 0.015
+        Text: ="ダウンロード"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.08
+        X: =App.Width * 0.89
+        Y: =App.Height * 0.068
+        ZIndex: =16
+
+    lblHsStatusCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="処理状態"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.03
+        Y: =App.Height * 0.115
+        ZIndex: =17
+
+    lblHsStatus As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblHsStatus), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: =Set(gblHsDd, If(gblHsDd = "status", "", "status"))
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: =If(IsBlank(gblHsStatus), "処理状態を選択", gblHsStatus)
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.085
+        Y: =App.Height * 0.115
+        ZIndex: =18
+
+    lblHsStatusIco As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnSelect: =Set(gblHsDd, If(gblHsDd = "status", "", "status"))
+        PaddingLeft: =0
+        Size: =App.Height * 0.016
+        Text: =If(gblHsDd = "status", "▴", "▾")
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.02
+        X: =App.Width * (0.085 + 0.13 - 0.022)
+        Y: =App.Height * 0.115
+        ZIndex: =19
+
+    lblHsDTypeCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="データ区分"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.24
+        Y: =App.Height * 0.115
+        ZIndex: =20
+
+    lblHsDType As label:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Color: =If(IsBlank(gblHsDType), RGBA(148, 163, 184, 1), RGBA(15, 23, 42, 1))
+        Fill: =RGBA(248, 250, 252, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        HoverBorderColor: =RGBA(0, 102, 204, 1)
+        OnSelect: =Set(gblHsDd, If(gblHsDd = "dtype", "", "dtype"))
+        PaddingLeft: =10
+        Size: =App.Height * 0.014
+        Text: =If(IsBlank(gblHsDType), "データ区分を選択", gblHsDType)
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.295
+        Y: =App.Height * 0.115
+        ZIndex: =21
+
+    lblHsDTypeIco As label:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnSelect: =Set(gblHsDd, If(gblHsDd = "dtype", "", "dtype"))
+        PaddingLeft: =0
+        Size: =App.Height * 0.016
+        Text: =If(gblHsDd = "dtype", "▴", "▾")
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.02
+        X: =App.Width * (0.295 + 0.13 - 0.022)
+        Y: =App.Height * 0.115
+        ZIndex: =22
+
+    lblHsDeptCap As label:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        Color: =RGBA(71, 85, 105, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        PaddingLeft: =0
+        Size: =App.Height * 0.014
+        Text: ="受取部署"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.055
+        X: =App.Width * 0.45
+        Y: =App.Height * 0.115
+        ZIndex: =23
+
+    txtHsDept As modernTextInput:
+        Default: =gblHsDept
+        Font: =Font.'Segoe UI'
+        Height: =App.Height * 0.04
+        OnChange: =Set(gblHsDept, Trim(Self.Text))
+        Placeholder: ="部署名を入力"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.265
+        X: =App.Width * 0.505
+        Y: =App.Height * 0.115
+        ZIndex: =24
+
+    btnHsClear As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        BasePaletteColor: =RGBA(0, 102, 204, 1)
+        Color: =RGBA(0, 102, 204, 1)
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =App.Height * 0.04
+        OnSelect: =Reset(txtHsSlip);Reset(txtHsRecipient);Reset(txtHsDept);Set(gblHsSlip, "");Set(gblHsRecipient, "");Set(gblHsDept, "");Set(gblHsStatus, "");Set(gblHsDType, "");Set(gblHsFrom, If(false, Now()));Set(gblHsTo, If(false, Now()));Set(gblHsDd, "")
+        Size: =App.Height * 0.015
+        Text: ="クリア"
+        Visible: =gblHsOpen
+        Width: =App.Width * 0.08
+        X: =App.Width * 0.8
+        Y: =App.Height * 0.115
+        ZIndex: =25
+
+    galHsStatusList As gallery.galleryVertical:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.108
+        Items: =["", "通知済み", "受取済み"]
+        Layout: =Layout.Vertical
+        TemplateFill: =If(ThisItem.Value = gblHsStatus, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.036
+        Visible: =gblHsDd = "status"
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.085
+        Y: =App.Height * 0.157
+        ZIndex: =26
+
+        btnHsStatusItem As modernButton:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Transparent
+            Color: =If(ThisItem.Value = gblHsStatus, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(ThisItem.Value = gblHsStatus, FontWeight.Bold, FontWeight.Normal)
+            Height: =Parent.TemplateHeight
+            OnSelect: =Set(gblHsStatus, ThisItem.Value);Set(gblHsDd, "")
+            Size: =App.Height * 0.014
+            Text: =If(IsBlank(ThisItem.Value), "すべて", ThisItem.Value)
+            Width: =Parent.TemplateWidth
+            ZIndex: =1
+
+    galHsDTypeList As gallery.galleryVertical:
+        BorderColor: =RGBA(203, 213, 225, 1)
+        BorderThickness: =1
+        Fill: =RGBA(255, 255, 255, 1)
+        Height: =App.Height * 0.108
+        Items: =["", "受取人指定あり", "指定なし（不明）"]
+        Layout: =Layout.Vertical
+        TemplateFill: =If(ThisItem.Value = gblHsDType, RGBA(219, 234, 254, 1), RGBA(0, 0, 0, 0))
+        TemplatePadding: =0
+        TemplateSize: =App.Height * 0.036
+        Visible: =gblHsDd = "dtype"
+        Width: =App.Width * 0.13
+        X: =App.Width * 0.295
+        Y: =App.Height * 0.157
+        ZIndex: =27
+
+        btnHsDTypeItem As modernButton:
+            Align: =Align.Left
+            Appearance: =ButtonAppearance.Transparent
+            Color: =If(ThisItem.Value = gblHsDType, RGBA(0, 102, 204, 1), RGBA(15, 23, 42, 1))
+            Font: =Font.'Segoe UI'
+            FontWeight: =If(ThisItem.Value = gblHsDType, FontWeight.Bold, FontWeight.Normal)
+            Height: =Parent.TemplateHeight
+            OnSelect: =Set(gblHsDType, ThisItem.Value);Set(gblHsDd, "")
+            Size: =App.Height * 0.014
+            Text: =If(IsBlank(ThisItem.Value), "すべて", ThisItem.Value)
+            Width: =Parent.TemplateWidth
+            ZIndex: =1
+

@@ -460,22 +460,22 @@ ComponentDefinitions:
                   varActiveTab,
                   "history",
                   Set(varHistLoading, true);
-                  Set(varHistRaw, IfError(Substitute('EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varHistSearch), "", ",""search_keyword"":" & JSON(varHistSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "historyList").response, ":null", ":"""""), ""));
-                  If(
-                      IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
-                      Notify("履歴の取得に失敗しました", NotificationType.Error); Clear(colHistory); Set(varHistTotal, 0),
-                      ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Text(h.Value.status) = "Identified", "受取人指定あり", "受取人不明"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) = "", "通知済み", "荷物受取済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
-                  );
-                  Set(varHistLoading, false),
+                      Set(varHistRaw, IfError(With({apiResult: 'EDS-APIManagement1'.Run("history", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varHistSearch), "", ",""search_keyword"":" & JSON(varHistSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "historyList")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); "", Set(varShowNotifyFailed, false); IfError(Substitute(apiResult.response, ":null", ":"""""), ""))), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); ""));
+                      If(
+                          IsBlank(varHistRaw) || Left(varHistRaw, 8) = "{""error""",
+                          If(varShowNotifyFailed, false, Notify("履歴の取得に失敗しました", NotificationType.Error)); Clear(colHistory); Set(varHistTotal, 0),
+                          ClearCollect(colHistory, ForAll(Table(ParseJSON(varHistRaw).value) As h, {no:Value(h.Value.history_id), dataType:If(Lower(Trim(Coalesce(Text(h.Value.data_type), Text(h.Value.status)))) = "identified", "受取人指定あり", "指定なし（不明）"), slip:Text(h.Value.slip_no), item:Text(h.Value.sender_content), sender:Text(h.Value.sender_name), senderAddr:Text(h.Value.sender_address), recipient:If(Text(h.Value.recipient_name) = "", "不明", Text(h.Value.recipient_name)), dept:Text(h.Value.recipient_department_name), deliveredAt:If(Text(h.Value.notified_at) = "", "-", Text(DateTimeValue(Text(h.Value.notified_at)), "yyyy/mm/dd hh:mm")), receivedAt:If(Text(h.Value.delivered_at) = "", "-", Text(DateTimeValue(Text(h.Value.delivered_at)), "yyyy/mm/dd hh:mm")), status:If(Text(h.Value.delivered_at) <> "" || Lower(Trim(Text(h.Value.status))) = "delivered", "受取済み", "通知済み"), staff:Text(h.Value.delivered_by), imageUrl:Text(h.Value.image_url), previewUrl:Text(h.Value.preview_url), imageBlobUrl:Text(h.Value.image_blob_url)})); Set(varHistTotal, Value(ParseJSON(varHistRaw).totalCount))
+                      );
+                      Set(varHistLoading, false),
                   "employee",
                   Set(varEmpLoading, true);
-                  Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
-                  If(
-                      IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                      Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                      ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
-                  );
-                  Set(varEmpLoading, false)
+                      Set(varEmpRaw, IfError(With({apiResult: 'EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); "", Set(varShowNotifyFailed, false); IfError(Substitute(apiResult.response, ":null", ":"""""), ""))), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); ""));
+                      If(
+                          IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
+                          If(varShowNotifyFailed, false, Notify("社員一覧の取得に失敗しました", NotificationType.Error)); Clear(colEmployees); Set(varEmpTotal, 0),
+                          ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:0, empId:Text(emp.Value.employee_id), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:"", created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+                      );
+                      Set(varEmpLoading, false)
               )
             Size: =App.Height * 0.018
             Text: ="›"

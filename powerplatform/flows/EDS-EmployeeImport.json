@@ -4,13 +4,13 @@
     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-      "$connections": {
-        "defaultValue": {},
-        "type": "Object"
-      },
       "$authentication": {
         "defaultValue": {},
         "type": "SecureObject"
+      },
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
       }
     },
     "triggers": {
@@ -47,6 +47,7 @@
     },
     "actions": {
       "Get_auth_token": {
+        "runAfter": {},
         "metadata": {
           "operationMetadataId": "31783c68-3578-4803-9331-a70bac3807b0"
         },
@@ -92,36 +93,100 @@
       },
       "Respond_import": {
         "runAfter": {
-          "Import_employees": [
-            "Succeeded",
-            "Failed"
+          "Parse_JSON": [
+            "Succeeded"
           ]
         },
         "type": "Response",
         "kind": "PowerApp",
         "inputs": {
-          "statusCode": 200,
           "schema": {
             "type": "object",
             "properties": {
-              "status": {
-                "title": "status",
+              "error": {
+                "title": "error",
                 "type": "string",
                 "x-ms-content-hint": "TEXT",
                 "x-ms-dynamically-added": true
               },
-              "response": {
-                "title": "response",
-                "type": "string",
-                "x-ms-content-hint": "TEXT",
+              "success_num": {
+                "title": "success_num",
+                "type": "number",
+                "x-ms-content-hint": "NUMBER",
                 "x-ms-dynamically-added": true
               }
             },
             "additionalProperties": {}
           },
+          "statusCode": 200,
           "body": {
-            "status": "@{outputs('Import_employees')?['statusCode']}",
-            "response": "@{body('Import_employees')}"
+            "error": "@{body('Parse_JSON')['messages']}",
+            "success_num": "@add(body('Parse_JSON')['inserted'],body('Parse_JSON')['updated'])"
+          }
+        }
+      },
+      "Parse_JSON": {
+        "runAfter": {
+          "Import_employees": [
+            "Succeeded",
+            "Failed"
+          ]
+        },
+        "type": "ParseJson",
+        "inputs": {
+          "content": "@body('Import_employees')",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "inserted": {
+                "type": "integer"
+              },
+              "updated": {
+                "type": "integer"
+              },
+              "skipped": {
+                "type": "integer"
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text"
+                  ]
+                }
+              },
+              "errorFile": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "success",
+              "total",
+              "inserted",
+              "updated",
+              "skipped",
+              "messages",
+              "errorFile"
+            ]
           }
         }
       }

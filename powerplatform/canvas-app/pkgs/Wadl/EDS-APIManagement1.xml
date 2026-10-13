@@ -12,7 +12,9 @@
       </object>
       <string name="ResponseActionOutput_response_def" />
       <string name="ResponseActionOutput_action_def" />
+      <string name="ResponseActionOutput_error_def" />
       <object name="ResponseActionOutput">
+        <property name="error" type="string" />
         <property name="response" type="string" />
         <property name="action" type="string" />
       </object>

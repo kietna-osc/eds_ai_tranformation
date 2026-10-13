@@ -3,16 +3,15 @@ srcEmployeeList As screen:
     Fill: =RGBA(248, 250, 252, 1)
     LoadingSpinnerColor: =RGBA(0, 102, 204, 1)
     OnVisible: |-
-        =Set(varActiveTab, "employee");Set(varShowPageSize, false);Set(varHeaderTitle, "社員管理");Set(varHeaderSubtitle, "社員情報の管理と編集");Set(gblPage, 1);Set(varShowEmpFilter, false);Set(varEmpQId, "");Set(varEmpQName, "");Set(varEmpQMail, "");Set(varEmpQDept, "");Set(varEmpDDept, "");Set(varShowEmpFDeptList, false);Set(varShowEmpMFDeptList, false);Set(varEmpQCreFrom, "");Set(varEmpQCreTo, "");Set(varEmpQUpdFrom, "");Set(varEmpQUpdTo, "");Set(varEmpQActive, false);Set(varEmpQInactive, false);Set(varEmpDActive, false);Set(varEmpDInactive, false);Set(varEmpDCreFromT, "");Set(varEmpDCreToT, "");Set(varEmpDUpdFromT, "");Set(varEmpDUpdToT, "");Set(varEmpTimeTgt, "");Set(varShowEmpModal, false);Set(varEmpMode, "create");Set(varEmpEditId, "");
-        Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));
-        // 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
+        =Set(varActiveTab, "employee");Set(gblEsOpen, true);Set(gblEsDd, "");Set(gblEsRun, false);Set(gblCalTarget, "");Set(gblEsId, "");Set(gblEsName, "");Set(gblEsMail, "");Set(gblEsDept, "");Set(gblEsFrom, If(false, Now()));Set(gblEsTo, If(false, Now()));Set(varShowPageSize, false);Set(varHeaderTitle, "社員管理");Set(varHeaderSubtitle, "社員情報の管理と編集");Set(gblPage, 1);Set(varShowEmpFilter, false);Set(varEmpQId, "");Set(varEmpQName, "");Set(varEmpQMail, "");Set(varEmpQDept, "");Set(varEmpDDept, "");Set(varShowEmpFDeptList, false);Set(varShowEmpMFDeptList, false);Set(varEmpQCreFrom, "");Set(varEmpQCreTo, "");Set(varEmpQUpdFrom, "");Set(varEmpQUpdTo, "");Set(varEmpQActive, false);Set(varEmpQInactive, false);Set(varEmpDActive, false);Set(varEmpDInactive, false);Set(varEmpDCreFromT, "");Set(varEmpDCreToT, "");Set(varEmpDUpdFromT, "");Set(varEmpDUpdToT, "");Set(varEmpTimeTgt, "");Set(varShowEmpModal, false);Set(varEmpMode, "create");Set(varEmpEditId, "");
+        Set(varEmpSearch, If(gblIsMobile, Trim(txtEmpMSearch.Text), Coalesce(gblEsId, gblEsName, gblEsMail, gblEsDept, "")));
+        // 社員一覧の取得 — 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署・登録日・更新日)。ページングもサーバー側
         Set(varEmpLoading, true);
-        // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
-        Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
+        Set(varEmpRaw, With({apiResult: 'EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); "", Set(varShowNotifyFailed, false); Substitute(apiResult.response, ":null", ":"""""))));
         If(
             IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-            Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-            ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+            If(varShowNotifyFailed, Clear(colEmployees); Set(varEmpTotal, 0), Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0)),
+            ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:0, empId:Text(emp.Value.employee_id), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:"", created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
         );
         Set(varEmpLoading, false)
 
@@ -51,60 +50,6 @@ srcEmployeeList As screen:
         Y: =App.Height * .115
         ZIndex: =3
 
-    txtEmpSearch As modernTextInput:
-        Font: =Font.'Segoe UI'
-        Height: =App.Height * .048
-        OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
-        Placeholder: ="社員番号・社員氏名・Eメール・部署・登録日・更新日で検索..."
-        Type: =TextInputType.Search
-        Visible: =!gblIsMobile
-        Width: =App.Width * .30
-        X: =App.Width * .10
-        Y: =App.Height * .117
-        ZIndex: =4
-
-    btnEmpImport As modernButton:
-        Appearance: =ButtonAppearance.Outline
-        Color: =RGBA(220, 38, 38, 1)
-        Font: =Font.'Segoe UI'
-        FontWeight: =FontWeight.Bold
-        Height: =App.Height * .048
-        OnSelect: |-
-            =If(
-                IsEmpty(attEmpCsv.Attachments),
-                Notify("インポートするCSVファイルを選択してください", NotificationType.Warning),
-                !EndsWith(Lower(First(attEmpCsv.Attachments).Name), ".csv"),
-                Notify("CSVファイル (.csv) を選択してください", NotificationType.Error),
-                Set(varEmpLoading, true);
-                With(
-                    {res: IfError('EDS-EmployeeImport'.Run({contentBytes: First(attEmpCsv.Attachments).Value, name: First(attEmpCsv.Attachments).Name}), Blank())},
-                    With(
-                        {body: IfError(ParseJSON(res.response), Blank())},
-                        If(
-                            IsBlank(res) || IsBlank(body),
-                            Notify("インポートに失敗しました。時間をおいて再度お試しください。", NotificationType.Error),
-                            !IsBlank(Text(body.error)),
-                            Notify("CSVファイルの形式が正しくありません: " & Text(body.error), NotificationType.Error),
-                            Notify(
-                                Concat(Table(body.messages), Text(ThisRecord.Value.text), Char(10)),
-                                If(Boolean(body.success), NotificationType.Success, NotificationType.Error)
-                            )
-                        )
-                    )
-                );
-                Set(varEmpLoading, false);
-                Reset(attEmpCsv);
-                Set(gblPage, 1);
-                Select(btnEmpFetch)
-            )
-        Size: =App.Height * 0.015
-        Text: ="社員リストインポート"
-        Visible: =!gblIsMobile
-        Width: =App.Width * .135
-        X: =App.Width * .748
-        Y: =App.Height * .117
-        ZIndex: =5
-
     btnEmpNew As modernButton:
         Color: =RGBA(220, 38, 38, 1)
         Font: =Font.'Segoe UI'
@@ -122,7 +67,7 @@ srcEmployeeList As screen:
     txtEmpMSearch As modernTextInput:
         Font: =Font.'Segoe UI'
         Height: =App.Height * 0.052
-        OnChange: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+        OnChange: =
         Placeholder: ="社員番号・社員氏名・Eメール・部署・登録日・更新日で検索..."
         Type: =TextInputType.Search
         Visible: =gblIsMobile
@@ -135,11 +80,11 @@ srcEmployeeList As screen:
         BorderColor: =RGBA(226, 232, 240, 1)
         BorderThickness: =1
         Fill: =RGBA(255, 255, 255, 1)
-        Height: =App.Height * .71
+        Height: =App.Height * (.71 - If(gblEsOpen, 0.168, 0.063))
         Visible: =!gblIsMobile
         Width: =App.Width * .966
         X: =App.Width * .017
-        Y: =App.Height * .175
+        Y: =App.Height * (.175 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =8
 
     btnEmpMNew As modernButton:
@@ -164,7 +109,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * .966
         X: =App.Width * .017
-        Y: =App.Height * .175
+        Y: =App.Height * (.175 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =10
 
     lblEmpH_no As label:
@@ -179,7 +124,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * 0.0367
         X: =App.Width * (0.017 + 0.008)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =11
 
     lblEmpH_empId As label:
@@ -190,11 +135,11 @@ srcEmployeeList As screen:
         Height: =App.Height * .034
         PaddingLeft: =0
         Size: =App.Height * 0.013
-        Text: ="社員ID"
+        Text: ="社員番号"
         Visible: =!gblIsMobile
         Width: =App.Width * 0.0937
         X: =App.Width * (0.017 + 0.0507)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =12
 
     lblEmpH_name As label:
@@ -205,11 +150,11 @@ srcEmployeeList As screen:
         Height: =App.Height * .034
         PaddingLeft: =0
         Size: =App.Height * 0.013
-        Text: ="名前"
+        Text: ="社員氏名"
         Visible: =!gblIsMobile
         Width: =App.Width * 0.108
         X: =App.Width * (0.017 + 0.1505)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =13
 
     lblEmpH_email As label:
@@ -224,7 +169,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * 0.1745
         X: =App.Width * (0.017 + 0.2645)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =14
 
     lblEmpH_dept As label:
@@ -239,7 +184,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * 0.184
         X: =App.Width * (0.017 + 0.445)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =15
 
     lblEmpH_created As label:
@@ -250,11 +195,11 @@ srcEmployeeList As screen:
         Height: =App.Height * .034
         PaddingLeft: =0
         Size: =App.Height * 0.013
-        Text: ="登録日"
+        Text: ="登録日時"
         Visible: =!gblIsMobile
         Width: =App.Width * 0.1127
         X: =App.Width * (0.017 + 0.635)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =16
 
     lblEmpH_updated As label:
@@ -265,11 +210,11 @@ srcEmployeeList As screen:
         Height: =App.Height * .034
         PaddingLeft: =0
         Size: =App.Height * 0.013
-        Text: ="更新日"
+        Text: ="更新日時"
         Visible: =!gblIsMobile
         Width: =App.Width * 0.1127
         X: =App.Width * (0.017 + 0.7538)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =17
 
     lblEmpH_action As label:
@@ -284,12 +229,12 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile
         Width: =App.Width * 0.0795
         X: =App.Width * (0.017 + 0.8725)
-        Y: =App.Height * .183
+        Y: =App.Height * (.183 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =18
 
     galEmployees As gallery.galleryVertical:
         BorderColor: =RGBA(0, 0, 0, 0)
-        Height: =App.Height * .60
+        Height: =App.Height * (.60 - If(gblEsOpen, 0.168, 0.063))
         Items: |-
             =ForAll(Sequence(CountRows(colEmployees)) As seq, Patch(Index(colEmployees, seq.Value), {no: (gblPage - 1) * gblPageSize + seq.Value}))
         Layout: =Layout.Vertical
@@ -298,7 +243,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile && !varEmpLoading
         Width: =App.Width * .966
         X: =App.Width * .017
-        Y: =App.Height * .225
+        Y: =App.Height * (.225 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =19
 
         recEmpRowLine As rectangle:
@@ -423,10 +368,7 @@ srcEmployeeList As screen:
             FontWeight: =FontWeight.Bold
             Height: =App.Height * .042
             OnSelect: |-
-                ='EDS-APIManagement1'.Run("employee", JSON({employee_id:LookUp(colEmployees, empId = ThisItem.empId).no}), "employeeDelete");
-                // 最終ページの最後の 1 件を消したら前のページへ
-                Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0))));
-                Select(btnEmpFetch)
+                =IfError(With({apiResult: 'EDS-APIManagement1'.Run("employee", JSON({employee_id:ThisItem.empId}), "employeeDelete")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); Set(varShowEmpInsertSuccess, false), Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0)))); Select(btnEmpFetch); Set(varEmpSuccessTitle, "削除しました"); Set(varEmpSuccessMessage, "従業員を一覧から削除しました。"); Set(varShowNotifyFailed, false); Set(varShowEmpInsertSuccess, true))), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); Set(varShowEmpInsertSuccess, false); "")
             Size: =App.Height * 0.013
             Text: ="削除"
             Width: =App.Width * 0.0358
@@ -446,7 +388,7 @@ srcEmployeeList As screen:
         Visible: =!gblIsMobile && (varEmpLoading || IsEmpty(galEmployees.AllItems))
         Width: =App.Width * .966
         X: =App.Width * .017
-        Y: =App.Height * .30
+        Y: =App.Height * (.30 + If(gblEsOpen, 0.168, 0.063))
         ZIndex: =20
 
     galEmpMobile As gallery.galleryVertical:
@@ -536,10 +478,7 @@ srcEmployeeList As screen:
             FontWeight: =FontWeight.Bold
             Height: =App.Height * 0.040
             OnSelect: |-
-                ='EDS-APIManagement1'.Run("employee", JSON({employee_id:LookUp(colEmployees, empId = ThisItem.empId).no}), "employeeDelete");
-                // 最終ページの最後の 1 件を消したら前のページへ
-                Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0))));
-                Select(btnEmpFetch)
+                =IfError(With({apiResult: 'EDS-APIManagement1'.Run("employee", JSON({employee_id:ThisItem.empId}), "employeeDelete")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); Set(varShowEmpInsertSuccess, false), Set(gblPage, Min(gblPage, Max(1, RoundUp((varEmpTotal - 1) / gblPageSize, 0)))); Select(btnEmpFetch); Set(varEmpSuccessTitle, "削除しました"); Set(varEmpSuccessMessage, "従業員を一覧から削除しました。"); Set(varShowNotifyFailed, false); Set(varShowEmpInsertSuccess, true))), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); Set(varShowEmpInsertSuccess, false); "")
             Size: =App.Height * 0.013
             Text: ="削除"
             Width: =App.Width * 0.13
@@ -574,28 +513,13 @@ srcEmployeeList As screen:
         Y: =App.Height * .912
         ZIndex: =24
 
-    btnEmpSearch As modernButton:
-        BasePaletteColor: =RGBA(0, 102, 204, 1)
-        Color: =RGBA(255, 255, 255, 1)
-        Font: =Font.'Segoe UI'
-        FontWeight: =FontWeight.Semibold
-        Height: =App.Height * .048
-        OnSelect: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
-        Size: =App.Height * 0.015
-        Text: ="検索"
-        Visible: =!gblIsMobile
-        Width: =App.Width * .07
-        X: =App.Width * .405
-        Y: =App.Height * .117
-        ZIndex: =25
-
     btnEmpMSearch As modernButton:
         BasePaletteColor: =RGBA(0, 102, 204, 1)
         Color: =RGBA(255, 255, 255, 1)
         Font: =Font.'Segoe UI'
         FontWeight: =FontWeight.Semibold
         Height: =App.Height * 0.052
-        OnSelect: =Set(varEmpSearch, Trim(Coalesce(txtEmpSearch.Text, txtEmpMSearch.Text)));Set(gblPage, 1);Select(btnEmpFetch)
+        OnSelect: =Set(varEmpSearch, If(gblIsMobile, Trim(txtEmpMSearch.Text), Coalesce(gblEsId, gblEsName, gblEsMail, gblEsDept, "")));Set(gblPage, 1);Select(btnEmpFetch)
         Size: =App.Height * 0.015
         Text: ="検索"
         Visible: =gblIsMobile
@@ -618,14 +542,13 @@ srcEmployeeList As screen:
         FontWeight: =FontWeight.Semibold
         Height: =App.Height * .048
         OnSelect: |-
-            =// 社員一覧の取得 (検索語の有無で取得方法が変わる。下記参照)
+            =// 社員一覧の取得 — 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署・登録日・更新日)。ページングもサーバー側
             Set(varEmpLoading, true);
-            // 検索語があればサーバー側で絞り込み (社員番号・氏名・Eメール・部署)。ページングもサーバー側
-            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch) & ",""tz_offset"":" & TimeZoneOffset()) & "}", "employeeList").response, ":null", ":"""""), ""));
+            Set(varEmpRaw, IfError(With({apiResult: 'EDS-APIManagement1'.Run("employee", "{""page"":" & gblPage & ",""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList")}, If(!IsBlank(Trim(Coalesce(Text(apiResult.error), ""))), Set(varNotifyErrorMessage, Text(apiResult.error)); Set(varShowNotifyFailed, true); "", Set(varShowNotifyFailed, false); Substitute(apiResult.response, ":null", ":"""""))), Set(varNotifyErrorMessage, "Power Automate のフローに接続できません"); Set(varShowNotifyFailed, true); ""));
             If(
                 IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error""",
-                Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0),
-                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:Value(emp.Value.employee_id), empId:Text(emp.Value.employee_code), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:If(Boolean(emp.Value.is_active), "Active", "Inactive"), created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
+                If(varShowNotifyFailed, Clear(colEmployees); Set(varEmpTotal, 0), Notify("社員一覧の取得に失敗しました", NotificationType.Error); Clear(colEmployees); Set(varEmpTotal, 0)),
+                ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:0, empId:Text(emp.Value.employee_id), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:"", created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))
             );
             Set(varEmpLoading, false)
         Size: =App.Height * 0.015
@@ -636,39 +559,362 @@ srcEmployeeList As screen:
         Y: =App.Height * .117
         ZIndex: =28
 
-    attEmpCsv As attachments:
-        AccessibleLabel: ="インポートするCSVファイル"
-        AddAttachmentText: ="CSVファイルを選択"
-        BorderColor: =RGBA(226, 232, 240, 1)
-        BorderThickness: =1
-        Color: =RGBA(50, 49, 48, 1)
-        DisabledBorderColor: =RGBA(0, 0, 0, 0)
-        DisabledColor: =RGBA(161, 159, 157, 1)
-        DisabledFill: =RGBA(242, 242, 241, 0)
-        DisplayMode: =If(varEmpLoading, DisplayMode.Disabled, DisplayMode.Edit)
-        FocusedBorderThickness: =2
+    btnEmpImport As modernButton:
+        Appearance: =ButtonAppearance.Outline
+        Color: =RGBA(220, 38, 38, 1)
         Font: =Font.'Segoe UI'
-        Height: =App.Height * .09
-        HoverColor: =RGBA(50, 49, 48, 1)
-        HoverFill: =RGBA(245, 245, 245, 1)
-        ItemColor: =RGBA(255, 255, 255, 1)
-        ItemFill: =RGBA(0, 102, 204, 1)
-        ItemHoverColor: =RGBA(50, 49, 48, 1)
-        ItemHoverFill: =RGBA(245, 245, 245, 1)
-        ItemSpacing: =4
-        MaxAttachments: =1
-        NoAttachmentsColor: =RGBA(161, 159, 157, 1)
-        NoAttachmentsText: =" "
-        PaddingBottom: =2
-        PaddingLeft: =4
-        PaddingRight: =4
-        PressedColor: =RGBA(255, 255, 255, 1)
-        PressedFill: =RGBA(0, 102, 204, 1)
-        Size: =App.Height * 0.014
-        Tooltip: ="社員リストのCSVファイル (社員番号,社員氏名,メール,部署)"
+        FontWeight: =FontWeight.Bold
+        Height: =App.Height * .048
+        Size: =App.Height * 0.015
+        Text: ="社員リストインポート"
         Visible: =!gblIsMobile
-        Width: =App.Width * .24
-        X: =App.Width * .50
-        Y: =App.Height * .105
-        ZIndex: =29
+        Width: =App.Width * .18
+        X: =App.Width * .70
+        Y: =App.Height * .117
+        ZIndex: =79
+
+    frmEmpCsv As form.Classic:
+        BorderColor: =RGBA(0, 0, 0, 0)
+        DataSource: =EmployeeList
+        DefaultMode: =FormMode.New
+        Fill: =RGBA(255, 255, 255, 0)
+        Height: =App.Height * .048
+        Item: =Defaults(EmployeeList)
+        Visible: =!gblIsMobile
+        Width: =App.Width * .18
+        X: =App.Width * .70
+        Y: =App.Height * .117
+        ZIndex: =80
+
+        cardEmpCsv As typedDataCard.dataCardAttachments:
+            BorderColor: =RGBA(0, 0, 0, 0)
+            BorderThickness: =0
+            DataField: ="{Attachments}"
+            DisplayMode: =If(varEmpLoading, DisplayMode.Disabled, DisplayMode.Edit)
+            DisplayName: ="CSV"
+            Fill: =RGBA(255, 255, 255, 0)
+            Height: =Parent.Height
+            Required: =false
+            Visible: =true
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+
+            attEmpCsv As attachments:
+                AccessibleLabel: ="社員リストインポート"
+                AddAttachmentColor: =RGBA(0, 0, 0, 0)
+                AddAttachmentText: ="社員リストインポート　　　　　　　　　"
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(0, 0, 0, 0)
+                DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                DisabledColor: =RGBA(161, 159, 157, 1)
+                DisabledFill: =RGBA(242, 242, 241, 0)
+                DisplayMode: =Parent.DisplayMode
+                Fill: =RGBA(255, 255, 255, 0)
+                FocusedBorderThickness: =2
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * .09
+                HoverColor: =RGBA(50, 49, 48, 1)
+                HoverFill: =RGBA(254, 242, 242, 1)
+                IsInDataCard: =true
+                ItemColor: =RGBA(255, 255, 255, 1)
+                ItemFill: =RGBA(0, 102, 204, 1)
+                ItemHoverColor: =RGBA(50, 49, 48, 1)
+                ItemHoverFill: =RGBA(245, 245, 245, 1)
+                Items: =ThisItem.Attachments
+                ItemSpacing: =4
+                MaxAttachments: =1
+                NoAttachmentsColor: =RGBA(0, 0, 0, 0)
+                NoAttachmentsText: =""
+                OnAddFile: |-
+                    =If(
+                        IsEmpty(attEmpCsv.Attachments),
+                        Set(varShowEmpImportErrorFile, false);
+                        Set(varEmpImportErrorText, "");
+                        Set(varNotifyErrorMessage, "インポートするCSVファイルを選択してください");
+                        Set(varEmpImportPopupMessage, "インポートするCSVファイルを選択してください");
+                        Set(varEmpImportPopupActive, true);
+                        Set(varShowEmpInsertSuccess, false);
+                        Set(varShowNotifyFailed, true),
+                        !EndsWith(Lower(First(attEmpCsv.Attachments).Name), ".csv"),
+                        Set(varShowEmpImportErrorFile, false);
+                        Set(varEmpImportErrorText, "");
+                        Set(varNotifyErrorMessage, "CSVファイル (.csv) を選択してください");
+                        Set(varEmpImportPopupMessage, "CSVファイル (.csv) を選択してください");
+                        Set(varEmpImportPopupActive, true);
+                        Set(varShowEmpInsertSuccess, false);
+                        Set(varShowNotifyFailed, true);
+                        ResetForm(frmEmpCsv),
+                        Set(varEmpLoading, true);
+                        Set(varShowEmpImportErrorFile, false);
+                        Set(varEmpImportErrorText, "");
+                        Set(varNotifyErrorMessage, "インポートに失敗しました。時間をおいて再度お試しください。");
+                        Set(varShowEmpInsertSuccess, false);
+                        Set(varShowNotifyFailed, false);
+                        Set(varEmpImportPopupMessage, "");
+                        Set(varEmpImportPopupActive, false);
+                        IfError(
+                            With(
+                                {res: IfError('EDS-EmployeeImport'.Run({contentBytes: First(attEmpCsv.Attachments).Value, name: First(attEmpCsv.Attachments).Name}), Blank())},
+                                If(
+                                    IsBlank(res),
+                                    Set(varEmpImportPopupMessage, "インポートに失敗しました。時間をおいて再度お試しください。");
+                                    Set(varEmpImportPopupActive, true);
+                                    Set(varShowNotifyFailed, true);
+                                    ResetForm(frmEmpCsv),
+                                    With(
+                                        {topSuccess: IfError(Text(res.success_num), Blank()), topError: With({e: IfError(Text(res.error), Blank()), ef: IfError(Text(res.errorFile), Blank())}, If(!(IsBlank(e) || Lower(Trim(e)) = "null"), e, ef)), nestedSuccess: IfError(Text(ParseJSON(Text(res.response)).success_num), Blank()), nestedError: With({e: IfError(Text(ParseJSON(Text(res.response)).error), Blank()), ef: IfError(Text(ParseJSON(Text(res.response)).errorFile), Blank())}, If(!(IsBlank(e) || Lower(Trim(e)) = "null"), e, ef))},
+                                        With(
+                                            {successNum: Coalesce(topSuccess, nestedSuccess, "0"), errorText: If(!(IsBlank(topError) || Lower(Trim(topError)) = "null"), topError, nestedError)},
+                                            If(
+                                            IsBlank(errorText) || Trim(errorText) = "" || Lower(Trim(errorText)) = "null",
+                                            Set(varEmpSuccessTitle, "インポートが完了しました");
+                                            Set(varEmpSuccessMessage, Text(successNum) & "名の従業員を追加しました。");
+                                            Set(varEmpImportPopupMessage, Text(successNum) & "名の従業員を追加しました。");
+                                            Set(varEmpImportPopupActive, true);
+                                            Set(varShowNotifyFailed, false);
+                                            Set(varShowEmpInsertSuccess, true);
+                                            ResetForm(frmEmpCsv);
+                                            Set(gblPage, 1);
+                                            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
+                                    If(!(IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error"""), ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:0, empId:Text(emp.Value.employee_id), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:"", created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount))),
+                                            Set(varEmpImportErrorText, errorText);
+                                            Set(varShowEmpImportErrorFile, true);
+                                            Set(varNotifyErrorMessage, "インポートが完了しました。" & Text(successNum) & "名の従業員を追加しました。データエラーにより" & Text(CountRows(Filter(Split(Substitute(errorText, Char(13), ""), Char(10)) As errorLine, !IsBlank(Trim(errorLine.Value)) && Left(Trim(errorLine.Value), 6) <> """line"""))) & "行をスキップしました。");
+                                            Set(varEmpImportPopupMessage, varNotifyErrorMessage);
+                                            Set(varEmpImportPopupActive, true);
+                                            Set(varShowEmpInsertSuccess, false);
+                                            Set(varShowNotifyFailed, true);
+                                            ResetForm(frmEmpCsv);
+                                            Set(gblPage, 1);
+                                            Set(varEmpRaw, IfError(Substitute('EDS-APIManagement1'.Run("employee", "{""page"":1,""pageSize"":" & gblPageSize & If(IsBlank(varEmpSearch), "", ",""search_keyword"":" & JSON(varEmpSearch)) & "}", "employeeList").response, ":null", ":"""""), ""));
+                                    If(!(IsBlank(varEmpRaw) || Left(varEmpRaw, 8) = "{""error"""), ClearCollect(colEmployees, ForAll(Table(ParseJSON(varEmpRaw).value) As emp, {no:0, empId:Text(emp.Value.employee_id), name:Text(emp.Value.full_name), email:Text(emp.Value.email), dept:Text(emp.Value.department_name), status:"", created:If(Text(emp.Value.created_at) = "", "", Text(DateTimeValue(Text(emp.Value.created_at)), "yyyy/mm/dd hh:mm")), updated:If(Text(emp.Value.updated_at) = "", "", Text(DateTimeValue(Text(emp.Value.updated_at)), "yyyy/mm/dd hh:mm"))})); Set(varEmpTotal, Value(ParseJSON(varEmpRaw).totalCount)))
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+                            Set(varShowEmpImportErrorFile, false);
+                            Set(varEmpImportErrorText, "");
+                            Set(varNotifyErrorMessage, "インポートに失敗しました。時間をおいて再度お試しください。");
+                            Set(varEmpImportPopupMessage, "インポートに失敗しました。時間をおいて再度お試しください。");
+                            Set(varEmpImportPopupActive, true);
+                            Set(varShowEmpInsertSuccess, false);
+                            Set(varShowNotifyFailed, true);
+                            ResetForm(frmEmpCsv)
+                        );
+                        Set(varEmpLoading, false)
+                    )
+                PressedColor: =RGBA(255, 255, 255, 1)
+                PressedFill: =RGBA(0, 102, 204, 1)
+                Size: =App.Height * 0.016
+                Tooltip: ="社員リストのCSVファイル (社員番号,社員氏名,メール,部署)"
+                Visible: =!gblIsMobile
+                Width: =Parent.Width + 24
+                Y: =-(App.Height * .042)
+                ZIndex: =2
+
+    cmpEmpSearch_E As cmpEmpSearch:
+        Height: =App.Height * If(gblEsDd <> "", 0.45, If(gblEsOpen, 0.165, 0.06))
+        Visible: =!gblIsMobile && !varShowEmpModal
+        Width: =App.Width
+        Y: =App.Height * 0.17
+        ZIndex: =81
+
+    cmpDatePicker_E As cmpDatePicker:
+        Height: =App.Height
+        Visible: =!gblIsMobile && !varShowEmpModal && gblCalTarget <> ""
+        Width: =App.Width
+        ZIndex: =82
+
+    tmrEmpSearch As timer:
+        Duration: =10
+        Height: =1
+        OnTimerEnd: =Set(gblEsRun, false);Select(btnEmpFetch)
+        Start: =gblEsRun
+        Visible: =false
+        Width: =1
+        ZIndex: =83
+
+    conFlowErrorOverlayEmployee As groupContainer.manualLayoutContainer:
+        Fill: =RGBA(0, 0, 0, 0.4)
+        Height: =App.Height
+        Visible: =varEmpImportPopupActive || varShowNotifyFailed || varShowEmpInsertSuccess
+        Width: =App.Width
+        ZIndex: =100
+
+        conFlowErrorCardEmployee As groupContainer.horizontalAutoLayoutContainer:
+            BorderColor: =RGBA(226, 232, 240, 1)
+            BorderThickness: =1
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =If(varShowEmpImportErrorFile, App.Height * 0.52, App.Height * 0.42)
+            LayoutAlignItems: =LayoutAlignItems.Center
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =App.Height * 0.018
+            LayoutGridColumnMinWidth: =0
+            LayoutGridColumns: =6
+            LayoutGridRowMinHeight: =0
+            LayoutGridRows: =6
+            LayoutJustifyContent: =LayoutJustifyContent.Center
+            LayoutMode: =LayoutMode.Auto
+            PaddingBottom: =App.Height * 0.028
+            PaddingLeft: =App.Width * 0.02
+            PaddingRight: =App.Width * 0.02
+            PaddingTop: =App.Height * 0.028
+            RadiusBottomLeft: =16
+            RadiusBottomRight: =16
+            RadiusTopLeft: =16
+            RadiusTopRight: =16
+            Visible: =varEmpImportPopupActive || varShowNotifyFailed || varShowEmpInsertSuccess
+            Width: =If(gblIsMobile, App.Width * 0.9, App.Width * 0.3)
+            X: =If(gblIsMobile, App.Width * 0.05, App.Width * 0.35)
+            Y: =App.Height * 0.28
+            ZIndex: =5
+
+            conFlowErrorIconEmployee As groupContainer.horizontalAutoLayoutContainer:
+                AlignInContainer: =AlignInContainer.Center
+                BorderColor: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, RGBA(13, 148, 136, 1), RGBA(220, 38, 38, 1))
+                BorderThickness: =2
+                Fill: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, RGBA(230, 244, 241, 1), RGBA(254, 226, 226, 1))
+                FillPortions: =0
+                Height: =App.Height * 0.08
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutDirection: =LayoutDirection.Vertical
+                LayoutGridColumnMinWidth: =0
+                LayoutGridColumns: =6
+                LayoutGridRowMinHeight: =0
+                LayoutGridRows: =6
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.04
+                RadiusBottomRight: =App.Height * 0.04
+                RadiusTopLeft: =App.Height * 0.04
+                RadiusTopRight: =App.Height * 0.04
+                Width: =App.Height * 0.08
+                ZIndex: =1
+
+                lblFlowErrorIconEmployee As label:
+                    Align: =Align.Center
+                    BorderColor: =RGBA(0,0,0,0)
+                    Color: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, RGBA(13, 148, 136, 1), RGBA(220, 38, 38, 1))
+                    Fill: =RGBA(0, 0, 0 ,0)
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =App.Height * 0.06
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    Size: =App.Height * 0.028
+                    Text: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, "✓", "x")
+                    Width: =App.Height * 0.06
+                    ZIndex: =1
+
+            lblFlowErrorTitleEmployee As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(15, 23, 42, 1)
+                Font: =Font.'Segoe UI'
+                FontWeight: =FontWeight.Bold
+                Height: =App.Height * 0.038
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                Size: =App.Height * 0.021
+                Text: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, varEmpSuccessTitle, "エラーが発生しました")
+                Width: =Parent.Width
+                ZIndex: =2
+
+            lblFlowErrorBodyEmployee As label:
+                Align: =Align.Center
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Color: =RGBA(100, 116, 139, 1)
+                Font: =Font.'Segoe UI'
+                Height: =App.Height * 0.1
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                PaddingBottom: =6
+                PaddingTop: =6
+                Size: =App.Height * 0.015
+                Text: =If(varEmpImportPopupActive, Coalesce(varEmpImportPopupMessage, "インポートに失敗しました。時間をおいて再度お試しください。"), If(varShowEmpInsertSuccess && !varShowNotifyFailed, varEmpSuccessMessage, Coalesce(varNotifyErrorMessage, "インポートに失敗しました。時間をおいて再度お試しください。")))
+                Width: =Parent.Width
+                ZIndex: =3
+
+            conEmpImportActions As groupContainer.horizontalAutoLayoutContainer:
+                BorderColor: =RGBA(0, 0, 0, 0)
+                Fill: =RGBA(255, 255, 255, 0)
+                FillPortions: =0
+                Height: =App.Height * 0.055
+                LayoutAlignItems: =LayoutAlignItems.Center
+                LayoutGap: =App.Width * 0.008
+                LayoutGridColumnMinWidth: =0
+                LayoutGridColumns: =6
+                LayoutGridRowMinHeight: =0
+                LayoutGridRows: =6
+                LayoutJustifyContent: =LayoutJustifyContent.Center
+                LayoutMaxHeight: =0
+                LayoutMaxWidth: =0
+                LayoutMode: =LayoutMode.Auto
+                RadiusBottomLeft: =App.Height * 0.04
+                RadiusBottomRight: =App.Height * 0.04
+                RadiusTopLeft: =App.Height * 0.04
+                RadiusTopRight: =App.Height * 0.04
+                Width: =Parent.Width
+                ZIndex: =4
+
+                btnEmpImportErrorDownload As modernButton:
+                    AlignInContainer: =AlignInContainer.Center
+                    Appearance: =ButtonAppearance.Outline
+                    BasePaletteColor: =RGBA(220, 38, 38, 1)
+                    BorderStyle: =BorderStyle.None
+                    Color: =RGBA(255, 255, 255, 1)
+                    FillPortions: =1
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =Parent.Height
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    OnSelect: |-
+                        =With(
+                            {txt: Concat(Filter(Split(Substitute(varEmpImportErrorText, Char(13), ""), Char(10)), !IsBlank(Trim(ThisRecord.Value)) && Left(Trim(ThisRecord.Value), 6) <> """line""") As line, With({m: Match(Trim(line.Value), "^""(?<ln>[^""]*)"".*""(?<reason>[^""]*)""\s*$")}, If(IsBlank(m.FullMatch), Trim(line.Value), m.ln & ": " & m.reason)), Char(10))},
+                            Download("data:text/plain;charset=utf-8," & EncodeUrl(txt))
+                        )
+                    RadiusBottomLeft: =10
+                    RadiusBottomRight: =10
+                    RadiusTopLeft: =10
+                    RadiusTopRight: =10
+                    Size: =App.Height * 0.014
+                    Text: ="エラー詳細ファイルをダウンロード"
+                    Visible: =varEmpImportPopupActive && !IsBlank(varEmpImportErrorText)
+                    Width: =Parent.Width * 0.60
+                    ZIndex: =4
+
+                btnFlowErrorOkEmployee As modernButton:
+                    AlignInContainer: =AlignInContainer.Center
+                    BasePaletteColor: =If(varShowEmpInsertSuccess && !varShowNotifyFailed, RGBA(13, 148, 136, 1), RGBA(220, 38, 38, 1))
+                    BorderStyle: =BorderStyle.None
+                    Color: =RGBA(255, 255, 255, 1)
+                    FillPortions: =1
+                    Font: =Font.'Segoe UI'
+                    FontWeight: =FontWeight.Bold
+                    Height: =Parent.Height
+                    LayoutMaxHeight: =0
+                    LayoutMaxWidth: =0
+                    OnSelect: |-
+                        =Set(varShowNotifyFailed, false);
+                        Set(varShowEmpInsertSuccess, false);
+                        Set(varNotifyErrorMessage, "");
+                        Set(varError, "");
+                        Set(varShowEmpImportErrorFile, false);
+                        Set(varEmpImportErrorText, "");
+                        Set(varEmpImportPopupActive, false);
+                        Set(varEmpImportPopupMessage, "")
+                    RadiusBottomLeft: =10
+                    RadiusBottomRight: =10
+                    RadiusTopLeft: =10
+                    RadiusTopRight: =10
+                    Size: =App.Height * 0.016
+                    Text: ="OK"
+                    Width: =If(varEmpImportPopupActive && varShowEmpImportErrorFile, Parent.Width * 0.36, Parent.Width * 0.9)
+                    ZIndex: =4
 
