@@ -4,6 +4,7 @@ const { fuzzyMatchEmployees } = require('./fuzzyMatch');
 const blobImages = require('./blobImages');
 const historyCsv = require('./historyCsv');
 const historySearch = require('./historySearch');
+const plannerSync = require('./plannerSync');
 
 const HISTORY_SEARCH_MAX_ROWS = 100000;
 const { CsvParseError } = require('./csv');
@@ -108,6 +109,7 @@ const handler = (name, fn) => async (request, context) => {
     context.error(`${name} failed: ${e.message}`, e.stack);
     if (e.number === 50001) return json(400, { error: e.message });
     if (e.number === 50002 || e.number === 50003) return json(409, { error: e.message });
+    if (e.number === 50004) return json(409, { error: e.message }); // planner sync: too many reverts
     if (e.number === 547) {
       return json(409, {
         error: 'Cannot delete: history rows still reference this employee',
@@ -341,6 +343,40 @@ app.http('historySetDelivered', {
     const updated = rows[0]?.rows_updated ?? 0;
     // 404 tells the flow the task was never linked to a package - worth alerting on.
     return updated ? json(200, { updated }) : json(404, { error: 'no matching package' });
+  }),
+});
+
+/* ------------------------------------- POST /api/history/planner-sync
+   Daily reconciliation run by the scheduled flow EDS-PlannerStatusSync: tasks reopened
+   in Planner go back to Notified, completions the trigger missed become Delivered.
+   Request checks and the safety rules are described in plannerSync.js.
+   200 { checked, reverted, delivered, duplicates }
+   409 when more rows than max_revert would be reverted (nothing is changed). */
+app.http('historyPlannerSync', {
+  methods: ['POST'],
+  authLevel: 'function',
+  route: 'history/planner-sync',
+  handler: handler('historyPlannerSync', async (request, context) => {
+    const body = await request.json().catch(() => null);
+    const syncRequest = plannerSync.readPlannerSyncRequest(body);
+    if (syncRequest.error) return json(400, { error: syncRequest.error });
+
+    const rows = await exec('dbo.sp_history_planner_sync', [
+      ['tasks_json', sql.NVarChar(sql.MAX), JSON.stringify(syncRequest.tasks)],
+      ['snapshot_at', sql.DateTime2, syncRequest.snapshotAt],
+      ['max_revert', sql.Int, syncRequest.maxRevert],
+    ], context);
+
+    const counts = rows[0] || {};
+    const result = {
+      checked: counts.checked_count ?? 0,
+      reverted: counts.reverted_count ?? 0,
+      delivered: counts.delivered_count ?? 0,
+      duplicates: syncRequest.duplicateCount,
+    };
+    context.log(`historyPlannerSync: checked ${result.checked}, reverted ${result.reverted}, `
+      + `delivered ${result.delivered}, duplicates ${result.duplicates}`);
+    return json(200, result);
   }),
 });
 

@@ -614,6 +614,77 @@ Request schema:
 
 Response **200** cùng schema `{ "updated": integer }` của `historySetPlannerTask`. **400**: `{ "error": "planner_task_id or history_id is required" }`. **404**: `{ "error": "no matching package" }`.
 
+### historyPlannerSync
+
+Đồng bộ trạng thái History theo Planner, `POST /history/planner-sync`. **Không đi qua flow EDS-APIManagement1.** Flow theo lịch `EDS-PlannerStatusSync` gọi thẳng APIM (19:00 các ngày làm việc). Flow đọc toàn bộ task của plan EDS và gửi mỗi task một dòng:
+
+- Task đang mở (bị reopen) mà dòng history là 受取済み → về `Notified`, xóa `delivered_at` và `delivered_by`.
+- Task đã Done mà dòng history vẫn là 通知済み → `Delivered`, `delivered_at` = `completed_at` của task. `delivered_at` đã có thì giữ nguyên.
+- Dòng mà task **không có** trong danh sách (task bị xóa, hoặc thuộc trang chưa đọc) thì không bị đụng tới.
+
+Hai cơ chế an toàn:
+
+- `snapshot_at` là thời điểm flow bắt đầu đọc Planner. Dòng được set Delivered **sau** mốc này (bởi flow "When a task is completed") thì không bị revert, vì danh sách task cũ hơn lần Done đó.
+- `max_revert`: nếu số dòng cần revert vượt ngưỡng thì không đổi gì, trả **409**. Mặc định là 50, tối đa 1000.
+
+Request mẫu:
+
+```json
+{
+  "snapshot_at": "2026-10-14T10:00:00Z",
+  "max_revert": 50,
+  "tasks": [
+    { "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib", "completed": true,  "completed_at": "2026-10-14T03:12:00Z" },
+    { "planner_task_id": "aB12cd34Ef56gh78Ij90kl12Mn34", "completed": false, "completed_at": null }
+  ]
+}
+```
+
+Request schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "snapshot_at": { "type": "string", "format": "date-time" },
+    "max_revert": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 50 },
+    "tasks": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "planner_task_id": { "type": "string", "maxLength": 100 },
+          "completed": { "type": "boolean" },
+          "completed_at": { "type": ["string", "null"] }
+        },
+        "required": ["planner_task_id", "completed"]
+      }
+    }
+  },
+  "required": ["snapshot_at", "tasks"]
+}
+```
+
+Response **200**:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "checked": { "type": "integer" },
+    "reverted": { "type": "integer" },
+    "delivered": { "type": "integer" },
+    "duplicates": { "type": "integer" }
+  },
+  "required": ["checked", "reverted", "delivered", "duplicates"]
+}
+```
+
+`checked` là số task đã nhận sau khi bỏ id trùng, `reverted` là số dòng về 通知済み, `delivered` là số dòng thành 受取済み, `duplicates` là số task bị gửi trùng id. **400** khi thiếu `snapshot_at`, `max_revert` sai, hoặc có task sai format (message ghi rõ vị trí, ví dụ `tasks[3].completed must be true or false`). **409**: `{ "error": "planner sync stopped: 60 rows would go back to Notified, more than max_revert (50). Nothing was changed." }`.
+
+Code: `api/src/plannerSync.js` kiểm tra request, handler `historyPlannerSync` nằm trong `api/src/index.js`, proc `dbo.sp_history_planner_sync` nằm trong `17_history_planner_sync.sql`.
+
 ---
 
 ## department
