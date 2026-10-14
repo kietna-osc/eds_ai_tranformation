@@ -254,6 +254,46 @@
         }
       }
     },
+    "/history/planner-sync": {
+      "post": {
+        "summary": "Sync status from Planner",
+        "description": "Called by the scheduled flow EDS-PlannerStatusSync with every task of the EDS Planner plan. Tasks reopened in Planner go back to Notified (delivered_at / delivered_by cleared); completed tasks still Notified become Delivered. Only the tasks in the request are touched. Rows delivered after snapshot_at are not reverted. When more than max_revert rows would be reverted, nothing changes and 409 is returned.",
+        "operationId": "history-planner-sync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "snapshot_at": "2026-10-14T10:00:00Z",
+                "max_revert": 50,
+                "tasks": [
+                  {
+                    "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib",
+                    "completed": true,
+                    "completed_at": "2026-10-14T03:12:00Z"
+                  },
+                  {
+                    "planner_task_id": "aB12cd34Ef56gh78Ij90kl12Mn34",
+                    "completed": false,
+                    "completed_at": null
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synced; body is { checked, reverted, delivered, duplicates }."
+          },
+          "400": {
+            "description": "Missing snapshot_at, bad max_revert, or a malformed task entry."
+          },
+          "409": {
+            "description": "More rows than max_revert would go back to Notified; nothing was changed."
+          }
+        }
+      }
+    },
     "/history/{id}/planner-task": {
       "patch": {
         "summary": "Link Planner task",

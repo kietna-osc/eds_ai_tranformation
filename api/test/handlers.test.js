@@ -1,17 +1,11 @@
 /* Handler tests for historyList / historyExport / employeeList / employeeExport.
-   @azure/functions, the database (db.js) and Blob Storage (blobImages.js) are replaced by
-   in-memory fakes, so this needs no npm install, no Azure and no database.
+   Uses the in-memory fakes in harness.js (no npm install, no Azure, no database).
    Run: cd api && node --test */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Module = require('node:module');
-const path = require('node:path');
+const { calls, stored, data, call } = require('./harness');
 
-/* ---------------------------------------------------------------- fakes */
-
-const handlers = {};
-const calls = [];
-const stored = [];
+/* ---------------------------------------------------------------- data */
 
 const HISTORY = Array.from({ length: 30 }, (_, i) => ({
   history_id: i + 1,
@@ -34,60 +28,8 @@ const EMPLOYEES = Array.from({ length: 12 }, (_, i) => ({
   updated_at: new Date(Date.UTC(2026, 9, 1 + i, 3)).toISOString(),
 }));
 
-/** Emulates sp_history_list / sp_employee_list: filter, order, page, total_count. */
-async function exec(proc, params) {
-  const p = Object.fromEntries(params.map(([n, , v]) => [n, v ?? null]));
-  calls.push({ proc, p });
-  let rows;
-  if (proc === 'dbo.sp_history_list_v2') {
-    rows = HISTORY.filter((r) => (p.status === null || r.status === p.status)
-      && (p.data_type === null || r.data_type === p.data_type)
-      && (p.notified_start === null || new Date(r.notified_at) >= p.notified_start)
-      && (p.notified_end === null || new Date(r.notified_at) <= p.notified_end))
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  } else if (proc === 'dbo.sp_employee_list') {
-    rows = EMPLOYEES.filter((r) => p.department_name === null || r.department_name === p.department_name)
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
-  } else {
-    throw new Error(`unexpected ${proc}`);
-  }
-  const total = rows.length;
-  return rows.slice((p.page - 1) * p.page_size, p.page * p.page_size).map((r) => ({ ...r, total_count: total }));
-}
-
-const sqlType = () => 'type';
-const sql = new Proxy(sqlType, { get: () => sqlType });
-
-const fakes = {
-  '@azure/functions': { app: { http: (name, o) => { handlers[name] = o.handler; } } },
-  [path.resolve(__dirname, '../src/db.js')]: { exec, sql, isRetryable: () => false },
-  [path.resolve(__dirname, '../src/blobImages.js')]: {
-    enabled: () => true,
-    imageLinks: async () => ({}),
-    storeExport: async (fileName, text) => {
-      stored.push({ fileName, text });
-      return { url: `https://blob/${fileName}`, expiresOn: '2026-10-13T00:15:00Z' };
-    },
-  },
-  [path.resolve(__dirname, '../src/fuzzyMatch.js')]: { fuzzyMatchEmployees: () => [] },
-};
-const origLoad = Module._load;
-Module._load = function load(request, parent, ...rest) {
-  if (fakes[request]) return fakes[request];
-  if (parent && request.startsWith('.')) {
-    const full = Module._resolveFilename(request, parent);
-    if (fakes[full]) return fakes[full];
-  }
-  return origLoad.call(this, request, parent, ...rest);
-};
-require('../src/index.js');
-Module._load = origLoad;
-
-const context = { log() {}, warn() {}, error() {} };
-const call = async (name, query) => {
-  calls.length = 0;
-  return handlers[name]({ query: new URLSearchParams(query) }, context);
-};
+data.history = HISTORY;
+data.employees = EMPLOYEES;
 
 /* ---------------------------------------------------------------- History */
 

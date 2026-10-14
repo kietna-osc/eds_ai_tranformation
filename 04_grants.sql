@@ -29,6 +29,7 @@ GRANT EXECUTE ON OBJECT::dbo.sp_history_list             TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_history_insert           TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_history_set_planner_task TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_set_delivered            TO [func-eds-dev];
+GRANT EXECUTE ON OBJECT::dbo.sp_history_planner_sync    TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_employee_list            TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_match_candidates         TO [func-eds-dev];
 GRANT EXECUTE ON OBJECT::dbo.sp_employee_fuzzy_roster    TO [func-eds-dev];

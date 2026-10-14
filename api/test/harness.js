@@ -1,0 +1,88 @@
+/* Loads src/index.js with @azure/functions, the database (db.js), Blob Storage
+   (blobImages.js) and fuzzyMatch replaced by in-memory fakes, so handler tests need
+   no npm install, no Azure and no database.
+
+   The fake database emulates the stored procedures the handlers call:
+     sp_history_list_v2  filters status / data_type / employee_id / notified_* / delivered_*
+                         (inclusive, like the SQL), newest created_at first, then pages
+     sp_employee_list    department_name exact (unused by the handlers now), ordered by
+                         full_name, then pages
+   Set `data.history` / `data.employees` before calling a handler. */
+const Module = require('node:module');
+const path = require('node:path');
+
+const handlers = {};
+const calls = [];
+const stored = [];
+const data = { history: [], employees: [] };
+
+const inRange = (v, from, to) => {
+  if (from === null && to === null) return true;
+  if (!v) return false;
+  const d = new Date(v);
+  return (from === null || d >= from) && (to === null || d <= to);
+};
+
+async function exec(proc, params) {
+  const p = Object.fromEntries(params.map(([n, , v]) => [n, v ?? null]));
+  calls.push({ proc, p });
+  let rows;
+  if (proc === 'dbo.sp_history_list_v2') {
+    rows = data.history.filter((r) => (p.status === null || r.status === p.status)
+      && (p.data_type === null || r.data_type === p.data_type)
+      && (p.employee_id === null || String(r.employee_id) === String(p.employee_id))
+      && inRange(r.notified_at, p.notified_start, p.notified_end)
+      && inRange(r.delivered_at, p.delivered_start, p.delivered_end))
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.history_id - a.history_id);
+  } else if (proc === 'dbo.sp_employee_list') {
+    rows = data.employees.filter((r) => p.department_name === null || r.department_name === p.department_name)
+      .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
+  } else {
+    throw new Error(`unexpected ${proc}`);
+  }
+  const total = rows.length;
+  return rows.slice((p.page - 1) * p.page_size, p.page * p.page_size).map((r) => ({ ...r, total_count: total }));
+}
+
+const sqlType = () => 'type';
+const sql = new Proxy(sqlType, { get: () => sqlType });
+const src = (f) => path.resolve(__dirname, '../src', f);
+const fakes = {
+  '@azure/functions': { app: { http: (name, o) => { handlers[name] = o.handler; } } },
+  [src('db.js')]: { exec, sql, isRetryable: () => false },
+  [src('blobImages.js')]: {
+    enabled: () => true,
+    imageLinks: async () => ({}),
+    storeExport: async (fileName, text) => {
+      stored.push({ fileName, text });
+      return { url: `https://blob/${fileName}`, expiresOn: '2026-10-13T00:15:00Z' };
+    },
+  },
+  [src('fuzzyMatch.js')]: { fuzzyMatchEmployees: () => [] },
+};
+
+const origLoad = Module._load;
+Module._load = function load(request, parent, ...rest) {
+  if (fakes[request]) return fakes[request];
+  if (parent && request.startsWith('.')) {
+    const full = Module._resolveFilename(request, parent);
+    if (fakes[full]) return fakes[full];
+  }
+  return origLoad.call(this, request, parent, ...rest);
+};
+require('../src/index.js');
+Module._load = origLoad;
+
+const context = { log() {}, warn() {}, error() {} };
+
+/** Calls a handler with a query (object or URLSearchParams). */
+async function call(name, query) {
+  calls.length = 0;
+  const q = query instanceof URLSearchParams ? query : new URLSearchParams(query);
+  return handlers[name]({ query: q }, context);
+}
+
+/** CSV text -> data lines (no BOM, no header, no trailing blank). */
+const csvLines = (text) => text.replace(/^﻿/, '').trim().split('\r\n').slice(1);
+
+module.exports = { handlers, calls, stored, data, call, csvLines };
