@@ -1176,10 +1176,8 @@
                       "type": "integer"
                     },
                     "searchKeyword": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": "string",
+                      "nullable": true
                     },
                     "file": {
                       "type": "object",
