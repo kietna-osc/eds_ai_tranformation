@@ -55,7 +55,6 @@ CREATE TABLE dbo.history
     data_type                  VARCHAR(20)     NOT NULL,
     notified_at                DATETIME2(0)    NULL,
     delivered_at               DATETIME2(0)    NULL,
-    delivered_by               NVARCHAR(320)   NULL,
     planner_task_id            NVARCHAR(100)   NULL,
     created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_created_at DEFAULT (SYSUTCDATETIME()),
     updated_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_updated_at DEFAULT (SYSUTCDATETIME()),
@@ -176,6 +175,9 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_employee_id' A
 CREATE INDEX IX_history_employee_id ON dbo.history (employee_id);
 GO
 
+-- delivered_by (受取担当者) was never filled and nothing read it: dropped 2026-10-16.
+IF COL_LENGTH('dbo.history', 'delivered_by') IS NOT NULL
+    ALTER TABLE dbo.history DROP COLUMN delivered_by;
 IF COL_LENGTH('dbo.history', 'ocr_name') IS NOT NULL
     ALTER TABLE dbo.history DROP COLUMN ocr_name;
 IF COL_LENGTH('dbo.history', 'ocr_department') IS NOT NULL
@@ -230,7 +232,6 @@ CREATE TABLE dbo.ocr_history
     data_type                  VARCHAR(20)     NOT NULL,
     notified_at                DATETIME2(0)    NULL,
     delivered_at               DATETIME2(0)    NULL,
-    delivered_by               NVARCHAR(320)   NULL,
     planner_task_id            NVARCHAR(100)   NULL,
     ocr_receipt_name           NVARCHAR(200)   NULL,
     ocr_receipt_department     NVARCHAR(200)   NULL,
@@ -239,12 +240,23 @@ CREATE TABLE dbo.ocr_history
     ocr_sender_content         NVARCHAR(1000)  NULL,
     ocr_sender_address         NVARCHAR(500)   NULL,
     ocr_model_name             NVARCHAR(200)   NULL,
+    operator_name              NVARCHAR(200)   NULL,
+    operator_email             NVARCHAR(320)   NULL,
     created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_ocr_history_created_at DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT PK_ocr_history PRIMARY KEY CLUSTERED (ocr_id),
     CONSTRAINT FK_ocr_history_history FOREIGN KEY (history_id) REFERENCES dbo.history (history_id) ON DELETE SET NULL,
     CONSTRAINT CK_ocr_history_status CHECK (status IN ('Notified', 'Delivered')),
     CONSTRAINT CK_ocr_history_data_type CHECK (data_type IN ('Identified', 'Unknown'))
 );
+GO
+IF COL_LENGTH('dbo.ocr_history', 'delivered_by') IS NOT NULL
+    ALTER TABLE dbo.ocr_history DROP COLUMN delivered_by;
+GO
+-- Who scanned and pressed Register (Power Apps User().FullName / User().Email).
+IF COL_LENGTH('dbo.ocr_history', 'operator_name') IS NULL
+    ALTER TABLE dbo.ocr_history ADD operator_name NVARCHAR(200) NULL;
+IF COL_LENGTH('dbo.ocr_history', 'operator_email') IS NULL
+    ALTER TABLE dbo.ocr_history ADD operator_email NVARCHAR(320) NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ocr_history_history_id' AND object_id = OBJECT_ID('dbo.ocr_history'))

@@ -144,7 +144,7 @@
       },
       "post": {
         "summary": "Append history",
-        "description": "Appends one package. Call at the end of the capture flow. Returns history_id.",
+        "description": "Appends one package. Call at the end of the capture flow. Returns history_id. Also writes the matching ocr_history row (same transaction) with operator_name / operator_email.",
         "operationId": "history-insert",
         "requestBody": {
           "content": {
@@ -202,6 +202,16 @@
                   "planner_task_id": {
                     "type": "string",
                     "nullable": true
+                  },
+                  "operator_name": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Who pressed Register (Power Apps User().FullName)."
+                  },
+                  "operator_email": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Their e-mail (User().Email)."
                   }
                 }
               },
@@ -217,7 +227,9 @@
                 "status": "Notified",
                 "data_type": "Identified",
                 "notified_at": "2026-09-10T10:00:00.0000000+00:00",
-                "planner_task_id": null
+                "planner_task_id": null,
+                "operator_name": "受付 花子",
+                "operator_email": "hanako@smartosc.com"
               }
             }
           }
@@ -238,8 +250,7 @@
           "content": {
             "application/json": {
               "example": {
-                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib",
-                "delivered_by": "someone@smartosc.com"
+                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib"
               }
             }
           }
@@ -257,7 +268,7 @@
     "/history/planner-sync": {
       "post": {
         "summary": "Sync status from Planner",
-        "description": "Called by the scheduled flow EDS-PlannerStatusSync with every task of the EDS Planner plan. Tasks reopened in Planner go back to Notified (delivered_at / delivered_by cleared); completed tasks still Notified become Delivered. Only the tasks in the request are touched. Rows delivered after snapshot_at are not reverted. When more than max_revert rows would be reverted, nothing changes and 409 is returned.",
+        "description": "Called by the scheduled flow EDS-PlannerStatusSync with every task of the EDS Planner plan. Tasks reopened in Planner go back to Notified (delivered_at cleared); completed tasks still Notified become Delivered. Only the tasks in the request are touched. Rows delivered after snapshot_at are not reverted. When more than max_revert rows would be reverted, nothing changes and 409 is returned.",
         "operationId": "history-planner-sync",
         "requestBody": {
           "content": {
@@ -928,9 +939,6 @@
                   "delivered_at": {
                     "type": "string"
                   },
-                  "delivered_by": {
-                    "type": "string"
-                  },
                   "planner_task_id": {
                     "type": "string"
                   },
@@ -953,6 +961,12 @@
                     "type": "string"
                   },
                   "ocr_model_name": {
+                    "type": "string"
+                  },
+                  "operator_name": {
+                    "type": "string"
+                  },
+                  "operator_email": {
                     "type": "string"
                   }
                 }
