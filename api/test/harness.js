@@ -37,6 +37,10 @@ async function exec(proc, params) {
   } else if (proc === 'dbo.sp_employee_list') {
     rows = data.employees.filter((r) => p.department_name === null || r.department_name === p.department_name)
       .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
+  } else if (proc === 'dbo.sp_history_insert_v2') {
+    return [{ history_id: 101 }];
+  } else if (proc === 'dbo.sp_ocr_history_insert') {
+    return [{ ocr_id: 7 }];
   } else {
     throw new Error(`unexpected ${proc}`);
   }
@@ -82,7 +86,13 @@ async function call(name, query) {
   return handlers[name]({ query: q }, context);
 }
 
+/** Calls a POST handler with a JSON body. */
+async function post(name, body) {
+  calls.length = 0;
+  return handlers[name]({ json: async () => body, query: new URLSearchParams() }, context);
+}
+
 /** CSV text -> data lines (no BOM, no header, no trailing blank). */
 const csvLines = (text) => text.replace(/^﻿/, '').trim().split('\r\n').slice(1);
 
-module.exports = { handlers, calls, stored, data, call, csvLines };
+module.exports = { handlers, calls, stored, data, call, post, csvLines };

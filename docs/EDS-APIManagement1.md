@@ -462,7 +462,6 @@ Response **200**:
           "status": { "type": "string", "enum": ["Unknown", "Identified"] },
           "notified_at": { "type": ["string", "null"] },
           "delivered_at": { "type": ["string", "null"] },
-          "delivered_by": { "type": ["string", "null"] },
           "planner_task_id": { "type": ["string", "null"] },
           "created_at": { "type": "string" },
           "updated_at": { "type": "string" }
@@ -472,7 +471,7 @@ Response **200**:
           "sender_name", "sender_content", "sender_address",
           "employee_id", "recipient_name",
           "recipient_department_id", "recipient_department_name",
-          "status", "notified_at", "delivered_at", "delivered_by",
+          "status", "notified_at", "delivered_at",
           "planner_task_id", "created_at", "updated_at"
         ]
       }
@@ -490,6 +489,8 @@ Mọi field optional. Có `employee_id` mà không gửi `status` thì API ghi `
 
 `image_url` không bị cắt độ dài. Các field text khác vẫn bị cắt theo độ dài cột.
 
+Cùng transaction, API ghi thêm 1 dòng `ocr_history` (cùng `history_id`, cùng thông tin package) kèm người bấm Register: `operator_name` (Power Apps `User().FullName`) và `operator_email` (`User().Email`). Flow EDS-NotifySelected lấy 2 giá trị này từ payload app gửi lên. Không gửi thì 2 cột là NULL.
+
 `content` mẫu:
 
 ```json
@@ -505,7 +506,9 @@ Mọi field optional. Có `employee_id` mà không gửi `status` thì API ghi `
   "recipient_department_name": "営業部",
   "status": "Identified",
   "notified_at": "2026-09-24T01:00:00Z",
-  "planner_task_id": null
+  "planner_task_id": null,
+  "operator_name": "受付 花子",
+  "operator_email": "hanako@smartosc.com"
 }
 ```
 
@@ -526,7 +529,9 @@ Request schema:
     "recipient_department_name": { "type": ["string", "null"] },
     "status": { "type": ["string", "null"], "enum": ["Unknown", "Identified", null] },
     "notified_at": { "type": ["string", "null"] },
-    "planner_task_id": { "type": ["string", "null"] }
+    "planner_task_id": { "type": ["string", "null"] },
+    "operator_name": { "type": ["string", "null"] },
+    "operator_email": { "type": ["string", "null"] }
   }
 }
 ```
@@ -593,7 +598,6 @@ Response **200**:
 {
   "history_id": 12,
   "planner_task_id": "abc-task-id",
-  "delivered_by": "kietna@smartosc.com",
   "delivered_at": "2026-09-24T02:00:00Z"
 }
 ```
@@ -606,7 +610,6 @@ Request schema:
   "properties": {
     "history_id": { "type": ["integer", "null"] },
     "planner_task_id": { "type": ["string", "null"] },
-    "delivered_by": { "type": ["string", "null"] },
     "delivered_at": { "type": ["string", "null"] }
   }
 }
@@ -618,7 +621,7 @@ Response **200** cùng schema `{ "updated": integer }` của `historySetPlannerT
 
 Đồng bộ trạng thái History theo Planner, `POST /history/planner-sync`. **Không đi qua flow EDS-APIManagement1.** Flow theo lịch `EDS-PlannerStatusSync` gọi thẳng APIM (19:00 các ngày làm việc). Flow đọc toàn bộ task của plan EDS và gửi mỗi task một dòng:
 
-- Task đang mở (bị reopen) mà dòng history là 受取済み → về `Notified`, xóa `delivered_at` và `delivered_by`.
+- Task đang mở (bị reopen) mà dòng history là 受取済み → về `Notified`, xóa `delivered_at`.
 - Task đã Done mà dòng history vẫn là 通知済み → `Delivered`, `delivered_at` = `completed_at` của task. `delivered_at` đã có thì giữ nguyên.
 - Dòng mà task **không có** trong danh sách (task bị xóa, hoặc thuộc trang chưa đọc) thì không bị đụng tới.
 
@@ -805,7 +808,9 @@ Request schema:
     "sender_name": { "type": ["string", "null"] },
     "sender_content": { "type": ["string", "null"] },
     "sender_address": { "type": ["string", "null"] },
-    "model_name": { "type": ["string", "null"] }
+    "model_name": { "type": ["string", "null"] },
+    "operator_name": { "type": ["string", "null"] },
+    "operator_email": { "type": ["string", "null"] }
   }
 }
 ```

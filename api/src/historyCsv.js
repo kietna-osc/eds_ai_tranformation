@@ -11,7 +11,7 @@ const { toCsv } = require('./csv');
 const { filterRows, applyRowFilters, labels, formatTime, tzOffsetOrDefault } = require('./historySearch');
 
 const HEADER = ['履歴ID', '伝票番号', '処理状態', 'データ区分', '受取人', '受取部署',
-  '品名', '送り主', '送り主住所', '通知日時', '受取日時', '受取担当者'];
+  '品名', '送り主', '送り主住所', '通知日時', '受取日時'];
 
 const text = (v) => (v === undefined || v === null ? '' : String(v));
 const pad = (n) => String(n).padStart(2, '0');
@@ -28,7 +28,7 @@ function buildCsv(rows, tzOffset) {
       text(row.history_id), text(row.slip_no), l.status, l.dataType, l.recipient,
       text(row.recipient_department_name), text(row.sender_content), text(row.sender_name),
       text(row.sender_address), formatTime(row.notified_at, tzOffset),
-      formatTime(row.delivered_at, tzOffset), text(row.delivered_by),
+      formatTime(row.delivered_at, tzOffset),
     ].map(safeCell);
   })]);
 }

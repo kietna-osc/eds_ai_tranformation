@@ -36,7 +36,6 @@ BEGIN
         data_type,
         notified_at,
         delivered_at,
-        delivered_by,
         planner_task_id,
         created_at,
         updated_at,
@@ -105,7 +104,6 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_set_delivered
     @planner_task_id NVARCHAR(100) = NULL,
     @history_id      BIGINT        = NULL,
-    @delivered_by    NVARCHAR(320) = NULL,
     @delivered_at    DATETIME2(0)  = NULL
 AS
 BEGIN
@@ -115,7 +113,6 @@ BEGIN
 
     UPDATE dbo.history
     SET    delivered_at = COALESCE(delivered_at, @delivered_at, SYSUTCDATETIME()),
-           delivered_by = COALESCE(delivered_by, @delivered_by),
            status       = 'Delivered'
     WHERE  (@planner_task_id IS NOT NULL AND planner_task_id = @planner_task_id)
        OR  (@history_id      IS NOT NULL AND history_id      = @history_id);
@@ -319,7 +316,6 @@ CREATE OR ALTER PROCEDURE dbo.sp_ocr_history_insert
     @data_type                  VARCHAR(20),
     @notified_at                DATETIME2(0)   = NULL,
     @delivered_at               DATETIME2(0)   = NULL,
-    @delivered_by               NVARCHAR(320)  = NULL,
     @planner_task_id            NVARCHAR(100)  = NULL,
     @ocr_receipt_name           NVARCHAR(200)  = NULL,
     @ocr_receipt_department     NVARCHAR(200)  = NULL,
@@ -327,7 +323,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_ocr_history_insert
     @ocr_sender_name            NVARCHAR(200)  = NULL,
     @ocr_sender_content         NVARCHAR(1000) = NULL,
     @ocr_sender_address         NVARCHAR(500)  = NULL,
-    @ocr_model_name             NVARCHAR(200)  = NULL
+    @ocr_model_name             NVARCHAR(200)  = NULL,
+    @operator_name              NVARCHAR(200)  = NULL,
+    @operator_email             NVARCHAR(320)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -344,17 +342,19 @@ BEGIN
         history_id, slip_no, image_url,
         sender_name, sender_content, sender_address,
         employee_id, recipient_name, recipient_department_name,
-        status, data_type, notified_at, delivered_at, delivered_by, planner_task_id,
+        status, data_type, notified_at, delivered_at, planner_task_id,
         ocr_receipt_name, ocr_receipt_department, ocr_slip_no,
-        ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name
+        ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name,
+        operator_name, operator_email
     )
     VALUES (
         @history_id, @slip_no, @image_url,
         @sender_name, @sender_content, @sender_address,
         @employee_id, @recipient_name, @recipient_department_name,
-        @status, @data_type, @notified_at, @delivered_at, @delivered_by, @planner_task_id,
+        @status, @data_type, @notified_at, @delivered_at, @planner_task_id,
         @ocr_receipt_name, @ocr_receipt_department, @ocr_slip_no,
-        @ocr_sender_name, @ocr_sender_content, @ocr_sender_address, @ocr_model_name
+        @ocr_sender_name, @ocr_sender_content, @ocr_sender_address, @ocr_model_name,
+        @operator_name, @operator_email
     );
 
     SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS ocr_id;
@@ -382,6 +382,9 @@ END
 GO
 
 ------------------------------------------------ Append history (same columns as sp_history_insert)
+-- Register (EDS-NotifySelected -> POST /api/history). Also logs the read in ocr_history,
+-- with who pressed Register, in the same transaction: both rows or neither, so the
+-- flow's retry never leaves a history row without its log.
 CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
     @slip_no                   NVARCHAR(100),
     @image_url                 NVARCHAR(MAX),
@@ -394,14 +397,45 @@ CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
     @status                    VARCHAR(20)    = 'Notified',
     @data_type                 VARCHAR(20),
     @notified_at               DATETIME2(0)   = NULL,
-    @planner_task_id           NVARCHAR(100)  = NULL
+    @planner_task_id           NVARCHAR(100)  = NULL,
+    @operator_name             NVARCHAR(200)  = NULL,
+    @operator_email            NVARCHAR(320)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    EXEC dbo.sp_history_insert
-        @slip_no, @image_url, @sender_name, @sender_content, @sender_address,
+    SET XACT_ABORT ON;
+    DECLARE @history_id BIGINT;
+
+    -- Inserts itself (same columns as sp_history_insert) instead of calling it by
+    -- position, so it never depends on that procedure's parameter order in the database.
+    BEGIN TRANSACTION;
+    INSERT dbo.history (slip_no, image_url, sender_name, sender_content, sender_address,
+                        employee_id,
+                        recipient_name, recipient_department_name,
+                        status, data_type, notified_at, planner_task_id)
+    VALUES (@slip_no, @image_url, @sender_name, @sender_content, @sender_address,
+            @employee_id,
+            @recipient_name, @recipient_department_name,
+            @status, @data_type, @notified_at, @planner_task_id);
+    SET @history_id = SCOPE_IDENTITY();
+
+    INSERT dbo.ocr_history (
+        history_id, slip_no, image_url,
+        sender_name, sender_content, sender_address,
+        employee_id, recipient_name, recipient_department_name,
+        status, data_type, notified_at, planner_task_id,
+        operator_name, operator_email
+    )
+    VALUES (
+        @history_id, @slip_no, @image_url,
+        @sender_name, @sender_content, @sender_address,
         @employee_id, @recipient_name, @recipient_department_name,
-        @status, @data_type, @notified_at, @planner_task_id;
+        @status, @data_type, @notified_at, @planner_task_id,
+        @operator_name, @operator_email
+    );
+    COMMIT TRANSACTION;
+
+    SELECT @history_id AS history_id;
 END
 GO
 
@@ -457,7 +491,7 @@ GO
 --   @tasks_json  [{ "planner_task_id": "...", "completed": true|false, "completed_at": "ISO"|null }]
 --   @snapshot_at when the flow started reading Planner (UTC)
 --   @max_revert  most rows allowed to go back to Notified in one run
--- Task open + row delivered   -> Notified, delivered_at / delivered_by cleared.
+-- Task open + row delivered   -> Notified, delivered_at cleared.
 --   Skipped when the row was delivered after @snapshot_at: the task list is older
 --   than that delivery, so the task was completed again in the meantime.
 -- Task completed + row not delivered -> Delivered, delivered_at = completed_at
@@ -495,8 +529,7 @@ BEGIN
     -- Reopened in Planner -> back to 通知済み.
     UPDATE h
     SET    status       = 'Notified',
-           delivered_at = NULL,
-           delivered_by = NULL
+           delivered_at = NULL
     FROM   dbo.history h
     JOIN   @planner_tasks t ON t.planner_task_id = h.planner_task_id
     WHERE  t.is_completed = 0

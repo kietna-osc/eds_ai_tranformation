@@ -17,7 +17,7 @@ App ダウンロード → EDS-APIManagement1 ("history", {search_keyword, tz_of
 
 ## The file
 
-- Columns: 履歴ID, 伝票番号, 処理状況, データ区分, 受取人, 受取部署, 品名, 送り主, 送り主住所, 通知日時, 受取日時, 受取担当者.
+- Columns: 履歴ID, 伝票番号, 処理状況, データ区分, 受取人, 受取部署, 品名, 送り主, 送り主住所, 通知日時, 受取日時.
 - The labels are the same as on the screen (通知済み / 荷物受取済み, 受取人指定あり / 受取人不明, 不明 for no recipient).
 - Times are in the user's time zone (`TimeZoneOffset()`), formatted `yyyy/mm/dd hh:mm`.
 - UTF-8 with a BOM and CRLF line endings, so Japanese Excel opens it directly.

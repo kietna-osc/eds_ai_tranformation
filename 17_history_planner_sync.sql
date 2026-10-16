@@ -14,7 +14,7 @@
 --   @tasks_json  [{ "planner_task_id": "...", "completed": true|false, "completed_at": "ISO"|null }]
 --   @snapshot_at when the flow started reading Planner (UTC)
 --   @max_revert  most rows allowed to go back to Notified in one run
--- Task open + row delivered   -> Notified, delivered_at / delivered_by cleared.
+-- Task open + row delivered   -> Notified, delivered_at cleared.
 --   Skipped when the row was delivered after @snapshot_at: the task list is older
 --   than that delivery, so the task was completed again in the meantime.
 -- Task completed + row not delivered -> Delivered, delivered_at = completed_at
@@ -52,8 +52,7 @@ BEGIN
     -- Reopened in Planner -> back to 通知済み.
     UPDATE h
     SET    status       = 'Notified',
-           delivered_at = NULL,
-           delivered_by = NULL
+           delivered_at = NULL
     FROM   dbo.history h
     JOIN   @planner_tasks t ON t.planner_task_id = h.planner_task_id
     WHERE  t.is_completed = 0

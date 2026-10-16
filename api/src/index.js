@@ -39,7 +39,6 @@ const toHistory = (row) => ({
   data_type: row.data_type,
   notified_at: row.notified_at,
   delivered_at: row.delivered_at,
-  delivered_by: row.delivered_by,
   planner_task_id: row.planner_task_id,
   created_at: row.created_at,
   updated_at: row.updated_at,
@@ -271,6 +270,9 @@ app.http('historyInsert', {
       ['data_type', sql.VarChar(20), dataType],
       ['notified_at', sql.DateTime2, dateOrNull(b.notified_at)],
       ['planner_task_id', sql.NVarChar(100), strOrNull(b.planner_task_id, 100)],
+      // who pressed Register: stored on the ocr_history row the proc writes with it
+      ['operator_name', sql.NVarChar(200), strOrNull(b.operator_name, 200)],
+      ['operator_email', sql.NVarChar(320), strOrNull(b.operator_email, 320)],
     ], context);
     return json(201, { history_id: Number(rows[0]?.history_id) });
   }),
@@ -337,7 +339,6 @@ app.http('historySetDelivered', {
     const rows = await exec('dbo.sp_set_delivered', [
       ['planner_task_id', sql.NVarChar(100), taskId],
       ['history_id', sql.BigInt, historyId],
-      ['delivered_by', sql.NVarChar(320), strOrNull(b.delivered_by, 320)],
       ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
     ], context);
     const updated = rows[0]?.rows_updated ?? 0;
@@ -681,7 +682,6 @@ app.http('ocrHistoryInsert', {
       ['data_type', sql.VarChar(20), dataType],
       ['notified_at', sql.DateTime2, dateOrNull(b.notified_at)],
       ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
-      ['delivered_by', sql.NVarChar(320), strOrNull(b.delivered_by, 320)],
       ['planner_task_id', sql.NVarChar(100), strOrNull(b.planner_task_id, 100)],
       ['ocr_receipt_name', sql.NVarChar(200), strOrNull(b.ocr_receipt_name, 200)],
       ['ocr_receipt_department', sql.NVarChar(200), strOrNull(b.ocr_receipt_department, 200)],
@@ -690,6 +690,8 @@ app.http('ocrHistoryInsert', {
       ['ocr_sender_content', sql.NVarChar(1000), strOrNull(b.ocr_sender_content, 1000)],
       ['ocr_sender_address', sql.NVarChar(500), strOrNull(b.ocr_sender_address, 500)],
       ['ocr_model_name', sql.NVarChar(200), strOrNull(b.ocr_model_name, 200)],
+      ['operator_name', sql.NVarChar(200), strOrNull(b.operator_name, 200)],
+      ['operator_email', sql.NVarChar(320), strOrNull(b.operator_email, 320)],
     ], context);
     return json(201, { ocr_id: Number(rows[0]?.ocr_id) });
   }),
