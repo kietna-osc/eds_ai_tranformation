@@ -581,7 +581,7 @@
       "get": {
         "summary": "Download employees as CSV",
         "operationId": "employee-export",
-        "description": "Builds a CSV (社員番号, 社員氏名, メール, 部署 - the import file columns) of the employees matching the same filters as GET /employees except 登録日時 (created_start / created_end are ignored) (all when none) in Blob Storage and returns a 15-minute download link.",
+        "description": "Builds a CSV (社員番号, 社員氏名, メール, 部署 - the import file columns) of the employees matching the same filters as GET /employees (登録日時 included, so the file has the same rows as the list) (all when none) in Blob Storage and returns a 15-minute download link.",
         "parameters": [
           {
             "name": "employee_id",
@@ -613,6 +613,24 @@
             "description": "部署 (contains)",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "created_start",
+            "in": "query",
+            "description": "登録日時 From (inclusive)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "created_end",
+            "in": "query",
+            "description": "登録日時 To (inclusive)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {

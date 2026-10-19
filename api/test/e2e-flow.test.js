@@ -55,10 +55,12 @@ const FLOW_URI = {
   historyList: "https://apim-eds-dev.azure-api.net/eds/history?page=@{coalesce(body('Parse_list_params')?['page'], 1)}&pageSize=@{coalesce(body('Parse_list_params')?['pageSize'], body('Parse_list_params')?['page_size'], 50)}&status=@{encodeUriComponent(coalesce(body('Parse_list_params')?['status'], ''))}&data_type=@{encodeUriComponent(coalesce(body('Parse_list_params')?['data_type'], ''))}&slip_no=@{encodeUriComponent(coalesce(body('Parse_list_params')?['slip_no'], ''))}&recipient_name=@{encodeUriComponent(coalesce(body('Parse_list_params')?['recipient_name'], ''))}&notified_start=@{encodeUriComponent(coalesce(body('Parse_list_params')?['notified_start'], ''))}&notified_end=@{encodeUriComponent(coalesce(body('Parse_list_params')?['notified_end'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_list_params')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_list_params')?['tz_offset'], -540)}",
   historyExport: "https://apim-eds-dev.azure-api.net/eds/history/export?status=@{encodeUriComponent(coalesce(body('Parse_export_params')?['status'], ''))}&data_type=@{encodeUriComponent(coalesce(body('Parse_export_params')?['data_type'], ''))}&slip_no=@{encodeUriComponent(coalesce(body('Parse_export_params')?['slip_no'], ''))}&recipient_name=@{encodeUriComponent(coalesce(body('Parse_export_params')?['recipient_name'], ''))}&notified_start=@{encodeUriComponent(coalesce(body('Parse_export_params')?['notified_start'], ''))}&notified_end=@{encodeUriComponent(coalesce(body('Parse_export_params')?['notified_end'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_export_params')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_export_params')?['tz_offset'], -540)}",
   employeeList: "https://apim-eds-dev.azure-api.net/eds/employees?page=@{coalesce(body('Parse_list_params_1')?['page'], 1)}&pageSize=@{coalesce(body('Parse_list_params_1')?['pageSize'], body('Parse_list_params_1')?['page_size'], 50)}&employee_id=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['employee_id'], ''))}&full_name=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['full_name'], ''))}&email=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['email'], ''))}&department_name=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['department_name'], ''))}&created_start=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['created_start'], ''))}&created_end=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['created_end'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_list_params_1')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_list_params_1')?['tz_offset'], -540)}",
-  employeeExport: "https://apim-eds-dev.azure-api.net/eds/employees/export?employee_id=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['employee_id'], ''))}&full_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['full_name'], ''))}&email=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['email'], ''))}&department_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['department_name'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_export_params_emp')?['tz_offset'], -540)}",
+  employeeExport: "https://apim-eds-dev.azure-api.net/eds/employees/export?employee_id=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['employee_id'], ''))}&full_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['full_name'], ''))}&email=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['email'], ''))}&department_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['department_name'], ''))}&created_start=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['created_start'], ''))}&created_end=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['created_end'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_export_params_emp')?['tz_offset'], -540)}",
 };
 // The Query_history URI before the panel change: forwards status and search_keyword only.
 const OLD_FLOW_HISTORY_LIST = "https://apim-eds-dev.azure-api.net/eds/history?page=@{coalesce(body('Parse_list_params')?['page'], 1)}&pageSize=@{coalesce(body('Parse_list_params')?['pageSize'], 50)}&status=@{coalesce(body('Parse_list_params')?['status'], '')}&search_keyword=@{coalesce(body('Parse_list_params')?['search_keyword'], '')}&tz_offset=@{coalesce(body('Parse_list_params')?['tz_offset'], -540)}";
+// Export_employee before 2026-10-19: no created_start / created_end, so 登録日時 is dropped.
+const OLD_FLOW_EMPLOYEE_EXPORT = "https://apim-eds-dev.azure-api.net/eds/employees/export?employee_id=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['employee_id'], ''))}&full_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['full_name'], ''))}&email=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['email'], ''))}&department_name=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['department_name'], ''))}&search_keyword=@{encodeUriComponent(coalesce(body('Parse_export_params_emp')?['search_keyword'], ''))}&tz_offset=@{coalesce(body('Parse_export_params_emp')?['tz_offset'], -540)}";
 
 const PARSE = {
   historyList: 'Parse_list_params', historyExport: 'Parse_export_params',
@@ -254,12 +256,19 @@ test('e2e Employee list: 部署 contains + 登録日時 range', async () => {
   assert.deepEqual(r.jsonBody.value.map((v) => v.employee_id), ['E002']);
 });
 
-test('e2e Employee ダウンロード: 4 columns, 登録日時 ignored', async () => {
+test('e2e Employee ダウンロード: 4 columns, same rows as the list (登録日時 included)', async () => {
   stored.length = 0;
   const r = await e2e('employeeExport', appEmployeeContent({ dept: '営業', from: jst(2026, 10, 8), to: jst(2026, 10, 8, 23, 59) }, { list: false }));
   assert.equal(r.status, 200);
-  assert.equal(r.jsonBody.rowCount, 2); // E001 + E002: the date range is ignored
+  assert.equal(r.jsonBody.rowCount, 1); // E002 only, like the list: E001 was created on 10/01
   const text = stored[0].text.replace(/^﻿/, '');
   assert.equal(text.split('\r\n')[0], '社員番号,社員氏名,メール,部署');
   assert.ok(!/2026/.test(text));
+});
+
+test('cause check: a flow without created_start / created_end still downloads every date', async () => {
+  stored.length = 0;
+  const content = appEmployeeContent({ dept: '営業', from: jst(2026, 10, 8), to: jst(2026, 10, 8, 23, 59) }, { list: false });
+  const r = await e2e('employeeExport', content, OLD_FLOW_EMPLOYEE_EXPORT);
+  assert.equal(r.jsonBody.rowCount, 2); // E001 + E002: the CSV has more rows than the list
 });

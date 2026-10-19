@@ -441,20 +441,17 @@ app.http('employeeList', {
 });
 
 /* ------------------------------------- GET /api/employees/export
-   CSV of the employees matching the Employee screen's filters, except that dates are
-   ignored: created_start / created_end (登録日時) are not applied. Columns are the
-   import file's four: 社員番号, 社員氏名, メール, 部署 (no 登録日時 / 更新日時), so the
-   file can be edited and imported again. Stored in Blob Storage; returns a short-lived link. */
+   CSV of the employees matching the Employee screen's filters, 登録日時 included, so the
+   file has the same rows as the list. Columns are the import file's four: 社員番号, 社員氏名,
+   メール, 部署 (no 登録日時 / 更新日時), so the file can be edited and imported again.
+   Stored in Blob Storage; returns a short-lived link. */
 app.http('employeeExport', {
   methods: ['GET'],
   authLevel: 'function',
   route: 'employees/export',
   handler: handler('employeeExport', async (request, context) => {
     if (!blobImages.enabled()) return json(503, { error: 'download is not configured (BLOB_ACCOUNT_URL)' });
-    const q = request.query;
-    // The download ignores 登録日時: drop the date parameters before parsing.
-    const f = employeeSearch.parseFilters((name) =>
-      (name === 'created_start' || name === 'created_end' ? null : q.get(name)));
+    const f = employeeSearch.parseFilters((name) => request.query.get(name));
     if (f.error) return json(400, { error: f.error });
 
     const { all, matched } = await employeesMatching(f, context, 'employeeExport');

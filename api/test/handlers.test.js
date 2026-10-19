@@ -119,15 +119,17 @@ test('employeeExport: 4 columns, same rows as the list', async () => {
   assert.ok(lines.slice(1).every((l) => l.split(',').length === 4 && l.endsWith('DX推進部')));
 });
 
-test('employeeExport ignores 登録日時 (created_start / created_end)', async () => {
+test('employeeExport applies 登録日時 (created_start / created_end) like the list', async () => {
   stored.length = 0;
-  const list = await call('employeeList', { created_start: '2026-10-03T00:00:00Z', created_end: '2026-10-05T23:59:59Z' });
+  const range = { created_start: '2026-10-03T00:00:00Z', created_end: '2026-10-05T23:59:59Z' };
+  const list = await call('employeeList', range);
   assert.equal(list.jsonBody.totalCount, 3);
-  const r = await call('employeeExport', { created_start: '2026-10-03T00:00:00Z', created_end: '2026-10-05T23:59:59Z' });
+  const r = await call('employeeExport', range);
   assert.equal(r.status, 200);
-  assert.equal(r.jsonBody.rowCount, 12);
-  // an invalid date is ignored too, not a 400
-  assert.equal((await call('employeeExport', { created_start: 'bad', department_name: 'DX' })).jsonBody.rowCount, 6);
+  assert.equal(r.jsonBody.rowCount, 3);
+  assert.equal(stored[0].text.slice(1).trim().split('\r\n').length, 4); // header + 3
+  // an invalid date is a 400, as on the list
+  assert.equal((await call('employeeExport', { created_start: 'bad', department_name: 'DX' })).status, 400);
 });
 
 test('employeeExport with no filter exports everyone', async () => {

@@ -52,7 +52,7 @@ Text matches ignore case, full-width / half-width and spaces.
   - `historyList`: only the SQL filters means paging in SQL. Any JS filter means every matching row is read, then filtered and paged.
   - `historyExport`: same filters as the list. The CSV column 処理状況 is renamed 処理状態.
   - `employeeList`: no filter means paging in SQL. Any filter means filtering in JS.
-  - **New** `employeeExport`: `GET /api/employees/export`. Same filters as the list **except 登録日時** (`created_start` / `created_end` are ignored). Uses the same Blob container and 15-minute link as the History download.
+  - **New** `employeeExport`: `GET /api/employees/export`. Same filters as the list, 登録日時 (`created_start` / `created_end`) included since 2026-10-19 (before that it was ignored). Uses the same Blob container and 15-minute link as the History download.
 - No SQL or stored procedure changes (the DB is frozen).
 - Tests: `cd api && npm test` (24 tests). They use fake DB and Blob objects, so no install or Azure access is needed.
 
@@ -95,8 +95,8 @@ In each `Parse …` action, add the listed properties to the schema. In each HTT
 | Item | Value |
 |---|---|
 | Case equals | `employeeExport` |
-| `Parse_export_params_emp` content | `@triggerBody()?['text_1']`, schema properties `employee_id`, `full_name`, `email`, `department_name`, `search_keyword` (`["string", "null"]`) and `tz_offset` (`["integer", "null"]`). No dates: the download ignores 登録日時 |
-| `Export_employee` (HTTP) | `GET https://apim-eds-dev.azure-api.net/eds/employees/export`, header `Authorization: Bearer @{body('Get_auth_token')?['access_token']}`, the 6 queries above (`tz_offset`: `@{coalesce(body('Parse_export_params_emp')?['tz_offset'], -540)}`), retry policy none |
+| `Parse_export_params_emp` content | `@triggerBody()?['text_1']`, schema properties `employee_id`, `full_name`, `email`, `department_name`, `created_start`, `created_end`, `search_keyword` (`["string", "null"]`) and `tz_offset` (`["integer", "null"]`) |
+| `Export_employee` (HTTP) | `GET https://apim-eds-dev.azure-api.net/eds/employees/export`, header `Authorization: Bearer @{body('Get_auth_token')?['access_token']}`, queries `employee_id`, `full_name`, `email`, `department_name`, `created_start`, `created_end`, `search_keyword` (each `@{coalesce(body('Parse_export_params_emp')?['<name>'], '')}`) and `tz_offset` (`tz_offset`: `@{coalesce(body('Parse_export_params_emp')?['tz_offset'], -540)}`), retry policy none |
 | `Respond_export_emp` | Run after `Export_employee` Succeeded, body `response = @{body('Export_employee')}`, `action = @{triggerBody()?['text_2']}` |
 | `Respond_export_emp_1` | Run after `Export_employee` Failed / TimedOut / Skipped, body `error = データのダウンロードに失敗しました。しばらくしてから再度お試しください。` |
 
