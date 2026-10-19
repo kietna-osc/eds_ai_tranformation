@@ -273,6 +273,14 @@ app.http('historyInsert', {
       // who pressed Register: stored on the ocr_history row the proc writes with it
       ['operator_name', sql.NVarChar(200), strOrNull(b.operator_name, 200)],
       ['operator_email', sql.NVarChar(320), strOrNull(b.operator_email, 320)],
+      // what the OCR read before the operator edited it: also only on ocr_history
+      ['ocr_receipt_name', sql.NVarChar(200), strOrNull(b.ocr_receipt_name, 200)],
+      ['ocr_receipt_department', sql.NVarChar(200), strOrNull(b.ocr_receipt_department, 200)],
+      ['ocr_slip_no', sql.NVarChar(100), strOrNull(b.ocr_slip_no, 100)],
+      ['ocr_sender_name', sql.NVarChar(200), strOrNull(b.ocr_sender_name, 200)],
+      ['ocr_sender_content', sql.NVarChar(1000), strOrNull(b.ocr_sender_content, 1000)],
+      ['ocr_sender_address', sql.NVarChar(500), strOrNull(b.ocr_sender_address, 500)],
+      ['ocr_model_name', sql.NVarChar(200), strOrNull(b.ocr_model_name, 200)],
     ], context);
     return json(201, { history_id: Number(rows[0]?.history_id) });
   }),
@@ -644,56 +652,6 @@ app.http('employeeDelete', {
     return deleted
       ? json(200, { deleted })
       : json(404, { error: 'employee_id not found' });
-  }),
-});
-
-/* ------------------------------------------- POST /api/ocr-history
-   Appends one OCR read: confirmed package fields plus raw ocr_ values. */
-app.http('ocrHistoryInsert', {
-  methods: ['POST'],
-  authLevel: 'function',
-  route: 'ocr-history',
-  handler: handler('ocrHistoryInsert', async (request, context) => {
-    const b = await request.json().catch(() => ({}));
-    const slipNo = strOrNull(b.slip_no, 100);
-    const imageUrl = b.image_url == null || b.image_url === '' ? null : String(b.image_url);
-    const dataType = strOrNull(b.data_type, 20);
-    const status = strOrNull(b.status, 20) || 'Notified';
-    if (!slipNo) return json(400, { error: 'slip_no is required' });
-    if (!imageUrl) return json(400, { error: 'image_url is required' });
-    if (!DATA_TYPES.has(dataType)) {
-      return json(400, { error: 'data_type must be one of Identified, Unknown' });
-    }
-    if (!STATUSES.has(status)) {
-      return json(400, { error: 'status must be one of Notified, Delivered' });
-    }
-
-    const rows = await exec('dbo.sp_ocr_history_insert', [
-      ['history_id', sql.BigInt, intOrNull(b.history_id)],
-      ['slip_no', sql.NVarChar(100), slipNo],
-      ['image_url', sql.NVarChar(sql.MAX), imageUrl],
-      ['sender_name', sql.NVarChar(200), strOrNull(b.sender_name, 200)],
-      ['sender_content', sql.NVarChar(1000), strOrNull(b.sender_content, 1000)],
-      ['sender_address', sql.NVarChar(500), strOrNull(b.sender_address, 500)],
-      ['employee_id', sql.NVarChar(50), strOrNull(b.employee_id, 50)],
-      ['recipient_name', sql.NVarChar(200), strOrNull(b.recipient_name, 200)],
-      ['recipient_department_name', sql.NVarChar(200), strOrNull(b.recipient_department_name, 200)],
-      ['status', sql.VarChar(20), status],
-      ['data_type', sql.VarChar(20), dataType],
-      ['notified_at', sql.DateTime2, dateOrNull(b.notified_at)],
-      ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
-      ['planner_task_id', sql.NVarChar(100), strOrNull(b.planner_task_id, 100)],
-      ['ocr_receipt_name', sql.NVarChar(200), strOrNull(b.ocr_receipt_name, 200)],
-      ['ocr_receipt_department', sql.NVarChar(200), strOrNull(b.ocr_receipt_department, 200)],
-      ['ocr_slip_no', sql.NVarChar(100), strOrNull(b.ocr_slip_no, 100)],
-      ['ocr_sender_name', sql.NVarChar(200), strOrNull(b.ocr_sender_name, 200)],
-      ['ocr_sender_content', sql.NVarChar(1000), strOrNull(b.ocr_sender_content, 1000)],
-      ['ocr_sender_address', sql.NVarChar(500), strOrNull(b.ocr_sender_address, 500)],
-      ['ocr_model_name', sql.NVarChar(200), strOrNull(b.ocr_model_name, 200)],
-      ['operator_name', sql.NVarChar(200), strOrNull(b.operator_name, 200)],
-      ['operator_email', sql.NVarChar(320), strOrNull(b.operator_email, 320)],
-    ], context);
-    return json(201, { ocr_id: Number(rows[0]?.ocr_id) });
   }),
 });
 

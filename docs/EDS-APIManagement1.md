@@ -6,7 +6,7 @@ Flow **EDS-APIManagement1** là một cổng. Power App không gọi APIM trực
 
 | Tham số flow | Title | Ý nghĩa |
 | --- | --- | --- |
-| `text` | `table` | Bảng: `employee`, `history`, `ocr_history`, `department` |
+| `text` | `table` | Bảng: `employee`, `history`, `department` |
 | `text_1` | `content` | Chuỗi JSON của object request. Không có field thì gửi `"{}"` |
 | `text_2` | `action` | Tên function trong `api/src/index.js` |
 
@@ -41,7 +41,6 @@ Datetime trong response là chuỗi UTC, ví dụ `2026-09-24T00:00:00.000Z`.
 | `history` | `historySetDelivered` | POST | `/history/delivered` |
 | `department` | `departmentList` | GET | `/departments` |
 | `department` | `departmentInsert` | POST | `/departments` |
-| `ocr_history` | `ocrHistoryInsert` | POST | `/ocr-history` |
 
 `employee.department_id` là số tự do trên nhân viên. Nó không phải khóa ngoại sang bảng `department`.
 
@@ -491,6 +490,20 @@ Mọi field optional. Có `employee_id` mà không gửi `status` thì API ghi `
 
 Cùng transaction, API ghi thêm 1 dòng `ocr_history` (cùng `history_id`, cùng thông tin package) kèm người bấm Register: `operator_name` (Power Apps `User().FullName`) và `operator_email` (`User().Email`). Flow EDS-NotifySelected lấy 2 giá trị này từ payload app gửi lên. Không gửi thì 2 cột là NULL.
 
+Dòng `ocr_history` đó cũng lưu giá trị OCR **gốc** (trước khi người dùng sửa trên màn hình) qua 7 field `ocr_*`. Các field này chỉ lưu vào `ocr_history`, không lưu vào `history`:
+
+| Field | Nguồn (EDS-ProcessLabel) |
+| --- | --- |
+| `ocr_receipt_name` | `receiver_name` |
+| `ocr_receipt_department` | `department` |
+| `ocr_slip_no` | `slip_no` |
+| `ocr_sender_name` | `sender_name` |
+| `ocr_sender_content` | `sender_info` |
+| `ocr_sender_address` | `sender_department` |
+| `ocr_model_name` | `model_name` |
+
+Không gửi thì cột là NULL. Đây là cách duy nhất để ghi `ocr_history`; endpoint cũ `POST /ocr-history` (action `ocrHistoryInsert`) đã bị bỏ.
+
 `content` mẫu:
 
 ```json
@@ -508,7 +521,14 @@ Cùng transaction, API ghi thêm 1 dòng `ocr_history` (cùng `history_id`, cùn
   "notified_at": "2026-09-24T01:00:00Z",
   "planner_task_id": null,
   "operator_name": "受付 花子",
-  "operator_email": "hanako@smartosc.com"
+  "operator_email": "hanako@smartosc.com",
+  "ocr_receipt_name": "前川 雄介",
+  "ocr_receipt_department": "営業部",
+  "ocr_slip_no": "SL-1001",
+  "ocr_sender_name": "山田",
+  "ocr_sender_content": "書類",
+  "ocr_sender_address": "東京",
+  "ocr_model_name": "gpt-5.5"
 }
 ```
 
@@ -531,7 +551,14 @@ Request schema:
     "notified_at": { "type": ["string", "null"] },
     "planner_task_id": { "type": ["string", "null"] },
     "operator_name": { "type": ["string", "null"] },
-    "operator_email": { "type": ["string", "null"] }
+    "operator_email": { "type": ["string", "null"] },
+    "ocr_receipt_name": { "type": ["string", "null"] },
+    "ocr_receipt_department": { "type": ["string", "null"] },
+    "ocr_slip_no": { "type": ["string", "null"] },
+    "ocr_sender_name": { "type": ["string", "null"] },
+    "ocr_sender_content": { "type": ["string", "null"] },
+    "ocr_sender_address": { "type": ["string", "null"] },
+    "ocr_model_name": { "type": ["string", "null"] }
   }
 }
 ```
@@ -771,60 +798,3 @@ Response **201**:
 ```
 
 **400** khi thiếu tên. **409** khi tên đã có: `{ "error": "a row with that key already exists" }`.
-
----
-
-## ocr_history
-
-### ocrHistoryInsert
-
-Ghi một dòng log OCR. Mọi field optional. `history_id` nếu gửi phải là id đã có trong `history`.
-
-`content` mẫu:
-
-```json
-{
-  "history_id": 12,
-  "name": "前川 雄亮",
-  "department": "営業部",
-  "slip_no": "SL-1001",
-  "sender_name": "山田",
-  "sender_content": "書類",
-  "sender_address": "東京",
-  "model_name": "gpt-4o"
-}
-```
-
-Request schema:
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "history_id": { "type": ["integer", "null"] },
-    "name": { "type": ["string", "null"] },
-    "department": { "type": ["string", "null"] },
-    "slip_no": { "type": ["string", "null"] },
-    "sender_name": { "type": ["string", "null"] },
-    "sender_content": { "type": ["string", "null"] },
-    "sender_address": { "type": ["string", "null"] },
-    "model_name": { "type": ["string", "null"] },
-    "operator_name": { "type": ["string", "null"] },
-    "operator_email": { "type": ["string", "null"] }
-  }
-}
-```
-
-Response **201**. `created_at` được lưu nhưng không trả về.
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "id": { "type": "integer" }
-  },
-  "required": ["id"]
-}
-```
-
-**409** khi `history_id` không tồn tại. Body lỗi hiện là `{ "error": "Cannot delete: history rows still reference this employee" }`.

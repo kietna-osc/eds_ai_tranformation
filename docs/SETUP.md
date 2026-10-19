@@ -93,7 +93,7 @@ To save app changes back into the repository: download the `.msapp` from Studio,
 
 ## 6. Flow `EDS-APIManagement1`
 
-The app sends every database call (`history`, `employee`, `department`, `ocr_history`) through this flow. Its inputs and outputs are described in `docs/EDS-APIManagement1.md`. Without it the app cannot read or write the database, including the History screen.
+The app sends every database call (`history`, `employee`, `department`) through this flow. Its inputs and outputs are described in `docs/EDS-APIManagement1.md`. Without it the app cannot read or write the database, including the History screen.
 
 It is **not** part of the `EDSPADelivery` solution, so importing the solution does not create it. `powerplatform/flows/EDS-APIManagement1.json` holds its definition as returned by the Power Automate management API (`displayName`, `definition`, `connectionReferences`). There is no import button for a bare definition. Either:
 

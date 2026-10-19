@@ -1,6 +1,6 @@
-/* Register stores who pressed it: POST /api/history and POST /api/ocr-history pass
-   operator_name / operator_email to the procedures (sp_history_insert_v2 writes them on
-   the ocr_history row). Run: cd api && node --test */
+/* Register logs the read: POST /api/history passes operator_name / operator_email and
+   the raw ocr_* values to sp_history_insert_v2, which writes them on the ocr_history
+   row only. Run: cd api && node --test */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { calls, post } = require('./harness');
@@ -38,13 +38,40 @@ test('operator values are cut to the column sizes', async () => {
   assert.equal(calls[0].p.operator_email.length, 320);
 });
 
-test('ocrHistoryInsert passes the operator to sp_ocr_history_insert', async () => {
-  const r = await post('ocrHistoryInsert', {
-    ...PACKAGE, operator_name: '受付 花子', operator_email: 'hanako@example.com',
-  });
+const OCR = {
+  ocr_receipt_name: '山田 太朗', ocr_receipt_department: 'DX推進', ocr_slip_no: 'SL-0O01',
+  ocr_sender_name: '株式会社 サンプル', ocr_sender_content: '書類', ocr_sender_address: '東京都',
+  ocr_model_name: 'gpt-5.5',
+};
+
+test('historyInsert passes the raw OCR values to sp_history_insert_v2', async () => {
+  const r = await post('historyInsert', { ...PACKAGE, ...OCR });
   assert.equal(r.status, 201);
-  assert.equal(calls[0].proc, 'dbo.sp_ocr_history_insert');
-  assert.equal(calls[0].p.operator_name, '受付 花子');
-  assert.equal(calls[0].p.operator_email, 'hanako@example.com');
-  assert.equal('delivered_by' in calls[0].p, false);
+  assert.equal(calls[0].proc, 'dbo.sp_history_insert_v2');
+  for (const [k, v] of Object.entries(OCR)) assert.equal(calls[0].p[k], v, k);
+  // the confirmed values still come from the non-ocr fields
+  assert.equal(calls[0].p.slip_no, 'SL-0001');
+  assert.equal(calls[0].p.recipient_name, '山田 太郎');
+});
+
+test('historyInsert without OCR values (app or flow not updated yet) sends NULL', async () => {
+  const blank = Object.fromEntries(Object.keys(OCR).map((k) => [k, '']));
+  await post('historyInsert', { ...PACKAGE, ...blank });
+  for (const k of Object.keys(OCR)) assert.equal(calls[0].p[k], null, k);
+  await post('historyInsert', PACKAGE);
+  for (const k of Object.keys(OCR)) assert.equal(calls[0].p[k], null, k);
+});
+
+test('OCR values are cut to the column sizes', async () => {
+  await post('historyInsert', {
+    ...PACKAGE, ocr_slip_no: 's'.repeat(150), ocr_sender_content: 'c'.repeat(1200),
+    ocr_sender_address: 'a'.repeat(600),
+  });
+  assert.equal(calls[0].p.ocr_slip_no.length, 100);
+  assert.equal(calls[0].p.ocr_sender_content.length, 1000);
+  assert.equal(calls[0].p.ocr_sender_address.length, 500);
+});
+
+test('the old POST /api/ocr-history endpoint is gone', async () => {
+  await assert.rejects(post('ocrHistoryInsert', PACKAGE));
 });

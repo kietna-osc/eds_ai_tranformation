@@ -39,8 +39,6 @@ async function exec(proc, params) {
       .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
   } else if (proc === 'dbo.sp_history_insert_v2') {
     return [{ history_id: 101 }];
-  } else if (proc === 'dbo.sp_ocr_history_insert') {
-    return [{ ocr_id: 7 }];
   } else {
     throw new Error(`unexpected ${proc}`);
   }

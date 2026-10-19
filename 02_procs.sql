@@ -382,9 +382,9 @@ END
 GO
 
 ------------------------------------------------ Append history (same columns as sp_history_insert)
--- Register (EDS-NotifySelected -> POST /api/history). Also logs the read in ocr_history,
--- with who pressed Register, in the same transaction: both rows or neither, so the
--- flow's retry never leaves a history row without its log.
+-- Register (EDS-NotifySelected -> POST /api/history). Also logs the read in ocr_history
+-- (raw ocr_* values and who pressed Register) in the same transaction: both rows or
+-- neither, so the flow's retry never leaves a history row without its log.
 CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
     @slip_no                   NVARCHAR(100),
     @image_url                 NVARCHAR(MAX),
@@ -399,7 +399,14 @@ CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
     @notified_at               DATETIME2(0)   = NULL,
     @planner_task_id           NVARCHAR(100)  = NULL,
     @operator_name             NVARCHAR(200)  = NULL,
-    @operator_email            NVARCHAR(320)  = NULL
+    @operator_email            NVARCHAR(320)  = NULL,
+    @ocr_receipt_name          NVARCHAR(200)  = NULL,
+    @ocr_receipt_department    NVARCHAR(200)  = NULL,
+    @ocr_slip_no               NVARCHAR(100)  = NULL,
+    @ocr_sender_name           NVARCHAR(200)  = NULL,
+    @ocr_sender_content        NVARCHAR(1000) = NULL,
+    @ocr_sender_address        NVARCHAR(500)  = NULL,
+    @ocr_model_name            NVARCHAR(200)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -424,6 +431,8 @@ BEGIN
         sender_name, sender_content, sender_address,
         employee_id, recipient_name, recipient_department_name,
         status, data_type, notified_at, planner_task_id,
+        ocr_receipt_name, ocr_receipt_department, ocr_slip_no,
+        ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name,
         operator_name, operator_email
     )
     VALUES (
@@ -431,6 +440,8 @@ BEGIN
         @sender_name, @sender_content, @sender_address,
         @employee_id, @recipient_name, @recipient_department_name,
         @status, @data_type, @notified_at, @planner_task_id,
+        @ocr_receipt_name, @ocr_receipt_department, @ocr_slip_no,
+        @ocr_sender_name, @ocr_sender_content, @ocr_sender_address, @ocr_model_name,
         @operator_name, @operator_email
     );
     COMMIT TRANSACTION;

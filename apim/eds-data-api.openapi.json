@@ -144,7 +144,7 @@
       },
       "post": {
         "summary": "Append history",
-        "description": "Appends one package. Call at the end of the capture flow. Returns history_id. Also writes the matching ocr_history row (same transaction) with operator_name / operator_email.",
+        "description": "Appends one package. Call at the end of the capture flow. Returns history_id. Also writes the matching ocr_history row (same transaction) with operator_name / operator_email and the raw ocr_* values; those go to ocr_history only.",
         "operationId": "history-insert",
         "requestBody": {
           "content": {
@@ -212,6 +212,41 @@
                     "type": "string",
                     "nullable": true,
                     "description": "Their e-mail (User().Email)."
+                  },
+                  "ocr_receipt_name": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Recipient name as read by OCR, before the operator edited it."
+                  },
+                  "ocr_receipt_department": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Recipient department as read by OCR."
+                  },
+                  "ocr_slip_no": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Slip number as read by OCR."
+                  },
+                  "ocr_sender_name": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Sender name as read by OCR."
+                  },
+                  "ocr_sender_content": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Package contents as read by OCR."
+                  },
+                  "ocr_sender_address": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Sender address / department as read by OCR."
+                  },
+                  "ocr_model_name": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Model that did the read (e.g. gpt-5.5)."
                   }
                 }
               },
@@ -229,7 +264,14 @@
                 "notified_at": "2026-09-10T10:00:00.0000000+00:00",
                 "planner_task_id": null,
                 "operator_name": "受付 花子",
-                "operator_email": "hanako@smartosc.com"
+                "operator_email": "hanako@smartosc.com",
+                "ocr_receipt_name": "大野 朱音",
+                "ocr_receipt_department": "経営企画部",
+                "ocr_slip_no": "1989-2173-2192",
+                "ocr_sender_name": "山田 花子",
+                "ocr_sender_content": "契約書類",
+                "ocr_sender_address": "東京都千代田区丸の内1-1-1",
+                "ocr_model_name": "gpt-5.5"
               }
             }
           }
@@ -870,133 +912,6 @@
           },
           "404": {
             "description": "employee_id not found."
-          }
-        }
-      }
-    },
-    "/ocr-history": {
-      "post": {
-        "summary": "Append OCR log",
-        "description": "Stores one OCR read. slip_no, image_url, and data_type are required. status defaults to Notified. data_type is Identified or Unknown. status is Notified or Delivered.",
-        "operationId": "ocr-history-insert",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "slip_no",
-                  "image_url",
-                  "data_type"
-                ],
-                "properties": {
-                  "history_id": {
-                    "type": "integer",
-                    "nullable": true
-                  },
-                  "slip_no": {
-                    "type": "string"
-                  },
-                  "image_url": {
-                    "type": "string"
-                  },
-                  "sender_name": {
-                    "type": "string"
-                  },
-                  "sender_content": {
-                    "type": "string"
-                  },
-                  "sender_address": {
-                    "type": "string"
-                  },
-                  "employee_id": {
-                    "type": "string"
-                  },
-                  "recipient_name": {
-                    "type": "string"
-                  },
-                  "recipient_department_name": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "Notified",
-                      "Delivered"
-                    ],
-                    "default": "Notified"
-                  },
-                  "data_type": {
-                    "type": "string",
-                    "enum": [
-                      "Identified",
-                      "Unknown"
-                    ]
-                  },
-                  "notified_at": {
-                    "type": "string"
-                  },
-                  "delivered_at": {
-                    "type": "string"
-                  },
-                  "planner_task_id": {
-                    "type": "string"
-                  },
-                  "ocr_receipt_name": {
-                    "type": "string"
-                  },
-                  "ocr_receipt_department": {
-                    "type": "string"
-                  },
-                  "ocr_slip_no": {
-                    "type": "string"
-                  },
-                  "ocr_sender_name": {
-                    "type": "string"
-                  },
-                  "ocr_sender_content": {
-                    "type": "string"
-                  },
-                  "ocr_sender_address": {
-                    "type": "string"
-                  },
-                  "ocr_model_name": {
-                    "type": "string"
-                  },
-                  "operator_name": {
-                    "type": "string"
-                  },
-                  "operator_email": {
-                    "type": "string"
-                  }
-                }
-              },
-              "example": {
-                "history_id": 12,
-                "slip_no": "1989-2173-2192",
-                "image_url": "data:image/jpeg;base64,...",
-                "sender_name": "山田 花子",
-                "sender_content": "契約書類",
-                "sender_address": "東京都千代田区丸の内1-1-1",
-                "employee_id": "1060002002",
-                "recipient_name": "大野朱音",
-                "recipient_department_name": "経営企画部",
-                "status": "Notified",
-                "data_type": "Identified",
-                "ocr_receipt_name": "大野 朱音",
-                "ocr_receipt_department": "経営企画部",
-                "ocr_slip_no": "1989-2173-2192",
-                "ocr_sender_name": "山田 花子",
-                "ocr_sender_content": "契約書類",
-                "ocr_sender_address": "東京都千代田区丸の内1-1-1",
-                "ocr_model_name": "gpt-4o"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created; body contains ocr_id."
           }
         }
       }
