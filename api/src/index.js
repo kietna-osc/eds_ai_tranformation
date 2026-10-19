@@ -111,13 +111,16 @@ const handler = (name, fn) => async (request, context) => {
     if (e.number === 50004) return json(409, { error: e.message }); // planner sync: too many reverts
     if (e.number === 547) {
       return json(409, {
-        error: 'Cannot delete: history rows still reference this employee',
+        error: 'この従業員は履歴データで使用されているため削除できません',
       });
     }
     if (e.number === 2627 || e.number === 2601) {
-      return json(409, { error: 'a row with that key already exists' });
+      return json(409, { error: '同じデータが既に登録されています' });
     }
-    return json(500, { error: 'Internal error', requestId: context.invocationId });
+    return json(500, {
+      error: `サーバーでエラーが発生しました。時間をおいて再度お試しください。（requestId: ${context.invocationId}）`,
+      requestId: context.invocationId,
+    });
   }
 };
 
@@ -600,8 +603,31 @@ app.http('employeeInsert', {
   }),
 });
 
+/* employeeUpdate / employeeDelete error texts are Japanese: the flow passes "error"
+   straight to the app popup (same as employeeInsert). */
+const EMPLOYEE_NOT_FOUND = '指定された社員IDの従業員が見つかりません。一覧を更新してください。';
+/* Same text as THROW 50003 in sp_employee_insert. */
+const EMAIL_IN_USE = 'このメールアドレスは既に他の従業員に使用されている';
+
+/** True when another employee already has this email (trimmed, case-insensitive).
+ *  sp_employee_update has no such check and SQL is frozen, so it is done here:
+ *  sp_employee_list's keyword (a LIKE on email, among others) narrows the rows,
+ *  the exact comparison is made in JS. */
+async function emailUsedByOther(email, employeeId, context) {
+  const wanted = email.trim().toLowerCase();
+  const rows = await exec('dbo.sp_employee_list', [
+    ['page', sql.Int, 1],
+    ['page_size', sql.Int, FETCH_ALL],
+    ['department_name', sql.NVarChar(200), null],
+    ['search_keyword', sql.NVarChar(200), wanted.length <= 200 ? wanted : null],
+  ], context);
+  return rows.some((r) => String(r.employee_id) !== employeeId
+    && String(r.email ?? '').trim().toLowerCase() === wanted);
+}
+
 /* ------------------------------------------ PATCH /api/employees/{id}
-   Updates full_name, department_name, and email. employee_id is not changed. */
+   Updates full_name, department_name, and email. employee_id is not changed.
+   409 when another employee already uses the email. */
 app.http('employeeUpdate', {
   methods: ['PATCH'],
   authLevel: 'function',
@@ -613,10 +639,13 @@ app.http('employeeUpdate', {
     const departmentName = strOrNull(b.department_name, 200);
     const email = strOrNull(b.email, 320);
 
-    if (!employeeId) return json(400, { error: 'id is required' });
-    if (!fullName) return json(400, { error: 'full_name is required' });
-    if (!departmentName) return json(400, { error: 'department_name is required' });
-    if (!email) return json(400, { error: 'email is required' });
+    if (!employeeId) return json(400, { error: '社員IDが指定されていません' });
+    if (!fullName) return json(400, { error: '名前が指定されていません' });
+    if (!departmentName) return json(400, { error: '部署が指定されていません' });
+    if (!email) return json(400, { error: 'メールが指定されていません' });
+    if (await emailUsedByOther(email, employeeId, context)) {
+      return json(409, { error: EMAIL_IN_USE });
+    }
 
     const rows = await exec('dbo.sp_employee_update', [
       ['employee_id', sql.NVarChar(50), employeeId],
@@ -626,7 +655,7 @@ app.http('employeeUpdate', {
     ], context);
     return rows[0]
       ? json(200, { value: rows[0] })
-      : json(404, { error: 'employee_id not found' });
+      : json(404, { error: EMPLOYEE_NOT_FOUND });
   }),
 });
 
@@ -639,7 +668,7 @@ app.http('employeeDelete', {
   handler: handler('employeeDelete', async (request, context) => {
     const employeeId = strOrNull(request.params.id, 50);
     if (!employeeId) {
-      return json(400, { error: 'id is required' });
+      return json(400, { error: '社員IDが指定されていません' });
     }
 
     const rows = await exec('dbo.sp_employee_delete', [
@@ -648,7 +677,7 @@ app.http('employeeDelete', {
     const deleted = rows[0]?.rows_deleted ?? 0;
     return deleted
       ? json(200, { deleted })
-      : json(404, { error: 'employee_id not found' });
+      : json(404, { error: EMPLOYEE_NOT_FOUND });
   }),
 });
 

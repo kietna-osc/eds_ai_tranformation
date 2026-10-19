@@ -39,6 +39,13 @@ async function exec(proc, params) {
       .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
   } else if (proc === 'dbo.sp_history_insert_v2') {
     return [{ history_id: 101 }];
+  } else if (proc === 'dbo.sp_employee_update') {
+    const row = data.employees.find((r) => r.employee_id === p.employee_id);
+    return row ? [{ ...row, ...p }] : [];
+  } else if (proc === 'dbo.sp_employee_delete') {
+    if (p.employee_id === 'IN_USE') throw Object.assign(new Error('FK'), { number: 547 });
+    if (p.employee_id === 'BOOM') throw new Error('connection reset');
+    return [{ rows_deleted: data.employees.some((r) => r.employee_id === p.employee_id) ? 1 : 0 }];
   } else {
     throw new Error(`unexpected ${proc}`);
   }
@@ -84,10 +91,10 @@ async function call(name, query) {
   return handlers[name]({ query: q }, context);
 }
 
-/** Calls a POST handler with a JSON body. */
-async function post(name, body) {
+/** Calls a POST/PATCH/DELETE handler with a JSON body and optional route params. */
+async function post(name, body, params = {}) {
   calls.length = 0;
-  return handlers[name]({ json: async () => body, query: new URLSearchParams() }, context);
+  return handlers[name]({ json: async () => body, query: new URLSearchParams(), params }, context);
 }
 
 /** CSV text -> data lines (no BOM, no header, no trailing blank). */

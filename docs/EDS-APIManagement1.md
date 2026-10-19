@@ -211,7 +211,7 @@ Response **201**:
 }
 ```
 
-**400** khi thiếu `employee_id`, `employee_code` hoặc `full_name`. **409** khi `employee_id` hoặc `employee_code` đã tồn tại: `{ "error": "a row with that key already exists" }`.
+**400** khi thiếu `employee_id`, `employee_code` hoặc `full_name`. **409** khi `employee_id` hoặc `employee_code` đã tồn tại: `{ "error": "同じデータが既に登録されています" }`.
 
 ### employeeDelete
 
@@ -247,7 +247,7 @@ Response **200**:
 }
 ```
 
-`deleted` là số dòng đã xóa, thành công thì bằng 1. **404** khi không có nhân viên: `{ "error": "employee_id not found" }`.
+`deleted` là số dòng đã xóa, thành công thì bằng 1. **404** khi không có nhân viên: `{ "error": "指定された社員IDの従業員が見つかりません。一覧を更新してください。" }` (employeeUpdate cũng vậy). **409** khi còn history tham chiếu (FK): `{ "error": "この従業員は履歴データで使用されているため削除できません" }`. **500**: `{ "error": "サーバーでエラーが発生しました。…（requestId: …）", "requestId": "…" }`. employeeUpdate trả **409** `{ "error": "このメールアドレスは既に他の従業員に使用されている" }` khi email (trim, không phân biệt hoa thường) đã thuộc nhân viên khác; kiểm tra trong JS vì `sp_employee_update` không có. Message lỗi của employeeUpdate / employeeDelete là tiếng Nhật vì flow đưa thẳng `error` lên popup của app.
 
 ### employeeMatch
 
@@ -797,4 +797,4 @@ Response **201**:
 }
 ```
 
-**400** khi thiếu tên. **409** khi tên đã có: `{ "error": "a row with that key already exists" }`.
+**400** khi thiếu tên. **409** khi tên đã có: `{ "error": "同じデータが既に登録されています" }`.
