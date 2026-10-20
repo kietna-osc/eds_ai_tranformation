@@ -92,11 +92,29 @@ test('historyExport applies the same filters as the list', async () => {
 
 /* ---------------------------------------------------------------- Employees */
 
-test('employeeList without filters pages in SQL', async () => {
+test('employeeList without filters: newest employee_id first, then pages', async () => {
   const r = await call('employeeList', { page: '1', pageSize: '5' });
   assert.equal(r.jsonBody.totalCount, 12);
   assert.equal(r.jsonBody.count, 5);
-  assert.equal(calls[0].p.page_size, 5);
+  assert.deepEqual(r.jsonBody.value.map((v) => v.employee_id), ['E012', 'E011', 'E010', 'E009', 'E008']);
+  const p3 = await call('employeeList', { page: '3', pageSize: '5' });
+  assert.deepEqual(p3.jsonBody.value.map((v) => v.employee_id), ['E002', 'E001']);
+});
+
+test('employeeList / export: employee_id sorts as a number, numeric ids first', async () => {
+  const ids = ['9', 'test-3', '10000000004', '2012', 'test-10', '10'];
+  data.employees = ids.map((employee_id, i) => ({ ...EMPLOYEES[i], employee_id }));
+  try {
+    const r = await call('employeeList', { pageSize: '50' });
+    assert.deepEqual(r.jsonBody.value.map((v) => String(v.employee_id)),
+      ['10000000004', '2012', '10', '9', 'test-10', 'test-3']);
+    stored.length = 0;
+    await call('employeeExport', {});
+    assert.deepEqual(stored[0].text.slice(1).trim().split('\r\n').slice(1).map((l) => l.split(',')[0]),
+      ['10000000004', '2012', '10', '9', 'test-10', 'test-3']);
+  } finally {
+    data.employees = EMPLOYEES;
+  }
 });
 
 test('employeeList: per-field filters and 登録日時 range', async () => {

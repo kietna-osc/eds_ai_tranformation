@@ -7,6 +7,8 @@
                          (inclusive, like the SQL), newest created_at first, then pages
      sp_employee_list    department_name exact (unused by the handlers now), ordered by
                          full_name, then pages
+     sp_employee_upsert  INSERT / UPDATE per row (UPDATE when the id is in data.employees);
+                         id DROP throws a retryable error, BOOM a non-retryable one
    Set `data.history` / `data.employees` before calling a handler. */
 const Module = require('node:module');
 const path = require('node:path');
@@ -39,6 +41,14 @@ async function exec(proc, params) {
       .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
   } else if (proc === 'dbo.sp_history_insert_v2') {
     return [{ history_id: 101 }];
+  } else if (proc === 'dbo.sp_employee_upsert') {
+    const incoming = JSON.parse(p.rows);
+    if (incoming.some((r) => r.employee_id === 'DROP')) throw Object.assign(new Error('connection reset'), { retryable: true });
+    if (incoming.some((r) => r.employee_id === 'BOOM')) throw new Error('deadlock');
+    return incoming.map((r) => ({
+      employee_id: r.employee_id,
+      action: data.employees.some((e) => e.employee_id === r.employee_id) ? 'UPDATE' : 'INSERT',
+    }));
   } else if (proc === 'dbo.sp_employee_update') {
     const row = data.employees.find((r) => r.employee_id === p.employee_id);
     return row ? [{ ...row, ...p }] : [];
@@ -58,7 +68,7 @@ const sql = new Proxy(sqlType, { get: () => sqlType });
 const src = (f) => path.resolve(__dirname, '../src', f);
 const fakes = {
   '@azure/functions': { app: { http: (name, o) => { handlers[name] = o.handler; } } },
-  [src('db.js')]: { exec, sql, isRetryable: () => false },
+  [src('db.js')]: { exec, sql, isRetryable: (e) => Boolean(e.retryable) },
   [src('blobImages.js')]: {
     enabled: () => true,
     imageLinks: async () => ({}),

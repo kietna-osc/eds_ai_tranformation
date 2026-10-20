@@ -8,7 +8,6 @@ const plannerSync = require('./plannerSync');
 
 const HISTORY_SEARCH_MAX_ROWS = 100000;
 const { CsvParseError } = require('./csv');
-const { message } = require('./messages');
 const employeeCsv = require('./employeeCsv');
 const employeeSearch = require('./employeeSearch');
 
@@ -396,10 +395,10 @@ app.http('historyPlannerSync', {
    Employee page with server-side pagination, same shape as historyList.
    Filters (employeeSearch.js), each "contains": employee_id, full_name, email,
    department_name; created_start / created_end (登録日時); search_keyword (any column).
-   Without a filter the page comes straight from SQL; with one, every employee is
-   read, filtered here, then paged. */
+   Every employee is read, filtered and sorted here (employee_id descending, newest
+   first; the order of sp_employee_list, by full_name, is not used), then paged. */
 
-/** Every employee matching the filters. */
+/** Every employee matching the filters, newest employee_id first. */
 async function employeesMatching(f, context, label) {
   const all = await exec('dbo.sp_employee_list', [
     ['page', sql.Int, 1],
@@ -408,7 +407,7 @@ async function employeesMatching(f, context, label) {
     ['search_keyword', sql.NVarChar(200), null],
   ], context);
   if (all.length >= FETCH_ALL) context.warn(`${label}: capped at ${FETCH_ALL} rows`);
-  return { all, matched: employeeSearch.applyFilters(all, f) };
+  return { all, matched: employeeSearch.sortByIdDesc(employeeSearch.applyFilters(all, f)) };
 }
 
 app.http('employeeList', {
@@ -425,17 +424,6 @@ app.http('employeeList', {
     const page = Number.isFinite(pageValue) && pageValue > 0
       ? pageValue
       : 1;
-
-    if (!employeeSearch.hasFilter(f)) {
-      const rows = await exec('dbo.sp_employee_list', [
-        ['page', sql.Int, page],
-        ['page_size', sql.Int, pageSize],
-        ['department_name', sql.NVarChar(200), null],
-        ['search_keyword', sql.NVarChar(200), null],
-      ], context);
-      const totalCount = Number(rows[0]?.total_count ?? 0);
-      return json(200, pageBody(page, pageSize, totalCount, rows.map(toEmployee)));
-    }
 
     const { matched } = await employeesMatching(f, context, 'employeeList');
     return json(200, pageBody(page, pageSize, matched.length,
@@ -474,25 +462,35 @@ app.http('employeeImport', {
   methods: ['POST'],
   authLevel: 'function',
   route: 'employees/import',
+  /* Every response has the importResult fields (success, total, inserted, updated, skipped,
+     messages, errorFile), so EDS-EmployeeImport's Parse_JSON accepts it whatever the status.
+     A file that cannot be imported at all gets the shared message 50; the cause is logged. */
   handler: handler('employeeImport', async (request, context) => {
+    const failed = (status, reason, total) => {
+      context.warn(`employeeImport: ${status} ${reason}`);
+      return json(status, employeeCsv.uploadFailed(total));
+    };
     const b = await request.json().catch(() => ({}));
     const csvText = typeof b.csv === 'string'
       ? b.csv
       : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : null;
-    if (!csvText) return json(400, { error: 'csv or csv_base64 is required' });
-    if (employeeCsv.tooLarge(csvText)) return json(413, { success: false, messages: [message(55)] });
+    if (!csvText) return failed(400, 'empty file (csv or csv_base64 is required)');
+    if (employeeCsv.tooLarge(csvText)) return failed(413, 'file too large');
 
     let checked;
     try {
       checked = employeeCsv.validateImport(csvText);
     } catch (e) {
       if (e instanceof CsvParseError || e instanceof employeeCsv.ImportFormatError) {
-        return json(400, { error: `invalid CSV: ${e.message}` });
+        return failed(400, `invalid CSV: ${e.message}`);
       }
       throw e;
     }
-    if (employeeCsv.tooManyRows(checked.total)) return json(413, { success: false, messages: [message(55)] });
+    if (!checked.total) return failed(400, 'no data rows', 0);
+    if (employeeCsv.tooManyRows(checked.total)) return failed(413, `too many rows (${checked.total})`, checked.total);
     if (!checked.valid.length) return json(422, employeeCsv.importResult(checked, []));
+    const dup = employeeCsv.duplicateIds(checked.valid);
+    if (dup.length) return failed(409, `社員番号 repeated in the file: ${dup.join(', ')}`, checked.total);
 
     let upserted;
     try {
@@ -507,9 +505,10 @@ app.http('employeeImport', {
     } catch (e) {
       if (isRetryable(e)) {
         context.error(`employeeImport: connection lost, rolled back: ${e.message}`);
-        return json(503, { success: false, messages: [message(56)] });
+        return json(503, employeeCsv.uploadFailed(checked.total));
       }
-      throw e;
+      context.error(`employeeImport failed: ${e.message}`, e.stack);
+      return json(500, employeeCsv.uploadFailed(checked.total));
     }
     return json(200, employeeCsv.importResult(checked, upserted));
   }),

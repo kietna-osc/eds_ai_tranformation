@@ -74,6 +74,19 @@ function applyFilters(rows, f) {
   });
 }
 
+/* ---------------------------------------------------------------- Order */
+
+// employee_id is text (e.g. 2012, 10000000004, test-3), so it is compared as a number:
+// a plain string sort would put "9" above "10".
+const byNumber = new Intl.Collator('en', { numeric: true });
+const isNumeric = (v) => /^\d+$/.test(text(v).trim());
+
+/** Newest employee first: employee_id descending, numeric ids before any others. */
+const compareIdDesc = (a, b) => (isNumeric(b.employee_id) - isNumeric(a.employee_id))
+  || byNumber.compare(text(b.employee_id).trim(), text(a.employee_id).trim());
+
+const sortByIdDesc = (rows) => [...rows].sort(compareIdDesc);
+
 /* ---------------------------------------------------------------- CSV download */
 
 // The same 4 columns as the import file (employeeCsv.js), so a download can be edited
@@ -94,4 +107,4 @@ function fileName(now, tzOffset) {
     + `${pad(l.getUTCHours())}${pad(l.getUTCMinutes())}${pad(l.getUTCSeconds())}.csv`;
 }
 
-module.exports = { parseFilters, hasFilter, applyFilters, buildCsv, fileName, HEADER };
+module.exports = { parseFilters, hasFilter, applyFilters, sortByIdDesc, buildCsv, fileName, HEADER };
