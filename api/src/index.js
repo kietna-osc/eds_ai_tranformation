@@ -20,7 +20,13 @@ const employeeSearch = require('./employeeSearch');
      older rows may hold a SharePoint URL or base64
    employee_id NVARCHAR(50): snapshot of the employee code, not a foreign key
    status VARCHAR(20) CHECK (Notified | Delivered), default Notified
-   data_type VARCHAR(20) CHECK (Identified | Unknown) */
+   data_type VARCHAR(20) CHECK (Identified | Unknown)
+   task_changed_at DATETIME2(0): when the status changed (Planner completedDateTime;
+     reopen: the planner-sync snapshot_at); every version keeps created_at = registered
+   Rows are never updated: each change of the Planner task adds a row (version) with
+   the same planner_task_id, and ocr_history gets a matching row (21_history_versions.sql).
+   The list procedure returns the latest version of each package, with history_id =
+   the package's first row (stable), created_at = registered, updated_at = last change. */
 const STATUSES = new Set(['Notified', 'Delivered']);
 const DATA_TYPES = new Set(['Identified', 'Unknown']);
 
@@ -39,6 +45,7 @@ const toHistory = (row) => ({
   notified_at: row.notified_at,
   delivered_at: row.delivered_at,
   planner_task_id: row.planner_task_id,
+  task_changed_at: row.task_changed_at ?? null,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -310,8 +317,9 @@ if (blobImages.enabled()) {
 }
 
 /* --------------------------- PATCH /api/history/{id}/planner-task
-   Links the Planner task created by the flow back to the package, which is what
-   makes the completion lookup in sp_set_delivered possible. */
+   Links the Planner task created by the flow back to a package registered without
+   one, which is what makes the completion lookup in sp_set_delivered possible. A
+   package that already has a task is never relinked (404). */
 app.http('historySetPlannerTask', {
   methods: ['PATCH'],
   authLevel: 'function',
@@ -333,8 +341,10 @@ app.http('historySetPlannerTask', {
 });
 
 /* --------------------------------------- POST /api/history/delivered
-   Called by the "When a task is completed" Planner flow. Idempotent: replaying
-   the same task does not move delivered_at, so a duplicate trigger is harmless. */
+   Called by the "When a task is completed" Planner flow. Adds a Delivered version of
+   the package. Idempotent: when the package is already Delivered nothing is added, so
+   a duplicate trigger is harmless. task_changed_at: the task's completedDateTime
+   (defaults to delivered_at). */
 app.http('historySetDelivered', {
   methods: ['POST'],
   authLevel: 'function',
@@ -350,6 +360,7 @@ app.http('historySetDelivered', {
       ['planner_task_id', sql.NVarChar(100), taskId],
       ['history_id', sql.BigInt, historyId],
       ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
+      ['task_changed_at', sql.DateTime2, dateOrNull(b.task_changed_at)],
     ], context);
     const updated = rows[0]?.rows_updated ?? 0;
     // 404 tells the flow the task was never linked to a package - worth alerting on.
@@ -358,8 +369,8 @@ app.http('historySetDelivered', {
 });
 
 /* ------------------------------------- POST /api/history/planner-sync
-   Daily reconciliation run by the scheduled flow EDS-PlannerStatusSync: tasks reopened
-   in Planner go back to Notified, completions the trigger missed become Delivered.
+   Daily reconciliation run by the scheduled flow EDS-PlannerStatusSync: a task reopened
+   in Planner adds a Notified version, a completion the trigger missed a Delivered one.
    Request checks and the safety rules are described in plannerSync.js.
    200 { checked, reverted, delivered, duplicates }
    409 when more rows than max_revert would be reverted (nothing is changed). */
@@ -394,11 +405,13 @@ app.http('historyPlannerSync', {
 /* ------------------------------------- GET /api/employees
    Employee page with server-side pagination, same shape as historyList.
    Filters (employeeSearch.js), each "contains": employee_id, full_name, email,
-   department_name; created_start / created_end (登録日時); search_keyword (any column).
+   department_name; created_start / created_end (登録日時); search_keyword (the result
+   screen's search box: words in 社員番号 / 社員氏名 / メール / 部署).
    Every employee is read, filtered and sorted here (employee_id descending, newest
-   first; the order of sp_employee_list, by full_name, is not used), then paged. */
+   first, or best keyword match first; the order of sp_employee_list, by full_name, is
+   not used), then paged. */
 
-/** Every employee matching the filters, newest employee_id first. */
+/** Every employee matching the filters, in screen order. */
 async function employeesMatching(f, context, label) {
   const all = await exec('dbo.sp_employee_list', [
     ['page', sql.Int, 1],
@@ -407,7 +420,7 @@ async function employeesMatching(f, context, label) {
     ['search_keyword', sql.NVarChar(200), null],
   ], context);
   if (all.length >= FETCH_ALL) context.warn(`${label}: capped at ${FETCH_ALL} rows`);
-  return { all, matched: employeeSearch.sortByIdDesc(employeeSearch.applyFilters(all, f)) };
+  return { all, matched: employeeSearch.sortRows(employeeSearch.applyFilters(all, f), f) };
 }
 
 app.http('employeeList', {

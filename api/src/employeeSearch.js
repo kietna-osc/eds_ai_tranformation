@@ -8,11 +8,14 @@
      email            メール
      department_name  部署
      created_start / created_end   登録日時 From / To (ISO datetime, inclusive)
-   search_keyword (older app versions) still matches any of 社員番号, 社員氏名, メール,
-   部署, 登録日時, 更新日時 as displayed (yyyy/mm/dd hh:mm in the caller's time zone). */
+   search_keyword is the single search box of the result screen (受取人 / CC): it is split on
+   spaces and every word must be in 社員番号, 社員氏名, メール or 部署 (any of them). 登録日時 /
+   更新日時 are not searched: a short employee id such as "10" would match almost every date.
+   Keyword results are ranked (exact match, then prefix, then contains), so the best match
+   stays inside the page the app fetches. */
 
 const { toCsv } = require('./csv');
-const { normalize, prepareKeyword, matchesKeyword, formatTime, tzOffsetOrDefault, dateParam } = require('./historySearch');
+const { normalize, tzOffsetOrDefault, dateParam } = require('./historySearch');
 
 const text = (v) => (v === undefined || v === null ? '' : String(v));
 const pad = (n) => String(n).padStart(2, '0');
@@ -50,6 +53,12 @@ function parseFilters(get) {
 const hasFilter = (f) => Boolean(f.employeeId || f.fullName || f.email || f.departmentName
   || f.createdStart || f.createdEnd || f.keyword);
 
+/** search_keyword words, each normalized; full-width spaces split too (NFKC). */
+const keywordWords = (keyword) => text(keyword).normalize('NFKC').split(/\s+/).map(normalize).filter(Boolean);
+
+/** 社員番号, 社員氏名, メール, 部署 of a row, normalized. */
+const keywordFields = (row) => [row.employee_id, row.full_name, row.email, row.department_name].map(normalize);
+
 /** Rows matching every filter that is set. */
 function applyFilters(rows, f) {
   if (!hasFilter(f)) return rows;
@@ -57,7 +66,7 @@ function applyFilters(rows, f) {
     ['employee_id', f.employeeId], ['full_name', f.fullName],
     ['email', f.email], ['department_name', f.departmentName],
   ].filter(([, v]) => v).map(([col, v]) => [col, normalize(v)]);
-  const kw = f.keyword ? prepareKeyword(f.keyword) : '';
+  const words = f.keyword ? keywordWords(f.keyword) : [];
   return rows.filter((row) => {
     for (const [col, v] of contains) if (!normalize(row[col]).includes(v)) return false;
     if (f.createdStart || f.createdEnd) {
@@ -66,10 +75,10 @@ function applyFilters(rows, f) {
       if (f.createdStart && c < f.createdStart) return false;
       if (f.createdEnd && c > f.createdEnd) return false;
     }
-    if (kw && !matchesKeyword(kw, [
-      row.employee_id, row.full_name, row.email, row.department_name,
-      formatTime(row.created_at, f.tzOffset), formatTime(row.updated_at, f.tzOffset),
-    ])) return false;
+    if (words.length) {
+      const fields = keywordFields(row);
+      if (!words.every((w) => fields.some((v) => v.includes(w)))) return false;
+    }
     return true;
   });
 }
@@ -86,6 +95,23 @@ const compareIdDesc = (a, b) => (isNumeric(b.employee_id) - isNumeric(a.employee
   || byNumber.compare(text(b.employee_id).trim(), text(a.employee_id).trim());
 
 const sortByIdDesc = (rows) => [...rows].sort(compareIdDesc);
+
+/** 0: 社員番号, 社員氏名 or メール equals the keyword, 1: a field starts with it, 2: contains. */
+function keywordRank(row, kw) {
+  const [id, name, email, dept] = keywordFields(row);
+  if (id === kw || name === kw || email === kw) return 0;
+  return [id, name, email, dept].some((v) => v.startsWith(kw)) ? 1 : 2;
+}
+
+/** Order of the filtered rows: best keyword match first, else (and within a rank) newest
+    employee_id first. */
+function sortRows(rows, f) {
+  const kw = f.keyword ? normalize(f.keyword) : '';
+  if (!kw) return sortByIdDesc(rows);
+  return rows.map((row) => ({ row, rank: keywordRank(row, kw) }))
+    .sort((a, b) => a.rank - b.rank || compareIdDesc(a.row, b.row))
+    .map((x) => x.row);
+}
 
 /* ---------------------------------------------------------------- CSV download */
 
@@ -107,4 +133,4 @@ function fileName(now, tzOffset) {
     + `${pad(l.getUTCHours())}${pad(l.getUTCMinutes())}${pad(l.getUTCSeconds())}.csv`;
 }
 
-module.exports = { parseFilters, hasFilter, applyFilters, sortByIdDesc, buildCsv, fileName, HEADER };
+module.exports = { parseFilters, hasFilter, applyFilters, sortByIdDesc, sortRows, buildCsv, fileName, HEADER };

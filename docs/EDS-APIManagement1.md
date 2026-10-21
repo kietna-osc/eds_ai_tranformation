@@ -395,6 +395,8 @@ Phiên bản lưu ảnh dạng base64 trong `image_url` nằm ở branch `featur
 
 ### historyList
 
+Mỗi kiện hàng hiện **1 dòng = phiên bản mới nhất**. Từ `21_history_versions.sql`, mỗi lần task Planner thay đổi sẽ INSERT thêm 1 dòng vào `history` (và `ocr_history`) chứ không UPDATE; các phiên bản của một kiện chung `planner_task_id`. Filter áp lên phiên bản mới nhất. `history_id` là dòng đầu tiên của kiện (không đổi khi có phiên bản mới). Mọi phiên bản giữ `created_at` = lúc đăng ký. `updated_at` là lúc ghi phiên bản mới nhất. `task_changed_at` là lúc trạng thái đổi: Done = `completedDateTime` của Planner; reopen = `snapshot_at` của lần sync phát hiện (Planner không ghi thời điểm mở lại); `null` ở dòng đăng ký.
+
 `department_id` lọc theo `recipient_department_id`. Khoảng ngày là inclusive: `notified_at`/`delivered_at` từ start đến end. Chuỗi chỉ có ngày được hiểu là `00:00:00Z`, nên end của cả ngày phải là `2026-09-10T23:59:59Z`.
 
 `content` mẫu:
@@ -462,6 +464,7 @@ Response **200**:
           "notified_at": { "type": ["string", "null"] },
           "delivered_at": { "type": ["string", "null"] },
           "planner_task_id": { "type": ["string", "null"] },
+          "task_changed_at": { "type": ["string", "null"] },
           "created_at": { "type": "string" },
           "updated_at": { "type": "string" }
         },
@@ -617,7 +620,7 @@ Response **200**:
 
 ### historySetDelivered
 
-Đánh dấu đã giao. Cần `planner_task_id` hoặc `history_id`. Gọi lại cùng kiện không đổi `delivered_at` đã ghi.
+Đánh dấu đã giao: thêm 1 phiên bản `Delivered` của kiện (dòng mới trong `history` và `ocr_history`, không UPDATE). Cần `planner_task_id` hoặc `history_id` (của bất kỳ phiên bản nào). Kiện đã là `Delivered` thì không thêm gì, nên trigger bắn lặp vô hại. `task_changed_at` là `completedDateTime` của task trên Planner; bỏ trống thì lấy `delivered_at`.
 
 `content` mẫu:
 
@@ -625,7 +628,8 @@ Response **200**:
 {
   "history_id": 12,
   "planner_task_id": "abc-task-id",
-  "delivered_at": "2026-09-24T02:00:00Z"
+  "delivered_at": "2026-09-24T02:00:00Z",
+  "task_changed_at": "2026-09-24T01:59:30Z"
 }
 ```
 
@@ -637,24 +641,27 @@ Request schema:
   "properties": {
     "history_id": { "type": ["integer", "null"] },
     "planner_task_id": { "type": ["string", "null"] },
-    "delivered_at": { "type": ["string", "null"] }
+    "delivered_at": { "type": ["string", "null"] },
+    "task_changed_at": { "type": ["string", "null"] }
   }
 }
 ```
 
-Response **200** cùng schema `{ "updated": integer }` của `historySetPlannerTask`. **400**: `{ "error": "planner_task_id or history_id is required" }`. **404**: `{ "error": "no matching package" }`.
+Response **200** cùng schema `{ "updated": integer }` của `historySetPlannerTask`. **400**: `{ "error": "planner_task_id or history_id is required" }`, hoặc kiện không có task Planner (`This package has no Planner task, so it cannot be marked delivered.`). **404**: `{ "error": "no matching package" }`.
 
 ### historyPlannerSync
 
 Đồng bộ trạng thái History theo Planner, `POST /history/planner-sync`. **Không đi qua flow EDS-APIManagement1.** Flow theo lịch `EDS-PlannerStatusSync` gọi thẳng APIM (19:00 các ngày làm việc). Flow đọc toàn bộ task của plan EDS và gửi mỗi task một dòng:
 
-- Task đang mở (bị reopen) mà dòng history là 受取済み → về `Notified`, xóa `delivered_at`.
-- Task đã Done mà dòng history vẫn là 通知済み → `Delivered`, `delivered_at` = `completed_at` của task. `delivered_at` đã có thì giữ nguyên.
-- Dòng mà task **không có** trong danh sách (task bị xóa, hoặc thuộc trang chưa đọc) thì không bị đụng tới.
+So sánh task với **phiên bản mới nhất** của kiện, lệch thì INSERT thêm 1 phiên bản (history + ocr_history), không UPDATE:
+
+- Task đang mở (bị reopen) mà phiên bản mới nhất là 受取済み → thêm phiên bản `Notified`, `delivered_at` = null, `task_changed_at` = `snapshot_at` (Planner không ghi thời điểm reopen, nên lấy lúc sync đọc Planner). Phiên bản 受取済み cũ vẫn còn.
+- Task đã Done mà phiên bản mới nhất vẫn là 通知済み → thêm phiên bản `Delivered`, `delivered_at` = `task_changed_at` = `completed_at` của task.
+- Kiện mà task **không có** trong danh sách (task bị xóa, hoặc thuộc trang chưa đọc) thì không bị đụng tới.
 
 Hai cơ chế an toàn:
 
-- `snapshot_at` là thời điểm flow bắt đầu đọc Planner. Dòng được set Delivered **sau** mốc này (bởi flow "When a task is completed") thì không bị revert, vì danh sách task cũ hơn lần Done đó.
+- `snapshot_at` là thời điểm flow bắt đầu đọc Planner (`utcNow()` lấy **trước** bước list task). Nó cũng là `task_changed_at` của phiên bản reopen. Dòng được set Delivered **sau** mốc này (bởi flow "When a task is completed") thì không bị revert, vì danh sách task cũ hơn lần Done đó.
 - `max_revert`: nếu số dòng cần revert vượt ngưỡng thì không đổi gì, trả **409**. Mặc định là 50, tối đa 1000.
 
 Request mẫu:
@@ -711,7 +718,7 @@ Response **200**:
 }
 ```
 
-`checked` là số task đã nhận sau khi bỏ id trùng, `reverted` là số dòng về 通知済み, `delivered` là số dòng thành 受取済み, `duplicates` là số task bị gửi trùng id. **400** khi thiếu `snapshot_at`, `max_revert` sai, hoặc có task sai format (message ghi rõ vị trí, ví dụ `tasks[3].completed must be true or false`). **409**: `{ "error": "planner sync stopped: 60 rows would go back to Notified, more than max_revert (50). Nothing was changed." }`.
+`checked` là số task đã nhận sau khi bỏ id trùng, `reverted` là số dòng về 通知済み, `delivered` là số dòng thành 受取済み, `duplicates` là số task bị gửi trùng id. **400** khi thiếu `snapshot_at` hoặc `snapshot_at` ở tương lai quá 5 phút (gửi `utcNow()`, có `Z`), `max_revert` sai, hoặc có task sai format (message ghi rõ vị trí, ví dụ `tasks[3].completed must be true or false`). **409**: `{ "error": "planner sync stopped: 60 rows would go back to Notified, more than max_revert (50). Nothing was changed." }`.
 
 Code: `api/src/plannerSync.js` kiểm tra request, handler `historyPlannerSync` nằm trong `api/src/index.js`, proc `dbo.sp_history_planner_sync` nằm trong `17_history_planner_sync.sql`.
 
