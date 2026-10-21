@@ -21,8 +21,6 @@ const employeeSearch = require('./employeeSearch');
    employee_id NVARCHAR(50): snapshot of the employee code, not a foreign key
    status VARCHAR(20) CHECK (Notified | Delivered), default Notified
    data_type VARCHAR(20) CHECK (Identified | Unknown)
-   task_changed_at DATETIME2(0): when the status changed (Planner completedDateTime;
-     reopen: the planner-sync snapshot_at); every version keeps created_at = registered
    Rows are never updated: each change of the Planner task adds a row (version) with
    the same planner_task_id, and ocr_history gets a matching row (21_history_versions.sql).
    The list procedure returns the latest version of each package, with history_id =
@@ -45,7 +43,6 @@ const toHistory = (row) => ({
   notified_at: row.notified_at,
   delivered_at: row.delivered_at,
   planner_task_id: row.planner_task_id,
-  task_changed_at: row.task_changed_at ?? null,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -343,8 +340,7 @@ app.http('historySetPlannerTask', {
 /* --------------------------------------- POST /api/history/delivered
    Called by the "When a task is completed" Planner flow. Adds a Delivered version of
    the package. Idempotent: when the package is already Delivered nothing is added, so
-   a duplicate trigger is harmless. task_changed_at: the task's completedDateTime
-   (defaults to delivered_at). */
+   a duplicate trigger is harmless. */
 app.http('historySetDelivered', {
   methods: ['POST'],
   authLevel: 'function',
@@ -360,7 +356,6 @@ app.http('historySetDelivered', {
       ['planner_task_id', sql.NVarChar(100), taskId],
       ['history_id', sql.BigInt, historyId],
       ['delivered_at', sql.DateTime2, dateOrNull(b.delivered_at)],
-      ['task_changed_at', sql.DateTime2, dateOrNull(b.task_changed_at)],
     ], context);
     const updated = rows[0]?.rows_updated ?? 0;
     // 404 tells the flow the task was never linked to a package - worth alerting on.
