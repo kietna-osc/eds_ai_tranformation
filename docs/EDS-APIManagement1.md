@@ -395,7 +395,7 @@ Phiên bản lưu ảnh dạng base64 trong `image_url` nằm ở branch `featur
 
 ### historyList
 
-Mỗi kiện hàng hiện **1 dòng = phiên bản mới nhất**. Từ `21_history_versions.sql`, mỗi lần task Planner thay đổi sẽ INSERT thêm 1 dòng vào `history` (và `ocr_history`) chứ không UPDATE; các phiên bản của một kiện chung `planner_task_id`. Filter áp lên phiên bản mới nhất. `history_id` là dòng đầu tiên của kiện (không đổi khi có phiên bản mới). Mọi phiên bản giữ `created_at` = lúc đăng ký. `updated_at` là lúc ghi phiên bản mới nhất. `task_changed_at` là lúc trạng thái đổi: Done = `completedDateTime` của Planner; reopen = `snapshot_at` của lần sync phát hiện (Planner không ghi thời điểm mở lại); `null` ở dòng đăng ký.
+Mỗi kiện hàng hiện **1 dòng = phiên bản mới nhất**. Từ `21_history_versions.sql`, mỗi lần task Planner thay đổi sẽ INSERT thêm 1 dòng vào `history` (và `ocr_history`) chứ không UPDATE; các phiên bản của một kiện chung `planner_task_id`. Filter áp lên phiên bản mới nhất. `history_id` là dòng đầu tiên của kiện (không đổi khi có phiên bản mới). Mọi phiên bản giữ `created_at` = lúc đăng ký. `updated_at` là lúc ghi phiên bản mới nhất (với phiên bản reopen đây là lúc sync phát hiện, vì Planner không ghi thời điểm mở lại); lúc Done nằm ở `delivered_at` (`completedDateTime` của Planner).
 
 `department_id` lọc theo `recipient_department_id`. Khoảng ngày là inclusive: `notified_at`/`delivered_at` từ start đến end. Chuỗi chỉ có ngày được hiểu là `00:00:00Z`, nên end của cả ngày phải là `2026-09-10T23:59:59Z`.
 
@@ -464,7 +464,6 @@ Response **200**:
           "notified_at": { "type": ["string", "null"] },
           "delivered_at": { "type": ["string", "null"] },
           "planner_task_id": { "type": ["string", "null"] },
-          "task_changed_at": { "type": ["string", "null"] },
           "created_at": { "type": "string" },
           "updated_at": { "type": "string" }
         },
@@ -620,7 +619,7 @@ Response **200**:
 
 ### historySetDelivered
 
-Đánh dấu đã giao: thêm 1 phiên bản `Delivered` của kiện (dòng mới trong `history` và `ocr_history`, không UPDATE). Cần `planner_task_id` hoặc `history_id` (của bất kỳ phiên bản nào). Kiện đã là `Delivered` thì không thêm gì, nên trigger bắn lặp vô hại. `task_changed_at` là `completedDateTime` của task trên Planner; bỏ trống thì lấy `delivered_at`.
+Đánh dấu đã giao: thêm 1 phiên bản `Delivered` của kiện (dòng mới trong `history` và `ocr_history`, không UPDATE). Cần `planner_task_id` hoặc `history_id` (của bất kỳ phiên bản nào). Kiện đã là `Delivered` thì không thêm gì, nên trigger bắn lặp vô hại.
 
 `content` mẫu:
 
@@ -628,8 +627,7 @@ Response **200**:
 {
   "history_id": 12,
   "planner_task_id": "abc-task-id",
-  "delivered_at": "2026-09-24T02:00:00Z",
-  "task_changed_at": "2026-09-24T01:59:30Z"
+  "delivered_at": "2026-09-24T02:00:00Z"
 }
 ```
 
@@ -641,8 +639,7 @@ Request schema:
   "properties": {
     "history_id": { "type": ["integer", "null"] },
     "planner_task_id": { "type": ["string", "null"] },
-    "delivered_at": { "type": ["string", "null"] },
-    "task_changed_at": { "type": ["string", "null"] }
+    "delivered_at": { "type": ["string", "null"] }
   }
 }
 ```
@@ -655,13 +652,13 @@ Response **200** cùng schema `{ "updated": integer }` của `historySetPlannerT
 
 So sánh task với **phiên bản mới nhất** của kiện, lệch thì INSERT thêm 1 phiên bản (history + ocr_history), không UPDATE:
 
-- Task đang mở (bị reopen) mà phiên bản mới nhất là 受取済み → thêm phiên bản `Notified`, `delivered_at` = null, `task_changed_at` = `snapshot_at` (Planner không ghi thời điểm reopen, nên lấy lúc sync đọc Planner). Phiên bản 受取済み cũ vẫn còn.
-- Task đã Done mà phiên bản mới nhất vẫn là 通知済み → thêm phiên bản `Delivered`, `delivered_at` = `task_changed_at` = `completed_at` của task.
+- Task đang mở (bị reopen) mà phiên bản mới nhất là 受取済み → thêm phiên bản `Notified`, `delivered_at` = null (`updated_at` của dòng đó là lúc sync phát hiện, vì Planner không ghi thời điểm reopen). Phiên bản 受取済み cũ vẫn còn.
+- Task đã Done mà phiên bản mới nhất vẫn là 通知済み → thêm phiên bản `Delivered`, `delivered_at` = `completed_at` của task.
 - Kiện mà task **không có** trong danh sách (task bị xóa, hoặc thuộc trang chưa đọc) thì không bị đụng tới.
 
 Hai cơ chế an toàn:
 
-- `snapshot_at` là thời điểm flow bắt đầu đọc Planner (`utcNow()` lấy **trước** bước list task). Nó cũng là `task_changed_at` của phiên bản reopen. Dòng được set Delivered **sau** mốc này (bởi flow "When a task is completed") thì không bị revert, vì danh sách task cũ hơn lần Done đó.
+- `snapshot_at` là thời điểm flow bắt đầu đọc Planner (`utcNow()` lấy **trước** bước list task). Dòng được set Delivered **sau** mốc này (bởi flow "When a task is completed") thì không bị revert, vì danh sách task cũ hơn lần Done đó.
 - `max_revert`: nếu số dòng cần revert vượt ngưỡng thì không đổi gì, trả **409**. Mặc định là 50, tối đa 1000.
 
 Request mẫu:

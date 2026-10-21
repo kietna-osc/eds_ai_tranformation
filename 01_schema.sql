@@ -56,7 +56,6 @@ CREATE TABLE dbo.history
     notified_at                DATETIME2(0)    NULL,
     delivered_at               DATETIME2(0)    NULL,
     planner_task_id            NVARCHAR(100)   NULL,
-    task_changed_at            DATETIME2(0)    NULL,  -- when the Planner task changed (completedDateTime)
     created_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_created_at DEFAULT (SYSUTCDATETIME()),
     updated_at                 DATETIME2(0)    NOT NULL CONSTRAINT DF_history_updated_at DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT PK_history          PRIMARY KEY CLUSTERED (history_id),
@@ -148,8 +147,6 @@ GO
 -- (version) with the same planner_task_id, so the index is not unique; the latest
 -- version is the highest history_id. sp_history_insert_v2 rejects a task that is
 -- already registered.
-IF COL_LENGTH('dbo.history', 'task_changed_at') IS NULL
-    ALTER TABLE dbo.history ADD task_changed_at DATETIME2(0) NULL;
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_history_planner_task' AND object_id = OBJECT_ID('dbo.history'))
     DROP INDEX UQ_history_planner_task ON dbo.history;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_history_planner_task' AND object_id = OBJECT_ID('dbo.history'))
@@ -240,7 +237,6 @@ CREATE TABLE dbo.ocr_history
     notified_at                DATETIME2(0)    NULL,
     delivered_at               DATETIME2(0)    NULL,
     planner_task_id            NVARCHAR(100)   NULL,
-    task_changed_at            DATETIME2(0)    NULL,
     ocr_receipt_name           NVARCHAR(200)   NULL,
     ocr_receipt_department     NVARCHAR(200)   NULL,
     ocr_slip_no                NVARCHAR(100)   NULL,
@@ -272,9 +268,6 @@ CREATE INDEX IX_ocr_history_history_id ON dbo.ocr_history (history_id);
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ocr_history_created_at' AND object_id = OBJECT_ID('dbo.ocr_history'))
 CREATE INDEX IX_ocr_history_created_at ON dbo.ocr_history (created_at DESC);
-GO
-IF COL_LENGTH('dbo.ocr_history', 'task_changed_at') IS NULL
-    ALTER TABLE dbo.ocr_history ADD task_changed_at DATETIME2(0) NULL;
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ocr_history_planner_task' AND object_id = OBJECT_ID('dbo.ocr_history'))
 CREATE INDEX IX_ocr_history_planner_task ON dbo.ocr_history (planner_task_id, ocr_id);

@@ -286,15 +286,14 @@
     "/history/delivered": {
       "post": {
         "summary": "Mark delivered",
-        "description": "Adds a Delivered version of the package (a new history row; rows are never updated). Already Delivered: nothing is added, so replaying a completion is harmless. Identify the package by planner_task_id or history_id. task_changed_at is the task's completedDateTime in Planner (defaults to delivered_at).",
+        "description": "Adds a Delivered version of the package (a new history row; rows are never updated). Already Delivered: nothing is added, so replaying a completion is harmless. Identify the package by planner_task_id or history_id.",
         "operationId": "history-delivered",
         "requestBody": {
           "content": {
             "application/json": {
               "example": {
                 "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib",
-                "delivered_at": "2026-10-21T02:00:00Z",
-                "task_changed_at": "2026-10-21T01:59:30Z"
+                "delivered_at": "2026-10-21T02:00:00Z"
               }
             }
           }
