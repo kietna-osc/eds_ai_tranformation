@@ -7,6 +7,7 @@
                          (inclusive, like the SQL), newest created_at first, then pages
      sp_employee_list    department_name exact (unused by the handlers now), ordered by
                          full_name, then pages
+     sp_set_delivered    rows_updated 1; history_id 404 -> 0, history_id 400 -> 50001
      sp_employee_upsert  INSERT / UPDATE per row (UPDATE when the id is in data.employees);
                          id DROP throws a retryable error, BOOM a non-retryable one
    Set `data.history` / `data.employees` before calling a handler. */
@@ -41,6 +42,10 @@ async function exec(proc, params) {
       .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
   } else if (proc === 'dbo.sp_history_insert_v2') {
     return [{ history_id: 101 }];
+  } else if (proc === 'dbo.sp_set_delivered') {
+    if (p.history_id === 404) return [{ rows_updated: 0 }];
+    if (p.history_id === 400) throw Object.assign(new Error('This package has no Planner task, so it cannot be marked delivered.'), { number: 50001 });
+    return [{ rows_updated: 1 }];
   } else if (proc === 'dbo.sp_employee_upsert') {
     const incoming = JSON.parse(p.rows);
     if (incoming.some((r) => r.employee_id === 'DROP')) throw Object.assign(new Error('connection reset'), { retryable: true });

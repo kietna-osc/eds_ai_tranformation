@@ -107,6 +107,41 @@ test('employee: each field is a contains match, combined with AND', () => {
   assert.deepEqual(apply({ search_keyword: '経営' }), ['X100']);
 });
 
+test('employee: search_keyword matches 社員番号 / 社員氏名 / メール / 部署, not the dates', () => {
+  const apply = (kw) => eids(es.applyFilters(E, es.parseFilters(query({ search_keyword: kw }))));
+  assert.deepEqual(apply('x100'), ['X100']);
+  assert.deepEqual(apply('林健太'), ['E001']);
+  assert.deepEqual(apply('SATO@'), ['E002']);
+  assert.deepEqual(apply('ＤＸ'), ['E002']);
+  assert.deepEqual(apply('10'), ['X100']); // 2026-10-.. dates are not searched
+  assert.deepEqual(apply('2026/10/05'), []);
+});
+
+test('employee: search_keyword words are ANDed, each in any field', () => {
+  const apply = (kw) => eids(es.applyFilters(E, es.parseFilters(query({ search_keyword: kw }))));
+  assert.deepEqual(apply('林 営業'), ['E001']);
+  assert.deepEqual(apply('林　第1'), ['E001']); // full-width space
+  assert.deepEqual(apply('林 DX'), []);
+  assert.deepEqual(apply('林 健太'), ['E001']);
+});
+
+test('employee: search_keyword results are ranked exact, prefix, contains', () => {
+  const rows = [
+    { employee_id: '1230', full_name: '山田', email: 'yamada@example.com', department_name: '総務部' },
+    { employee_id: '51234', full_name: '鈴木', email: 'suzuki@example.com', department_name: '総務部' },
+    { employee_id: '123', full_name: '高橋', email: 'takahashi@example.com', department_name: '人事部' },
+    { employee_id: '9', full_name: '中村', email: 'nakamura@example.com', department_name: '123課' },
+  ];
+  const order = (kw) => {
+    const f = es.parseFilters(query({ search_keyword: kw }));
+    return eids(es.sortRows(es.applyFilters(rows, f), f));
+  };
+  assert.deepEqual(order('123'), ['123', '1230', '9', '51234']);
+  assert.deepEqual(order('総務'), ['51234', '1230']); // same rank: newest id first
+  const none = es.parseFilters(query({}));
+  assert.deepEqual(eids(es.sortRows(rows, none)), ['51234', '1230', '123', '9']);
+});
+
 test('employee: 登録日時 range is inclusive, invalid dates rejected', () => {
   const apply = (o) => eids(es.applyFilters(E, es.parseFilters(query(o))));
   assert.deepEqual(apply({ created_start: '2026-10-05T03:00:00Z' }), ['E002', 'X100']);

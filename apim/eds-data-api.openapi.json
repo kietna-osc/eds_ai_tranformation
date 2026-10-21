@@ -286,13 +286,15 @@
     "/history/delivered": {
       "post": {
         "summary": "Mark delivered",
-        "description": "Records delivered_at and sets status to Delivered. Replaying a completion does not move delivered_at. Identify the package by planner_task_id or history_id.",
+        "description": "Adds a Delivered version of the package (a new history row; rows are never updated). Already Delivered: nothing is added, so replaying a completion is harmless. Identify the package by planner_task_id or history_id. task_changed_at is the task's completedDateTime in Planner (defaults to delivered_at).",
         "operationId": "history-delivered",
         "requestBody": {
           "content": {
             "application/json": {
               "example": {
-                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib"
+                "planner_task_id": "vJKMDVFT9UmMe9_5-3vTNGUAB1Ib",
+                "delivered_at": "2026-10-21T02:00:00Z",
+                "task_changed_at": "2026-10-21T01:59:30Z"
               }
             }
           }
@@ -310,7 +312,7 @@
     "/history/planner-sync": {
       "post": {
         "summary": "Sync status from Planner",
-        "description": "Called by the scheduled flow EDS-PlannerStatusSync with every task of the EDS Planner plan. Tasks reopened in Planner go back to Notified (delivered_at cleared); completed tasks still Notified become Delivered. Only the tasks in the request are touched. Rows delivered after snapshot_at are not reverted. When more than max_revert rows would be reverted, nothing changes and 409 is returned.",
+        "description": "Called by the scheduled flow EDS-PlannerStatusSync with every task of the EDS Planner plan. A task reopened in Planner adds a Notified version of its package (delivered_at null); a completed task whose latest version is still Notified adds a Delivered version. Rows are never updated. Only the tasks in the request are touched. Rows delivered after snapshot_at are not reverted. When more than max_revert rows would be reverted, nothing changes and 409 is returned.",
         "operationId": "history-planner-sync",
         "requestBody": {
           "content": {

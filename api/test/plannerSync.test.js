@@ -33,6 +33,14 @@ test('planner sync: snapshot_at is required and must be a date', () => {
   }
 });
 
+test('planner sync: snapshot_at in the future is rejected (JST sent without Z)', () => {
+  const now = new Date('2026-10-22T10:00:00Z'); // 19:00 JST
+  assert.equal(readPlannerSyncRequest(validRequest({ snapshot_at: '2026-10-22T10:00:00Z' }), now).error, undefined);
+  assert.equal(readPlannerSyncRequest(validRequest({ snapshot_at: '2026-10-22T10:04:00Z' }), now).error, undefined);
+  assert.match(readPlannerSyncRequest(validRequest({ snapshot_at: '2026-10-22T19:00:00Z' }), now).error, /future/);
+  assert.equal(readPlannerSyncRequest(validRequest({ snapshot_at: '2026-10-22T19:00:00+09:00' }), now).error, undefined);
+});
+
 test('planner sync: max_revert defaults and is bounded', () => {
   assert.equal(readPlannerSyncRequest(validRequest({ max_revert: undefined })).maxRevert, DEFAULT_MAX_REVERT);
   assert.equal(readPlannerSyncRequest(validRequest({ max_revert: 0 })).maxRevert, 0);

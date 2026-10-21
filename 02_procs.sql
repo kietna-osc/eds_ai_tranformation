@@ -2,12 +2,15 @@
    The API identity gets EXECUTE on these and nothing else, so a compromised
    backend is bounded to these operations rather than arbitrary SQL. */
 
-------------------------------------------------- History page: list + filter
--- Serves both "latest 50" (no filters) and "latest 50 matching a filter".
+------------------------------------------------- History page: list + pagination
+-- Latest version of each package (versions share planner_task_id; a package without
+-- a task is its own single row). Filters apply to that latest version, then
+-- page/page_size determine the returned chunk.
+-- history_id is the package's first row, so a row keeps its id when a version is
+-- added; created_at is when it was registered, updated_at when the latest version
+-- was written, task_changed_at when its status changed.
 -- OPTION (RECOMPILE) so each filter combination picks its own index instead of
 -- reusing a cached plan built for a different one.
-------------------------------------------------- History page: list + pagination
--- Filters are applied first, then page/page_size determine the returned chunk.
 CREATE OR ALTER PROCEDURE dbo.sp_history_list
     @page             INT          = 1,
     @page_size        INT          = 50,
@@ -22,8 +25,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    WITH versions AS (
+        SELECT h.*,
+               ROW_NUMBER()      OVER (PARTITION BY k.package_key ORDER BY h.history_id DESC) AS version_desc,
+               MIN(h.history_id) OVER (PARTITION BY k.package_key) AS package_history_id,
+               MIN(h.created_at) OVER (PARTITION BY k.package_key) AS registered_at
+        FROM dbo.history h
+        CROSS APPLY (SELECT ISNULL(h.planner_task_id, N'#' + CONVERT(NVARCHAR(20), h.history_id)) AS package_key) k
+    )
     SELECT
-        history_id,
+        package_history_id AS history_id,
         slip_no,
         image_url,
         sender_name,
@@ -37,18 +48,21 @@ BEGIN
         notified_at,
         delivered_at,
         planner_task_id,
-        created_at,
+        task_changed_at,
+        registered_at      AS created_at,
         updated_at,
+        history_id         AS version_history_id,
         COUNT(*) OVER() AS total_count
-    FROM dbo.history
-    WHERE (@status IS NULL OR status = @status)
+    FROM versions
+    WHERE version_desc = 1
+      AND (@status IS NULL OR status = @status)
       AND (@data_type IS NULL OR data_type = @data_type)
       AND (@employee_id IS NULL OR employee_id = @employee_id)
       AND (@notified_start IS NULL OR notified_at >= @notified_start)
       AND (@notified_end IS NULL OR notified_at <= @notified_end)
       AND (@delivered_start IS NULL OR delivered_at >= @delivered_start)
       AND (@delivered_end IS NULL OR delivered_at <= @delivered_end)
-    ORDER BY created_at DESC, history_id DESC
+    ORDER BY registered_at DESC, package_history_id DESC
     OFFSET (@page - 1) * @page_size ROWS
     FETCH NEXT @page_size ROWS ONLY
     OPTION (RECOMPILE);
@@ -85,39 +99,129 @@ BEGIN
 END
 GO
 
--- Called after the flow creates the Planner task, to link it back to the package.
+-- Links a Planner task to a package registered without one (its only row and its
+-- ocr_history row). A package that already has a task, or a task already used by
+-- another package, is left alone (rows_updated 0); the same link again returns 1.
 CREATE OR ALTER PROCEDURE dbo.sp_history_set_planner_task
     @history_id      BIGINT,
     @planner_task_id NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE dbo.history SET planner_task_id = @planner_task_id WHERE history_id = @history_id;
-    SELECT @@ROWCOUNT AS rows_updated;
+    SET XACT_ABORT ON;
+    DECLARE @rows INT;
+
+    BEGIN TRANSACTION;
+    IF EXISTS (SELECT 1 FROM dbo.history WHERE history_id = @history_id AND planner_task_id = @planner_task_id)
+        SET @rows = 1;
+    ELSE
+    BEGIN
+        UPDATE dbo.history
+        SET    planner_task_id = @planner_task_id
+        WHERE  history_id = @history_id
+          AND  planner_task_id IS NULL
+          AND  NOT EXISTS (SELECT 1 FROM dbo.history WITH (UPDLOCK, HOLDLOCK)
+                           WHERE planner_task_id = @planner_task_id);
+        SET @rows = @@ROWCOUNT;
+        IF @rows > 0
+            UPDATE dbo.ocr_history
+            SET    planner_task_id = @planner_task_id
+            WHERE  history_id = @history_id AND planner_task_id IS NULL;
+    END
+    COMMIT TRANSACTION;
+
+    SELECT @rows AS rows_updated;
 END
 GO
 
 --------------------------------------------- Planner task completed
--- Idempotent: the Planner trigger can fire more than once for the same task, and
--- replaying must not move delivered_at. Accepts either key.
--- status becomes Delivered. delivered_at is written only the first time.
+-- Adds a Delivered version of the package (history + ocr_history). Idempotent: the
+-- Planner trigger can fire more than once, and when the latest version is already
+-- Delivered nothing is added (rows_updated is still 1). Accepts either key.
+-- @task_changed_at: Planner's completedDateTime; defaults to @delivered_at, then now.
 CREATE OR ALTER PROCEDURE dbo.sp_set_delivered
     @planner_task_id NVARCHAR(100) = NULL,
     @history_id      BIGINT        = NULL,
-    @delivered_at    DATETIME2(0)  = NULL
+    @delivered_at    DATETIME2(0)  = NULL,
+    @task_changed_at DATETIME2(0)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     IF @planner_task_id IS NULL AND @history_id IS NULL
         THROW 50001, 'sp_set_delivered requires @planner_task_id or @history_id.', 1;
 
-    UPDATE dbo.history
-    SET    delivered_at = COALESCE(delivered_at, @delivered_at, SYSUTCDATETIME()),
-           status       = 'Delivered'
-    WHERE  (@planner_task_id IS NOT NULL AND planner_task_id = @planner_task_id)
-       OR  (@history_id      IS NOT NULL AND history_id      = @history_id);
+    IF @planner_task_id IS NULL
+    BEGIN
+        SELECT @planner_task_id = planner_task_id FROM dbo.history WHERE history_id = @history_id;
+        IF @@ROWCOUNT = 0
+        BEGIN
+            SELECT 0 AS rows_updated;
+            RETURN;
+        END
+        IF @planner_task_id IS NULL
+            THROW 50001, 'This package has no Planner task, so it cannot be marked delivered.', 1;
+    END
 
-    SELECT @@ROWCOUNT AS rows_updated;
+    DECLARE @latest BIGINT, @latest_status VARCHAR(20);
+    DECLARE @now DATETIME2(0) = SYSUTCDATETIME();
+    DECLARE @new TABLE (history_id BIGINT NOT NULL PRIMARY KEY);
+
+    BEGIN TRANSACTION;
+    -- UPDLOCK + HOLDLOCK: a concurrent trigger or sync for this task waits here.
+    SELECT TOP (1) @latest = history_id, @latest_status = status
+    FROM   dbo.history WITH (UPDLOCK, HOLDLOCK)
+    WHERE  planner_task_id = @planner_task_id
+    ORDER  BY history_id DESC;
+
+    IF @latest IS NULL
+    BEGIN
+        COMMIT TRANSACTION;
+        SELECT 0 AS rows_updated;
+        RETURN;
+    END
+
+    IF @latest_status <> 'Delivered'
+    BEGIN
+        INSERT dbo.history (slip_no, image_url, sender_name, sender_content, sender_address,
+                            employee_id, recipient_name, recipient_department_name,
+                            status, data_type, notified_at, delivered_at, planner_task_id,
+                            task_changed_at, created_at)
+        OUTPUT inserted.history_id INTO @new (history_id)
+        SELECT slip_no, image_url, sender_name, sender_content, sender_address,
+               employee_id, recipient_name, recipient_department_name,
+               'Delivered', data_type, notified_at,
+               COALESCE(@delivered_at, @now), planner_task_id,
+               COALESCE(@task_changed_at, @delivered_at, @now), created_at
+        FROM   dbo.history
+        WHERE  history_id = @latest;
+
+        INSERT dbo.ocr_history (
+            history_id, slip_no, image_url,
+            sender_name, sender_content, sender_address,
+            employee_id, recipient_name, recipient_department_name,
+            status, data_type, notified_at, delivered_at, planner_task_id, task_changed_at,
+            ocr_receipt_name, ocr_receipt_department, ocr_slip_no,
+            ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name,
+            operator_name, operator_email
+        )
+        SELECT h.history_id, h.slip_no, h.image_url,
+               h.sender_name, h.sender_content, h.sender_address,
+               h.employee_id, h.recipient_name, h.recipient_department_name,
+               h.status, h.data_type, h.notified_at, h.delivered_at, h.planner_task_id, h.task_changed_at,
+               p.ocr_receipt_name, p.ocr_receipt_department, p.ocr_slip_no,
+               p.ocr_sender_name, p.ocr_sender_content, p.ocr_sender_address, p.ocr_model_name,
+               p.operator_name, p.operator_email
+        FROM   dbo.history h
+        JOIN   @new n ON n.history_id = h.history_id
+        OUTER APPLY (SELECT TOP (1) o.*
+                     FROM   dbo.ocr_history o
+                     WHERE  o.planner_task_id = h.planner_task_id AND o.history_id <> h.history_id
+                     ORDER  BY o.ocr_id DESC) p;
+    END
+    COMMIT TRANSACTION;
+
+    SELECT 1 AS rows_updated;
 END
 GO
 
@@ -385,6 +489,8 @@ GO
 -- Register (EDS-NotifySelected -> POST /api/history). Also logs the read in ocr_history
 -- (raw ocr_* values and who pressed Register) in the same transaction: both rows or
 -- neither, so the flow's retry never leaves a history row without its log.
+-- A planner_task_id that is already registered is rejected (50002 -> 409): later rows
+-- of a task are versions of its package, added by the Planner procedures only.
 CREATE OR ALTER PROCEDURE dbo.sp_history_insert_v2
     @slip_no                   NVARCHAR(100),
     @image_url                 NVARCHAR(MAX),
@@ -416,6 +522,11 @@ BEGIN
     -- Inserts itself (same columns as sp_history_insert) instead of calling it by
     -- position, so it never depends on that procedure's parameter order in the database.
     BEGIN TRANSACTION;
+    IF @planner_task_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM dbo.history WITH (UPDLOCK, HOLDLOCK)
+                   WHERE planner_task_id = @planner_task_id)
+        THROW 50002, N'同じデータが既に登録されています', 1;
+
     INSERT dbo.history (slip_no, image_url, sender_name, sender_content, sender_address,
                         employee_id,
                         recipient_name, recipient_department_name,
@@ -498,17 +609,20 @@ END
 GO
 
 --------------------------------------------- Planner -> History status sync
--- Brings history rows in line with their Planner task.
+-- Compares each Planner task with the latest version of its package and adds a
+-- version (history + ocr_history) when they disagree.
 --   @tasks_json  [{ "planner_task_id": "...", "completed": true|false, "completed_at": "ISO"|null }]
 --   @snapshot_at when the flow started reading Planner (UTC)
---   @max_revert  most rows allowed to go back to Notified in one run
--- Task open + row delivered   -> Notified, delivered_at cleared.
---   Skipped when the row was delivered after @snapshot_at: the task list is older
---   than that delivery, so the task was completed again in the meantime.
--- Task completed + row not delivered -> Delivered, delivered_at = completed_at
---   (an existing delivered_at is kept, like sp_set_delivered).
--- Rows whose task is not in @tasks_json are never touched.
--- 50004: more than @max_revert rows would be reverted; everything is rolled back.
+--   @max_revert  most packages allowed to go back to Notified in one run
+-- Task open + latest delivered -> Notified version, delivered_at NULL,
+--   task_changed_at = @snapshot_at (Planner does not record when a task is reopened).
+--   Skipped when the latest version was delivered after @snapshot_at: the task list
+--   is older than that delivery, so the task was completed again in the meantime.
+-- Task completed + latest not delivered -> Delivered version, delivered_at and
+--   task_changed_at = completed_at (an existing delivered_at is kept).
+-- New versions keep the package's created_at (registered).
+-- Packages whose task is not in @tasks_json are never touched.
+-- 50004: more than @max_revert packages would be reverted; everything is rolled back.
 CREATE OR ALTER PROCEDURE dbo.sp_history_planner_sync
     @tasks_json  NVARCHAR(MAX),
     @snapshot_at DATETIME2(0),
@@ -533,20 +647,35 @@ BEGIN
                completed       BIT           '$.completed',
                completed_at    NVARCHAR(40)  '$.completed_at');
 
+    DECLARE @latest TABLE
+    (
+        history_id   BIGINT        NOT NULL PRIMARY KEY,
+        action       VARCHAR(10)   NOT NULL,   -- revert | deliver
+        completed_at DATETIME2(0)  NULL
+    );
+    DECLARE @new TABLE (history_id BIGINT NOT NULL PRIMARY KEY);
     DECLARE @reverted_count INT, @delivered_count INT;
 
     BEGIN TRANSACTION;
 
-    -- Reopened in Planner -> back to 通知済み.
-    UPDATE h
-    SET    status       = 'Notified',
-           delivered_at = NULL
-    FROM   dbo.history h
-    JOIN   @planner_tasks t ON t.planner_task_id = h.planner_task_id
-    WHERE  t.is_completed = 0
-      AND  (h.status = 'Delivered' OR h.delivered_at IS NOT NULL)
-      AND  (h.delivered_at IS NULL OR h.delivered_at < @snapshot_at);
-    SET @reverted_count = @@ROWCOUNT;
+    -- Latest version of each task's package, locked until commit.
+    INSERT @latest (history_id, action, completed_at)
+    SELECT v.history_id,
+           CASE WHEN t.is_completed = 1 THEN 'deliver' ELSE 'revert' END,
+           t.completed_at
+    FROM   @planner_tasks t
+    CROSS APPLY (SELECT TOP (1) h.history_id, h.status, h.delivered_at
+                 FROM   dbo.history h WITH (UPDLOCK, HOLDLOCK)
+                 WHERE  h.planner_task_id = t.planner_task_id
+                 ORDER  BY h.history_id DESC) v
+    WHERE  (t.is_completed = 0
+            AND (v.status = 'Delivered' OR v.delivered_at IS NOT NULL)
+            AND (v.delivered_at IS NULL OR v.delivered_at < @snapshot_at))
+       OR  (t.is_completed = 1 AND v.status <> 'Delivered');
+
+    SELECT @reverted_count  = COUNT(CASE WHEN action = 'revert'  THEN 1 END),
+           @delivered_count = COUNT(CASE WHEN action = 'deliver' THEN 1 END)
+    FROM   @latest;
 
     IF @reverted_count > @max_revert
     BEGIN
@@ -556,15 +685,46 @@ BEGIN
         THROW 50004, @too_many_reverts, 1;  -- XACT_ABORT rolls the transaction back
     END
 
-    -- Completed in Planner but the trigger missed it -> 受取済み.
-    UPDATE h
-    SET    status       = 'Delivered',
-           delivered_at = COALESCE(h.delivered_at, t.completed_at, @snapshot_at)
+    INSERT dbo.history (slip_no, image_url, sender_name, sender_content, sender_address,
+                        employee_id, recipient_name, recipient_department_name,
+                        status, data_type, notified_at, delivered_at, planner_task_id,
+                        task_changed_at, created_at)
+    OUTPUT inserted.history_id INTO @new (history_id)
+    SELECT h.slip_no, h.image_url, h.sender_name, h.sender_content, h.sender_address,
+           h.employee_id, h.recipient_name, h.recipient_department_name,
+           CASE l.action WHEN 'deliver' THEN 'Delivered' ELSE 'Notified' END,
+           h.data_type, h.notified_at,
+           CASE l.action WHEN 'deliver' THEN COALESCE(h.delivered_at, l.completed_at, @snapshot_at) END,
+           h.planner_task_id,
+           CASE l.action WHEN 'deliver' THEN COALESCE(l.completed_at, @snapshot_at) ELSE @snapshot_at END,
+           h.created_at
+    FROM   @latest l
+    JOIN   dbo.history h ON h.history_id = l.history_id
+    ORDER  BY h.history_id;
+
+    INSERT dbo.ocr_history (
+        history_id, slip_no, image_url,
+        sender_name, sender_content, sender_address,
+        employee_id, recipient_name, recipient_department_name,
+        status, data_type, notified_at, delivered_at, planner_task_id, task_changed_at,
+        ocr_receipt_name, ocr_receipt_department, ocr_slip_no,
+        ocr_sender_name, ocr_sender_content, ocr_sender_address, ocr_model_name,
+        operator_name, operator_email
+    )
+    SELECT h.history_id, h.slip_no, h.image_url,
+           h.sender_name, h.sender_content, h.sender_address,
+           h.employee_id, h.recipient_name, h.recipient_department_name,
+           h.status, h.data_type, h.notified_at, h.delivered_at, h.planner_task_id, h.task_changed_at,
+           p.ocr_receipt_name, p.ocr_receipt_department, p.ocr_slip_no,
+           p.ocr_sender_name, p.ocr_sender_content, p.ocr_sender_address, p.ocr_model_name,
+           p.operator_name, p.operator_email
     FROM   dbo.history h
-    JOIN   @planner_tasks t ON t.planner_task_id = h.planner_task_id
-    WHERE  t.is_completed = 1
-      AND  h.status <> 'Delivered';
-    SET @delivered_count = @@ROWCOUNT;
+    JOIN   @new n ON n.history_id = h.history_id
+    OUTER APPLY (SELECT TOP (1) o.*
+                 FROM   dbo.ocr_history o
+                 WHERE  o.planner_task_id = h.planner_task_id AND o.history_id <> h.history_id
+                 ORDER  BY o.ocr_id DESC) p
+    ORDER  BY h.history_id;
 
     COMMIT TRANSACTION;
 

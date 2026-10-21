@@ -5,16 +5,22 @@
      { "planner_task_id": "...", "completed": true | false, "completed_at": "ISO" | null }
    completed means percentComplete = 100 in Planner.
 
-   dbo.sp_history_planner_sync then brings each linked history row in line:
-     task open again (reopened in Planner) + row 受取済み -> 通知済み, delivered_at/by cleared
-     task completed                        + row 通知済み -> 受取済み, delivered_at = completed_at
+   dbo.sp_history_planner_sync compares each task with the latest version of its
+   package and, when they disagree, INSERTs a new version (history + ocr_history):
+     task open again (reopened in Planner) + latest 受取済み -> 通知済み version,
+       delivered_at NULL, task_changed_at = snapshot_at (Planner does not record
+       when a task is reopened, so the time the flow read Planner is used)
+     task completed + latest 通知済み -> 受取済み version,
+       delivered_at = task_changed_at = completed_at
    Only the tasks in the request are looked at. A task missing from the list (deleted,
    or on a page the flow did not read) is never treated as reopened.
 
    Safety settings sent by the flow:
-     snapshot_at  when the flow started reading Planner. A row delivered after that
-                  moment (by the "When a task is completed" flow) is not reverted,
-                  because the task list is older than that delivery.
+     snapshot_at  when the flow started reading Planner (utcNow() before listing the
+                  tasks, ISO with Z). A package delivered after that moment (by the
+                  "When a task is completed" flow) is not reverted, because the task
+                  list is older than that delivery. Also the reopen time stored in
+                  task_changed_at, so a time in the future is rejected.
      max_revert   when more rows than this would go back to 通知済み, nothing changes
                   and the API answers 409. A bulk reopen in Planner or a flow bug
                   should be checked by a person first.
@@ -25,6 +31,8 @@ const DEFAULT_MAX_REVERT = 50;
 const MAX_REVERT_LIMIT = 1000;
 const MAX_TASKS_PER_REQUEST = 20000;
 const PLANNER_TASK_ID_MAX_LENGTH = 100;
+// Clock skew allowed between the flow and the Function App.
+const SNAPSHOT_FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 
 /** Date from an ISO string, or null when missing or not a date. */
 function toDateOrNull(value) {
@@ -70,11 +78,14 @@ function readTask(task, index) {
  *  Returns { error } for a bad request, otherwise
  *  { snapshotAt, maxRevert, tasks, duplicateCount }.
  *  A task id sent twice (overlapping pages) is kept once - the first entry wins. */
-function readPlannerSyncRequest(body) {
+function readPlannerSyncRequest(body, now = new Date()) {
   const request = body && typeof body === 'object' ? body : {};
 
   const snapshotAt = toDateOrNull(request.snapshot_at);
   if (!snapshotAt) return { error: 'snapshot_at is required (ISO date-time)' };
+  if (snapshotAt.getTime() > now.getTime() + SNAPSHOT_FUTURE_TOLERANCE_MS) {
+    return { error: 'snapshot_at is in the future (send utcNow(), ISO with Z)' };
+  }
 
   const { maxRevert, error: maxRevertError } = readMaxRevert(request.max_revert);
   if (maxRevertError) return { error: maxRevertError };
