@@ -84,109 +84,248 @@
             "Content-Type": "application/json"
           },
           "body": {
-            "csv_base64": "@{triggerBody()?['file']?['contentBytes']}"
+            "csv_base64": "@{triggerBody()?['file']?['contentBytes']}",
+            "file_name": "@{triggerBody()?['file']?['name']}"
           },
           "retryPolicy": {
             "type": "none"
           }
         }
       },
-      "Respond_import": {
-        "runAfter": {
-          "Parse_JSON": [
-            "Succeeded"
-          ]
-        },
-        "type": "Response",
-        "kind": "PowerApp",
-        "inputs": {
-          "schema": {
-            "type": "object",
-            "properties": {
-              "error": {
-                "title": "error",
-                "type": "string",
-                "x-ms-content-hint": "TEXT",
-                "x-ms-dynamically-added": true
-              },
-              "success_num": {
-                "title": "success_num",
-                "type": "number",
-                "x-ms-content-hint": "NUMBER",
-                "x-ms-dynamically-added": true
-              }
-            },
-            "additionalProperties": {}
-          },
-          "statusCode": 200,
-          "body": {
-            "error": "@{body('Parse_JSON')['messages']}",
-            "success_num": "@add(body('Parse_JSON')['inserted'],body('Parse_JSON')['updated'])"
-          }
-        }
-      },
-      "Parse_JSON": {
+      "Is_success": {
         "runAfter": {
           "Import_employees": [
             "Succeeded",
-            "Failed"
+            "Failed",
+            "TimedOut",
+            "Skipped"
           ]
         },
-        "type": "ParseJson",
-        "inputs": {
-          "content": "@body('Import_employees')",
-          "schema": {
-            "type": "object",
-            "properties": {
-              "success": {
-                "type": "boolean"
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@outputs('Import_employees')?['statusCode']",
+                200
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Respond_success": {
+            "runAfter": {},
+            "type": "Response",
+            "kind": "PowerApp",
+            "inputs": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "title": "status",
+                    "type": "string",
+                    "x-ms-content-hint": "TEXT",
+                    "x-ms-dynamically-added": true
+                  },
+                  "response": {
+                    "title": "response",
+                    "type": "string",
+                    "x-ms-content-hint": "TEXT",
+                    "x-ms-dynamically-added": true
+                  },
+                  "success": {
+                    "title": "success",
+                    "type": "boolean",
+                    "x-ms-content-hint": "BOOLEAN",
+                    "x-ms-dynamically-added": true
+                  },
+                  "success_num": {
+                    "title": "success_num",
+                    "type": "number",
+                    "x-ms-content-hint": "NUMBER",
+                    "x-ms-dynamically-added": true
+                  },
+                  "error": {
+                    "title": "error",
+                    "type": "string",
+                    "x-ms-content-hint": "TEXT",
+                    "x-ms-dynamically-added": true
+                  },
+                  "errorFile": {
+                    "title": "errorFile",
+                    "type": "string",
+                    "x-ms-content-hint": "TEXT",
+                    "x-ms-dynamically-added": true
+                  }
+                },
+                "additionalProperties": {}
               },
-              "total": {
-                "type": "integer"
-              },
-              "inserted": {
-                "type": "integer"
-              },
-              "updated": {
-                "type": "integer"
-              },
-              "skipped": {
-                "type": "integer"
-              },
-              "messages": {
-                "type": "array",
-                "items": {
+              "statusCode": 200,
+              "body": {
+                "status": "@{body('Import_employees')?['status']}",
+                "response": "@{string(body('Import_employees'))}",
+                "success": true,
+                "success_num": "@add(body('Import_employees')?['summary']?['inserted'],body('Import_employees')?['summary']?['updated'])",
+                "error": "",
+                "errorFile": "@{coalesce(body('Import_employees')?['errorFile']?['url'],'')}"
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Parse_error_body": {
+              "runAfter": {},
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('Import_employees')",
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "id": {
-                      "type": "integer"
+                    "status": {
+                      "type": "string"
                     },
-                    "text": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
                       "type": "string"
                     }
                   },
                   "required": [
-                    "id",
-                    "text"
+                    "status",
+                    "title",
+                    "message"
                   ]
                 }
-              },
-              "errorFile": {
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
-            "required": [
-              "success",
-              "total",
-              "inserted",
-              "updated",
-              "skipped",
-              "messages",
-              "errorFile"
-            ]
+            "Respond_error": {
+              "runAfter": {
+                "Parse_error_body": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Response",
+              "kind": "PowerApp",
+              "inputs": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "title": "status",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "response": {
+                      "title": "response",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "success": {
+                      "title": "success",
+                      "type": "boolean",
+                      "x-ms-content-hint": "BOOLEAN",
+                      "x-ms-dynamically-added": true
+                    },
+                    "success_num": {
+                      "title": "success_num",
+                      "type": "number",
+                      "x-ms-content-hint": "NUMBER",
+                      "x-ms-dynamically-added": true
+                    },
+                    "error": {
+                      "title": "error",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "errorFile": {
+                      "title": "errorFile",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    }
+                  },
+                  "additionalProperties": {}
+                },
+                "statusCode": 200,
+                "body": {
+                  "status": "error",
+                  "response": "@{string(body('Parse_error_body'))}",
+                  "success": false,
+                  "success_num": 0,
+                  "error": "@{body('Parse_error_body')?['message']}",
+                  "errorFile": "@{coalesce(body('Parse_error_body')?['errorFile']?['url'],'')}"
+                }
+              }
+            },
+            "Respond_error_no_api": {
+              "runAfter": {
+                "Parse_error_body": [
+                  "Failed",
+                  "Skipped",
+                  "TimedOut"
+                ]
+              },
+              "type": "Response",
+              "kind": "PowerApp",
+              "inputs": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "title": "status",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "response": {
+                      "title": "response",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "success": {
+                      "title": "success",
+                      "type": "boolean",
+                      "x-ms-content-hint": "BOOLEAN",
+                      "x-ms-dynamically-added": true
+                    },
+                    "success_num": {
+                      "title": "success_num",
+                      "type": "number",
+                      "x-ms-content-hint": "NUMBER",
+                      "x-ms-dynamically-added": true
+                    },
+                    "error": {
+                      "title": "error",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "errorFile": {
+                      "title": "errorFile",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    }
+                  },
+                  "additionalProperties": {}
+                },
+                "statusCode": 200,
+                "body": {
+                  "status": "error",
+                  "response": "{\"status\": \"error\", \"title\": \"インポート失敗\", \"message\": \"接続切断によりインポート処理が中断されました。\\nデータ整合性を保つため、データは保存されていません。\\nファイル全体を再度インポートしてください。\", \"error\": {\"code\": 56, \"reason\": null, \"rowCount\": 0, \"rows\": []}, \"errorFile\": null, \"summary\": {\"total\": 0, \"inserted\": 0, \"updated\": 0, \"skipped\": 0}, \"messages\": [{\"id\": 56, \"text\": \"接続切断によりインポート処理が中断されました。データ整合性を保つため、データは保存されていません。ファイル全体を再度インポートしてください。\"}]}",
+                  "success": false,
+                  "success_num": 0,
+                  "error": "接続切断によりインポート処理が中断されました。\nデータ整合性を保つため、データは保存されていません。\nファイル全体を再度インポートしてください。",
+                  "errorFile": ""
+                }
+              }
+            }
           }
         }
       }

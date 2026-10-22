@@ -78,6 +78,7 @@ const fakes = {
     enabled: () => true,
     imageLinks: async () => ({}),
     storeExport: async (fileName, text) => {
+      if (data.failExport) throw new Error('blob unavailable');
       stored.push({ fileName, text });
       return { url: `https://blob/${fileName}`, expiresOn: '2026-10-13T00:15:00Z' };
     },

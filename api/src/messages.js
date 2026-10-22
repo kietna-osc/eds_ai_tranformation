@@ -1,14 +1,31 @@
-/* Messages of the employee CSV import, ids and texts from the ErrorDesign sheet
-   (宅配便伝票仕分けDX_テストケース一覧, 7.2.2 CSV import).
-   50 is the shared upload error: ErrorDesign 50 (parse / encoding), 55 (size) and
-   56 (connection lost) are merged into it, because the app cannot tell the cause.
+/* Messages of the employee CSV import: ids and texts from the ErrorDesign sheet
+   (宅配便伝票仕分けDX_テストケース一覧, 7.2.2 CSV import), Japanese column.
+   The app shows the API's title and message as they are, so every popup text is here.
    {X} / {Y} / {LIST} are filled by message(id, params). */
 const TEXTS = {
-  50: 'CSVファイルのアップロードに失敗しました。ファイルを確認して、しばらくしてから再度お試しください。',
+  // 50 CSVファイルの形式不正、破損、またはエンコーディング誤り
+  50: 'CSVファイルを読み込めませんでした。CSV UTF-8形式で保存し直してから再度お試しください。',
+  // 51 インポート完了（成功行とエラー行が混在）
   51: 'インポートが完了しました。{X}名の従業員を追加しました。データエラーにより{Y}行をスキップしました。',
+  // 52 インポート完了、エラー0件
   52: 'インポートが完了しました。{X}名の従業員を追加しました。',
+  // 53 全行にエラーがある
   53: 'インポートに失敗しました。{X}行すべてにデータエラーがあり、従業員は追加されませんでした。',
+  // 54 CSVファイルとDB既存データ間でのキー重複（Update案）
   54: '重複コードが{X}件検出されました：{LIST}。既存データは新しい情報で更新されました。',
+  // 55 アップロード許容サイズを超過するファイル
+  55: 'CSVファイルのサイズが上限を超えています。ファイルを分割するか、行数を減らして再度お試しください。',
+  // 56 インポートが中断され、一部データのみ書き込まれた状態（実際は全件ロールバック）
+  56: '接続切断によりインポート処理が中断されました。データ整合性を保つため、データは保存されていません。ファイル全体を再度インポートしてください。',
+  // Not in the sheet: an unexpected server error. The upsert is one transaction, so nothing is saved.
+  unexpected: 'インポート処理中にエラーが発生しました。データは保存されていません。しばらくしてから再度お試しください。',
+};
+
+/* Popup titles per result status. */
+const TITLES = {
+  success: 'インポート完了',
+  partial: 'インポート完了（一部エラーあり）',
+  error: 'インポート失敗',
 };
 
 const message = (id, params = {}) => ({
@@ -16,8 +33,7 @@ const message = (id, params = {}) => ({
   text: (TEXTS[id] || '').replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)),
 });
 
-/** Adds detail lines under a message (which rows failed, or why the upload failed).
- *  The app breaks the popup text after each 。 and at each line break. */
-const withDetails = (msg, lines) => (lines.length ? { ...msg, text: [msg.text, ...lines].join('\n') } : msg);
+/** One sentence per line: the popup shows the message as it is. */
+const sentences = (text) => text.split(/(?<=。)/).map((s) => s.trim()).filter(Boolean);
 
-module.exports = { message, withDetails };
+module.exports = { TEXTS, TITLES, message, sentences };

@@ -7,7 +7,6 @@ const historySearch = require('./historySearch');
 const plannerSync = require('./plannerSync');
 
 const HISTORY_SEARCH_MAX_ROWS = 100000;
-const { CsvParseError } = require('./csv');
 const employeeCsv = require('./employeeCsv');
 const employeeSearch = require('./employeeSearch');
 
@@ -470,68 +469,58 @@ app.http('employeeImport', {
   methods: ['POST'],
   authLevel: 'function',
   route: 'employees/import',
-  /* Every response has the importResult fields (success, total, inserted, updated, skipped,
-     messages, errorFile, errorFileName, errorFileUrl), so EDS-EmployeeImport's Parse_JSON
-     accepts it whatever the status. A file that cannot be imported at all gets the shared
-     message 50 with the cause (原因：…) when it is known; the cause is logged too.
-     Skipped rows go to an error CSV in Blob Storage; errorFileUrl is its short-lived link. */
+  /* Body: { csv_base64 | csv, file_name?, tz_offset? }. Every response has the same shape
+     (employeeCsv.js header): status / title / message are what the app popup shows.
+     HTTP: 200 success or partial, 422 every row invalid (53), 400 unreadable file (50),
+     413 too large (55), 503 connection lost (56), 500 unexpected. The cause is logged. */
   handler: handler('employeeImport', async (request, context) => {
-    const failed = (status, log, total, reason) => {
-      context.warn(`employeeImport: ${status} ${log}`);
-      return json(status, employeeCsv.uploadFailed(total, reason));
-    };
-    const withErrorFile = async (result) => {
-      if (!result.errorFile || !blobImages.enabled()) return result;
-      try {
-        const fileName = employeeCsv.errorFileName(new Date(), Number(b.tz_offset ?? -540) || 0);
-        const { url } = await blobImages.storeExport(fileName, result.errorFile);
-        return { ...result, errorFileName: fileName, errorFileUrl: url };
-      } catch (e) {
-        context.error(`employeeImport: error file not stored: ${e.message}`);
-        return result;
-      }
+    const failed = (status, code, reason, log) => {
+      context.warn(`employeeImport: ${status} ${log || reason}`);
+      return json(status, employeeCsv.failure(code, reason));
     };
     const b = await request.json().catch(() => ({}));
     const csvText = typeof b.csv === 'string'
       ? b.csv
-      : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : null;
-    const { REASONS } = employeeCsv;
-    if (!csvText) return failed(400, 'empty file (csv or csv_base64 is required)', 0, REASONS.empty);
-    if (employeeCsv.tooLarge(csvText)) return failed(413, 'file too large', 0, REASONS.tooLarge);
+      : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : '';
+    const fileName = typeof b.file_name === 'string' ? b.file_name : '';
 
     let checked;
     try {
+      employeeCsv.checkFile(fileName, csvText);
       checked = employeeCsv.validateImport(csvText);
     } catch (e) {
-      if (e instanceof employeeCsv.ImportFormatError) return failed(400, `invalid CSV: ${e.message}`, 0, e.reason);
-      if (e instanceof CsvParseError) return failed(400, `invalid CSV: ${e.message}`, 0, REASONS.quote);
+      if (e instanceof employeeCsv.ImportError) return failed(e.httpStatus, e.code, e.reason, e.message);
       throw e;
     }
-    if (!checked.total) return failed(400, 'no data rows', 0, REASONS.noData);
-    if (employeeCsv.tooManyRows(checked.total)) {
-      return failed(413, `too many rows (${checked.total})`, checked.total, REASONS.tooManyRows(checked.total));
+
+    /* More error rows than the popup lists -> a CSV of every error in Blob Storage. If it
+       cannot be stored, the popup lists the first rows instead (logged). */
+    let errorFile = null;
+    if (employeeCsv.needsErrorFile(checked) && blobImages.enabled()) {
+      try {
+        const name = employeeCsv.errorFileName(new Date(), Number(b.tz_offset ?? -540) || 0);
+        const { url } = await blobImages.storeExport(name, employeeCsv.errorCsv(checked.errors));
+        errorFile = { fileName: name, url };
+      } catch (e) {
+        context.error(`employeeImport: error file not stored: ${e.message}`);
+      }
     }
-    if (!checked.valid.length) return json(422, await withErrorFile(employeeCsv.importResult(checked, [])));
+    if (!checked.valid.length) return json(422, employeeCsv.importResult(checked, [], errorFile));
 
     let upserted;
     try {
       upserted = await exec('dbo.sp_employee_upsert', [
-        ['rows', sql.NVarChar(sql.MAX), JSON.stringify(checked.valid.map((r) => ({
-          employee_id: r.employee_id,
-          full_name: r.full_name,
-          email: r.email,
-          department_name: r.department_name,
-        })))],
+        ['rows', sql.NVarChar(sql.MAX), JSON.stringify(checked.valid)],
       ], context);
     } catch (e) {
       if (isRetryable(e)) {
         context.error(`employeeImport: connection lost, rolled back: ${e.message}`);
-        return json(503, employeeCsv.uploadFailed(checked.total));
+        return json(503, employeeCsv.failure(56));
       }
       context.error(`employeeImport failed: ${e.message}`, e.stack);
-      return json(500, employeeCsv.uploadFailed(checked.total));
+      return json(500, employeeCsv.failure('unexpected'));
     }
-    return json(200, await withErrorFile(employeeCsv.importResult(checked, upserted)));
+    return json(200, employeeCsv.importResult(checked, upserted, errorFile));
   }),
 });
 
