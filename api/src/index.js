@@ -471,34 +471,47 @@ app.http('employeeImport', {
   authLevel: 'function',
   route: 'employees/import',
   /* Every response has the importResult fields (success, total, inserted, updated, skipped,
-     messages, errorFile), so EDS-EmployeeImport's Parse_JSON accepts it whatever the status.
-     A file that cannot be imported at all gets the shared message 50; the cause is logged. */
+     messages, errorFile, errorFileName, errorFileUrl), so EDS-EmployeeImport's Parse_JSON
+     accepts it whatever the status. A file that cannot be imported at all gets the shared
+     message 50 with the cause (原因：…) when it is known; the cause is logged too.
+     Skipped rows go to an error CSV in Blob Storage; errorFileUrl is its short-lived link. */
   handler: handler('employeeImport', async (request, context) => {
-    const failed = (status, reason, total) => {
-      context.warn(`employeeImport: ${status} ${reason}`);
-      return json(status, employeeCsv.uploadFailed(total));
+    const failed = (status, log, total, reason) => {
+      context.warn(`employeeImport: ${status} ${log}`);
+      return json(status, employeeCsv.uploadFailed(total, reason));
+    };
+    const withErrorFile = async (result) => {
+      if (!result.errorFile || !blobImages.enabled()) return result;
+      try {
+        const fileName = employeeCsv.errorFileName(new Date(), Number(b.tz_offset ?? -540) || 0);
+        const { url } = await blobImages.storeExport(fileName, result.errorFile);
+        return { ...result, errorFileName: fileName, errorFileUrl: url };
+      } catch (e) {
+        context.error(`employeeImport: error file not stored: ${e.message}`);
+        return result;
+      }
     };
     const b = await request.json().catch(() => ({}));
     const csvText = typeof b.csv === 'string'
       ? b.csv
       : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : null;
-    if (!csvText) return failed(400, 'empty file (csv or csv_base64 is required)');
-    if (employeeCsv.tooLarge(csvText)) return failed(413, 'file too large');
+    const { REASONS } = employeeCsv;
+    if (!csvText) return failed(400, 'empty file (csv or csv_base64 is required)', 0, REASONS.empty);
+    if (employeeCsv.tooLarge(csvText)) return failed(413, 'file too large', 0, REASONS.tooLarge);
 
     let checked;
     try {
       checked = employeeCsv.validateImport(csvText);
     } catch (e) {
-      if (e instanceof CsvParseError || e instanceof employeeCsv.ImportFormatError) {
-        return failed(400, `invalid CSV: ${e.message}`);
-      }
+      if (e instanceof employeeCsv.ImportFormatError) return failed(400, `invalid CSV: ${e.message}`, 0, e.reason);
+      if (e instanceof CsvParseError) return failed(400, `invalid CSV: ${e.message}`, 0, REASONS.quote);
       throw e;
     }
-    if (!checked.total) return failed(400, 'no data rows', 0);
-    if (employeeCsv.tooManyRows(checked.total)) return failed(413, `too many rows (${checked.total})`, checked.total);
-    if (!checked.valid.length) return json(422, employeeCsv.importResult(checked, []));
-    const dup = employeeCsv.duplicateIds(checked.valid);
-    if (dup.length) return failed(409, `社員番号 repeated in the file: ${dup.join(', ')}`, checked.total);
+    if (!checked.total) return failed(400, 'no data rows', 0, REASONS.noData);
+    if (employeeCsv.tooManyRows(checked.total)) {
+      return failed(413, `too many rows (${checked.total})`, checked.total, REASONS.tooManyRows(checked.total));
+    }
+    if (!checked.valid.length) return json(422, await withErrorFile(employeeCsv.importResult(checked, [])));
 
     let upserted;
     try {
@@ -518,7 +531,7 @@ app.http('employeeImport', {
       context.error(`employeeImport failed: ${e.message}`, e.stack);
       return json(500, employeeCsv.uploadFailed(checked.total));
     }
-    return json(200, employeeCsv.importResult(checked, upserted));
+    return json(200, await withErrorFile(employeeCsv.importResult(checked, upserted)));
   }),
 });
 

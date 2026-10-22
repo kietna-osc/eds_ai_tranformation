@@ -16,4 +16,8 @@ const message = (id, params = {}) => ({
   text: (TEXTS[id] || '').replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)),
 });
 
-module.exports = { message };
+/** Adds detail lines under a message (which rows failed, or why the upload failed).
+ *  The app breaks the popup text after each 。 and at each line break. */
+const withDetails = (msg, lines) => (lines.length ? { ...msg, text: [msg.text, ...lines].join('\n') } : msg);
+
+module.exports = { message, withDetails };
