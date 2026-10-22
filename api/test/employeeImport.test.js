@@ -171,6 +171,36 @@ test('社員番号 twice in the file -> those rows are skipped naming each other
   ]);
 });
 
+test('社員番号 differing only in case is the same id (DB collation) -> both rows skipped', async () => {
+  const r = await run(csv(H, row('N1'), 'abc1,名前,a1@example.com,DX', 'ABC1,名前,a2@example.com,DX'));
+  assert.equal(r.jsonBody.summary.inserted, 1);
+  assert.deepEqual(lines(r).slice(-2), [
+    '・3行目：社員番号がファイル内で重複しています（3行目、4行目）',
+    '・4行目：社員番号がファイル内で重複しています（3行目、4行目）',
+  ]);
+});
+
+test('47 email: twice in the file, or used by another employee in the DB -> row errors', async () => {
+  const saved = data.employees;
+  data.employees = [{ employee_id: 'E001', email: 'taken@example.com' }, { employee_id: 'E002', email: 'move@example.com' }];
+  try {
+    const r = await run(csv(H,
+      'N1,名前,same@example.com,DX', 'N2,名前,SAME@example.com,DX',   // twice in the file (case-insensitive)
+      'N3,名前,Taken@example.com,DX',                                 // E001 has it
+      'E002,名前,new@example.com,DX', 'N4,名前,move@example.com,DX', // E002 gives its email to N4 in the same file
+      'N5,名前,ok@example.com,DX'));
+    assert.equal(r.jsonBody.status, 'partial');
+    assert.deepEqual(lines(r).slice(-3), [
+      '・2行目：メールアドレスがファイル内で重複しています（2行目、3行目）',
+      '・3行目：メールアドレスがファイル内で重複しています（2行目、3行目）',
+      '・4行目：このメールアドレスは既に他の従業員に使用されています（社員番号：E001）',
+    ]);
+    assert.deepEqual(r.jsonBody.summary, { total: 6, inserted: 2, updated: 1, skipped: 3 });
+  } finally {
+    data.employees = saved;
+  }
+});
+
 // [send, HTTP status, ErrorDesign code, sheet text, cause]
 const failures = {
   'not a .csv file': [() => run(csv(H, row('N1')), { file_name: 'employees.xlsx' }), 400, 50, T50, 'CSVファイル（.csv）ではありません（employees.xlsx）'],
@@ -201,6 +231,30 @@ for (const [name, [send, http, code, text, cause]] of Object.entries(failures)) 
     assert.equal(r.jsonBody.error.code, code);
   });
 }
+
+// The shapes a flow body can send instead of the trigger's contentBytes (all imported the same).
+const uploadForms = {
+  'data URI': (b) => `data:text/csv;base64,${b.toString('base64')}`,
+  'file object': (b) => ({ name: 'employees.csv', contentBytes: b.toString('base64') }),
+  'file object as JSON text': (b) => JSON.stringify({ name: 'employees.csv', contentBytes: b.toString('base64') }),
+  '$content object': (b) => ({ '$content-type': 'text/csv', $content: b.toString('base64') }),
+  'CSV text': (b) => b.toString('utf8'),
+  'base64 with line breaks': (b) => b.toString('base64').replace(/(.{40})/g, '$1\r\n'),
+};
+for (const [name, wrap] of Object.entries(uploadForms)) {
+  test(`csv_base64 as ${name} -> read like contentBytes (not 文字コード)`, async () => {
+    const buf = Buffer.from(csv(H, row('N1'), 'N2,,x@example.com,DX'), 'utf8');
+    const r = await post('employeeImport', { csv_base64: wrap(buf), file_name: 'employees.csv' });
+    assert.equal(r.status, 200);
+    assert.deepEqual(ids(r), [51]);
+    assert.equal(lines(r).at(-1), '・3行目：社員氏名は必須です');
+  });
+}
+
+test('a real Shift-JIS file sent as base64 is still 50 文字コード', async () => {
+  const r = await post('employeeImport', { csv_base64: Buffer.from([0x8e, 0xd0, 0x88, 0xf5, 0x2c, 0x0d, 0x0a]).toString('base64') });
+  assert.equal(r.jsonBody.error.reason, '文字コードがUTF-8ではありません');
+});
 
 test('unexpected DB error -> 500 with the generic text, nothing saved', async () => {
   const r = await run(csv(H, row('BOOM')));

@@ -39,7 +39,7 @@ async function exec(proc, params) {
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.history_id - a.history_id);
   } else if (proc === 'dbo.sp_employee_list') {
     rows = data.employees.filter((r) => p.department_name === null || r.department_name === p.department_name)
-      .sort((a, b) => a.full_name.localeCompare(b.full_name) || a.employee_id.localeCompare(b.employee_id));
+      .sort((a, b) => String(a.full_name ?? '').localeCompare(String(b.full_name ?? '')) || a.employee_id.localeCompare(b.employee_id));
   } else if (proc === 'dbo.sp_history_insert_v2') {
     return [{ history_id: 101 }];
   } else if (proc === 'dbo.sp_set_delivered') {

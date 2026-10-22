@@ -479,10 +479,12 @@ app.http('employeeImport', {
       return json(status, employeeCsv.failure(code, reason));
     };
     const b = await request.json().catch(() => ({}));
-    const csvText = typeof b.csv === 'string'
-      ? b.csv
-      : typeof b.csv_base64 === 'string' ? Buffer.from(b.csv_base64, 'base64').toString('utf8') : '';
+    const upload = typeof b.csv === 'string' ? { text: b.csv, form: 'csv' } : employeeCsv.decodeUpload(b.csv_base64);
+    const csvText = upload.text;
     const fileName = typeof b.file_name === 'string' ? b.file_name : '';
+    if (upload.form !== 'base64' && upload.form !== 'csv') {
+      context.warn(`employeeImport: csv_base64 received as ${upload.form}; the flow should send the trigger's contentBytes`);
+    }
 
     let checked;
     try {
@@ -491,6 +493,23 @@ app.http('employeeImport', {
     } catch (e) {
       if (e instanceof employeeCsv.ImportError) return failed(e.httpStatus, e.code, e.reason, e.message);
       throw e;
+    }
+
+    /* Email used twice in the file or by another employee (ErrorDesign 47) -> row errors. */
+    if (checked.valid.length) {
+      let dbRows;
+      try {
+        dbRows = await exec('dbo.sp_employee_list', [
+          ['page', sql.Int, 1],
+          ['page_size', sql.Int, FETCH_ALL],
+          ['department_name', sql.NVarChar(200), null],
+          ['search_keyword', sql.NVarChar(200), null],
+        ], context);
+      } catch (e) {
+        context.error(`employeeImport: employee list failed: ${e.message}`);
+        return json(isRetryable(e) ? 503 : 500, employeeCsv.failure(isRetryable(e) ? 56 : 'unexpected'));
+      }
+      employeeCsv.markEmailConflicts(checked, dbRows);
     }
 
     /* More error rows than the popup lists -> a CSV of every error in Blob Storage. If it
@@ -510,7 +529,7 @@ app.http('employeeImport', {
     let upserted;
     try {
       upserted = await exec('dbo.sp_employee_upsert', [
-        ['rows', sql.NVarChar(sql.MAX), JSON.stringify(checked.valid)],
+        ['rows', sql.NVarChar(sql.MAX), JSON.stringify(employeeCsv.upsertRows(checked))],
       ], context);
     } catch (e) {
       if (isRetryable(e)) {

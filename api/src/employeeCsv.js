@@ -76,6 +76,31 @@ function rowProblems(item) {
   return problems;
 }
 
+/* csv_base64 as the flow sends it. Besides plain base64 (the trigger's contentBytes), accept
+   the shapes a flow body easily ends up with, so a different expression does not turn every
+   file into 「文字コードがUTF-8ではありません」: a data URI, the whole file object (or its JSON
+   text) with contentBytes / $content, and the CSV text itself. Returns { text, form }. */
+const BASE64 = /^[A-Za-z0-9+/\s]+={0,2}\s*$/;
+
+function decodeUpload(value) {
+  if (value && typeof value === 'object') {
+    const inner = value.contentBytes ?? value.$content ?? value.content;
+    return inner === undefined ? { text: '', form: 'object without content' } : { ...decodeUpload(inner), form: 'file object' };
+  }
+  if (typeof value !== 'string') return { text: '', form: 'missing' };
+  const v = value.replace(/^\uFEFF/, '').trim();
+  if (!v) return { text: '', form: 'empty' };
+  if (v.startsWith('{')) {
+    try {
+      return { ...decodeUpload(JSON.parse(v)), form: 'file object (JSON text)' };
+    } catch { /* not JSON: fall through */ }
+  }
+  const uri = v.match(/^data:[^,]*?;base64,(.*)$/s);
+  if (uri) return { text: Buffer.from(uri[1], 'base64').toString('utf8'), form: 'data URI' };
+  if (BASE64.test(v)) return { text: Buffer.from(v, 'base64').toString('utf8'), form: 'base64' };
+  return { text: value, form: 'text' };
+}
+
 /** Checks of the file as a whole (50 / 55), before the rows are read. */
 function checkFile(fileName, csvText) {
   if (fileName && !/\.csv$/i.test(fileName.trim())) throw new ImportError(50, 400, REASONS.notCsv(fileName), 'not a .csv file');
@@ -118,13 +143,15 @@ function validateImport(csvText) {
   });
 
   /* A 社員番号 repeated in the file: the upsert needs unique ids and we cannot tell which
-     row is right, so every row with that id is skipped, naming the other lines. */
+     row is right, so every row with that id is skipped, naming the other lines. Compared
+     case-insensitively, like the database (default collation): abc1 and ABC1 are one id. */
+  const idKey = (id) => id.toLowerCase();
   const linesById = new Map();
   for (const item of items) {
-    if (!item.problems.length) linesById.set(item.employee_id, [...(linesById.get(item.employee_id) || []), item.line]);
+    if (!item.problems.length) linesById.set(idKey(item.employee_id), [...(linesById.get(idKey(item.employee_id)) || []), item.line]);
   }
   for (const item of items) {
-    const lines = item.problems.length ? [] : linesById.get(item.employee_id);
+    const lines = item.problems.length ? [] : linesById.get(idKey(item.employee_id));
     if (lines.length > 1) {
       item.problems.push({
         column: COLUMNS.employee_id.label,
@@ -136,11 +163,41 @@ function validateImport(csvText) {
 
   const valid = [];
   const errors = [];
-  for (const { line, problems, ...item } of items) {
-    if (problems.length) errors.push({ line, employee_id: item.employee_id, errors: problems });
+  for (const { problems, ...item } of items) {
+    if (problems.length) errors.push({ line: item.line, employee_id: item.employee_id, errors: problems });
     else valid.push(item);
   }
   return { total, valid, errors };
+}
+
+/** The rows sp_employee_upsert receives (valid rows without their line number). */
+const upsertRows = (checked) => checked.valid.map(({ line, ...row }) => row);
+
+/* ErrorDesign 47 (Create/Update — email重複チェック), applied to the import like the create
+   popup does: an email used twice in the file, or used by another employee in the database.
+   Employees that are in the file do not count as "another": their email is replaced. */
+function markEmailConflicts(checked, dbRows) {
+  const key = (v) => String(v ?? '').trim().toLowerCase();
+  const inFile = new Set(checked.valid.map((r) => key(r.employee_id)));
+  const dbOwner = new Map();
+  for (const r of dbRows) {
+    if (!inFile.has(key(r.employee_id)) && key(r.email)) dbOwner.set(key(r.email), String(r.employee_id));
+  }
+  const linesByEmail = new Map();
+  for (const r of checked.valid) linesByEmail.set(key(r.email), [...(linesByEmail.get(key(r.email)) || []), r.line]);
+
+  const keep = [];
+  for (const r of checked.valid) {
+    const lines = linesByEmail.get(key(r.email));
+    let text = null;
+    if (lines.length > 1) text = `メールアドレスがファイル内で重複しています（${lines.map((l) => `${l}行目`).join('、')}）`;
+    else if (dbOwner.has(key(r.email))) text = `このメールアドレスは既に他の従業員に使用されています（社員番号：${dbOwner.get(key(r.email))}）`;
+    if (text) checked.errors.push({ line: r.line, employee_id: r.employee_id, errors: [{ column: COLUMNS.email.label, value: r.email, message: text }] });
+    else keep.push(r);
+  }
+  checked.valid = keep;
+  checked.errors.sort((a, b) => a.line - b.line);
+  return checked;
 }
 
 /** Error file: one line per problem, so the user sees the row and the column. UTF-8 BOM for Excel. */
@@ -224,8 +281,11 @@ module.exports = {
   ImportError,
   REASONS,
   MAX_LISTED_ROWS,
+  decodeUpload,
   checkFile,
   validateImport,
+  markEmailConflicts,
+  upsertRows,
   needsErrorFile,
   errorCsv,
   errorFileName,
