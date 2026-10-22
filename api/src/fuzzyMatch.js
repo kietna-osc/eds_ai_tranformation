@@ -18,20 +18,9 @@ function fuzzyMatchEmployees(
   const normalizedReceiverName = normalizeText(receiverName);
   const normalizedDepartment = normalizeText(department);
   const safeNameWeight = clamp(nameWeight, 0, 1);
-  const safeTopK = Math.max(1, Math.floor(topK || 3));
   const safeFuzzyThreshold = clamp(fuzzyThreshold, 0, 100);
   if (normalizedReceiverName.length === 0) {
-    return {
-      match_type: 'top_k',
-      candidates: employees.slice(0, safeTopK).map((employee) =>
-        toPublicCandidate({
-          ...employee,
-          name_score: 0,
-          department_score: 0,
-          score: 0,
-        })
-      ),
-    };
+    return { match_type: 'none', candidates: [] };
   }
   const exactNameMatches = employees.filter(
     (employee) => normalizeText(employee.name) === normalizedReceiverName
