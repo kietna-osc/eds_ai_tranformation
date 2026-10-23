@@ -171,26 +171,35 @@ function validateImport(csvText) {
 /** The rows sp_employee_upsert receives (valid rows without their line number). */
 const upsertRows = (checked) => checked.valid.map(({ line, ...row }) => row);
 
-/* ErrorDesign 47 (Create/Update — email重複チェック), applied to the import like the create
-   popup does: an email used twice in the file, or used by another employee in the database.
-   Employees that are in the file do not count as "another": their email is replaced. */
-function markEmailConflicts(checked, dbRows) {
+/* Duplicates against the database, as the user asked on 2026-10-23 (Skip案 instead of
+   Update案): nothing in the database is overwritten by an import.
+   - 社員番号 already registered -> row error (the existing employee is not updated).
+   - メール used twice in the file, or by an employee in the database (ErrorDesign 47) -> row error.
+   Both are reported on the same row when both apply. Compared trimmed and case-insensitively,
+   like the database (default collation). */
+function markDbConflicts(checked, dbRows) {
   const key = (v) => String(v ?? '').trim().toLowerCase();
-  const inFile = new Set(checked.valid.map((r) => key(r.employee_id)));
+  const dbIds = new Set(dbRows.map((r) => key(r.employee_id)));
   const dbOwner = new Map();
   for (const r of dbRows) {
-    if (!inFile.has(key(r.employee_id)) && key(r.email)) dbOwner.set(key(r.email), String(r.employee_id));
+    if (key(r.email) && !dbOwner.has(key(r.email))) dbOwner.set(key(r.email), String(r.employee_id));
   }
   const linesByEmail = new Map();
   for (const r of checked.valid) linesByEmail.set(key(r.email), [...(linesByEmail.get(key(r.email)) || []), r.line]);
 
   const keep = [];
   for (const r of checked.valid) {
+    const problems = [];
+    if (dbIds.has(key(r.employee_id))) {
+      problems.push({ column: COLUMNS.employee_id.label, value: r.employee_id, message: 'この社員番号は既に登録されています' });
+    }
     const lines = linesByEmail.get(key(r.email));
+    const owner = dbOwner.get(key(r.email));
     let text = null;
     if (lines.length > 1) text = `メールアドレスがファイル内で重複しています（${lines.map((l) => `${l}行目`).join('、')}）`;
-    else if (dbOwner.has(key(r.email))) text = `このメールアドレスは既に他の従業員に使用されています（社員番号：${dbOwner.get(key(r.email))}）`;
-    if (text) checked.errors.push({ line: r.line, employee_id: r.employee_id, errors: [{ column: COLUMNS.email.label, value: r.email, message: text }] });
+    else if (owner !== undefined && key(owner) !== key(r.employee_id)) text = `このメールアドレスは既に他の従業員に使用されています（社員番号：${owner}）`;
+    if (text) problems.push({ column: COLUMNS.email.label, value: r.email, message: text });
+    if (problems.length) checked.errors.push({ line: r.line, employee_id: r.employee_id, errors: problems });
     else keep.push(r);
   }
   checked.valid = keep;
@@ -279,7 +288,7 @@ module.exports = {
   decodeUpload,
   checkFile,
   validateImport,
-  markEmailConflicts,
+  markDbConflicts,
   upsertRows,
   needsErrorFile,
   errorCsv,

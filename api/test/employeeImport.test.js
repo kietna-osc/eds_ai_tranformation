@@ -3,7 +3,7 @@
    Run: cd api && npm test */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { data, post, stored } = require('./harness');
+const { data, post, stored, calls } = require('./harness');
 const { parseCsv } = require('../src/csv');
 
 const H = '社員番号,社員氏名,メール,部署';
@@ -33,17 +33,26 @@ test('52: every row valid -> success, インポートが完了しました。成
   assert.deepEqual(r.jsonBody.summary, { total: 3, inserted: 3, updated: 0, skipped: 0 });
 });
 
-test('Update案: codes already in the DB are updated and counted in 成功, no code list, no added / updated split', async () => {
-  const r = await run(csv(H, row('E001'), row('E002'), row('N9')));
-  assert.equal(r.jsonBody.status, 'success');
-  assert.deepEqual(ids(r), [52]);
-  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：3件']);
-  assert.equal(r.jsonBody.summary.updated, 2);
+test('Skip案: a 社員番号 already in the DB is a row error, the existing employee is not updated', async () => {
+  const r = await run(csv(H, row('E001'), row('e002'), row('N9')));
+  assert.equal(r.jsonBody.status, 'partial');
+  assert.deepEqual(lines(r), [
+    'インポートが完了しました。', '成功：1件', '失敗：2件',
+    'エラー内容：',
+    '・2行目：この社員番号は既に登録されています',
+    '・3行目：この社員番号は既に登録されています',
+  ]);
+  assert.deepEqual(r.jsonBody.summary, { total: 3, inserted: 1, updated: 0, skipped: 2 });
+  const upsert = calls.filter((c) => c.proc === 'dbo.sp_employee_upsert').at(-1);
+  assert.deepEqual(JSON.parse(upsert.p.rows).map((x) => x.employee_id), ['N9']);
 });
 
-test('Update案: every row already in the DB -> 成功：N件, not 0件', async () => {
+test('Skip案: every row already in the DB -> 53 インポートエラー, nothing written', async () => {
   const r = await run(csv(H, row('E001'), row('E002')));
-  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：2件']);
+  assert.equal(r.status, 422);
+  assert.equal(r.jsonBody.title, 'インポートエラー');
+  assert.deepEqual(lines(r).slice(0, 2), ['インポートに失敗しました。', '失敗：2件（すべての行にデータエラーがあり、登録されませんでした）']);
+  assert.equal(calls.some((c) => c.proc === 'dbo.sp_employee_upsert'), false);
 });
 
 test('51: up to 5 error rows -> partial, each row with its line and cause in the message, no file', async () => {
@@ -69,15 +78,6 @@ test('51: up to 5 error rows -> partial, each row with its line and cause in the
       { column: '部署', value: '', message: '部署は必須です' },
     ],
   });
-});
-
-test('51 with updated codes: updated rows count in 成功, then 失敗 and the rows', async () => {
-  const r = await run(csv(H, row('E001'), 'N3,,t@example.com,DX'));
-  assert.deepEqual(ids(r), [51]);
-  assert.deepEqual(lines(r), [
-    'インポートが完了しました。', '成功：1件', '失敗：1件',
-    'エラー内容：', '・3行目：社員氏名は必須です',
-  ]);
 });
 
 test('51: exactly 5 error rows -> still listed in the message, no file', async () => {
@@ -182,22 +182,40 @@ test('社員番号 differing only in case is the same id (DB collation) -> both 
   ]);
 });
 
-test('47 email: twice in the file, or used by another employee in the DB -> row errors', async () => {
+test('47 email: twice in the file, or used by an employee in the DB -> row errors; with a registered 社員番号 both on one row', async () => {
   const saved = data.employees;
   data.employees = [{ employee_id: 'E001', email: 'taken@example.com' }, { employee_id: 'E002', email: 'move@example.com' }];
   try {
     const r = await run(csv(H,
       'N1,名前,same@example.com,DX', 'N2,名前,SAME@example.com,DX',   // twice in the file (case-insensitive)
       'N3,名前,Taken@example.com,DX',                                 // E001 has it
-      'E002,名前,new@example.com,DX', 'N4,名前,move@example.com,DX', // E002 gives its email to N4 in the same file
+      'E002,名前,move@example.com,DX', 'E001,名前,move@example.com,DX', // registered ids, same email twice: both errors
       'N5,名前,ok@example.com,DX'));
     assert.equal(r.jsonBody.status, 'partial');
-    assert.deepEqual(lines(r).slice(-3), [
+    assert.deepEqual(lines(r).slice(3), [
+      'エラー内容：',
       '・2行目：メールアドレスがファイル内で重複しています（2行目、3行目）',
       '・3行目：メールアドレスがファイル内で重複しています（2行目、3行目）',
       '・4行目：このメールアドレスは既に他の従業員に使用されています（社員番号：E001）',
+      '・5行目：この社員番号は既に登録されています、メールアドレスがファイル内で重複しています（5行目、6行目）',
+      '・6行目：この社員番号は既に登録されています、メールアドレスがファイル内で重複しています（5行目、6行目）',
     ]);
-    assert.deepEqual(r.jsonBody.summary, { total: 6, inserted: 2, updated: 1, skipped: 3 });
+    assert.deepEqual(r.jsonBody.summary, { total: 6, inserted: 1, updated: 0, skipped: 5 });
+  } finally {
+    data.employees = saved;
+  }
+});
+
+test('47 email: a registered 社員番号 keeping its own email -> only the 社員番号 error', async () => {
+  const saved = data.employees;
+  data.employees = [{ employee_id: 'E001', email: 'mine@example.com' }, { employee_id: 'E002', email: 'other@example.com' }];
+  try {
+    const r = await run(csv(H, 'E001,名前,MINE@example.com,DX', 'N1,名前,Other@example.com,DX', row('N2')));
+    assert.deepEqual(lines(r).slice(3), [
+      'エラー内容：',
+      '・2行目：この社員番号は既に登録されています',
+      '・3行目：このメールアドレスは既に他の従業員に使用されています（社員番号：E002）',
+    ]);
   } finally {
     data.employees = saved;
   }

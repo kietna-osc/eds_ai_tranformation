@@ -2,9 +2,9 @@
    (宅配便伝票仕分けDX_テストケース一覧, 7.2.2 CSV import), Japanese column.
    The app shows the API's title and message as they are, so every popup text is here.
    {Y} / {OK} are filled by message(id, params); \n starts a new popup line.
-   51-53 are counts, as the user asked on 2026-10-23: 成功 = added + updated rows (codes already
-   in the DB are updated, Update案; neither the codes nor the added / updated split is shown),
-   失敗 = skipped rows. */
+   51-53 are counts, as the user asked on 2026-10-23: 成功 = imported rows, 失敗 = skipped rows.
+   A 社員番号 or メール already in the database is a row error (Skip案, employeeCsv.markDbConflicts),
+   so an import never overwrites an existing employee. */
 const TEXTS = {
   // 50 CSVファイルの形式不正、破損、またはエンコーディング誤り
   50: 'CSVファイルを読み込めませんでした。CSV UTF-8形式で保存し直してから再度お試しください。',

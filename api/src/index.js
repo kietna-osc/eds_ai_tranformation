@@ -495,7 +495,8 @@ app.http('employeeImport', {
       throw e;
     }
 
-    /* Email used twice in the file or by another employee (ErrorDesign 47) -> row errors. */
+    /* 社員番号 already registered, or email used twice in the file / by another employee
+       (ErrorDesign 47) -> row errors; existing employees are never overwritten (Skip案). */
     if (checked.valid.length) {
       let dbRows;
       try {
@@ -509,7 +510,7 @@ app.http('employeeImport', {
         context.error(`employeeImport: employee list failed: ${e.message}`);
         return json(isRetryable(e) ? 503 : 500, employeeCsv.failure(isRetryable(e) ? 56 : 'unexpected'));
       }
-      employeeCsv.markEmailConflicts(checked, dbRows);
+      employeeCsv.markDbConflicts(checked, dbRows);
     }
 
     /* More error rows than the popup lists -> a CSV of every error in Blob Storage. If it
