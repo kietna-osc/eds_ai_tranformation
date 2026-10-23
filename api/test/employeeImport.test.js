@@ -33,17 +33,17 @@ test('52: every row valid -> success, インポートが完了しました。成
   assert.deepEqual(r.jsonBody.summary, { total: 3, inserted: 3, updated: 0, skipped: 0 });
 });
 
-test('Update案: codes already in the DB are updated and counted in 成功 (added / updated), no code list', async () => {
+test('Update案: codes already in the DB are updated and counted in 成功, no code list, no added / updated split', async () => {
   const r = await run(csv(H, row('E001'), row('E002'), row('N9')));
   assert.equal(r.jsonBody.status, 'success');
   assert.deepEqual(ids(r), [52]);
-  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：3件（新規追加：1件、更新：2件）']);
+  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：3件']);
   assert.equal(r.jsonBody.summary.updated, 2);
 });
 
-test('Update案: every row already in the DB -> 成功：N件（新規追加：0件、更新：N件）, not 0件', async () => {
+test('Update案: every row already in the DB -> 成功：N件, not 0件', async () => {
   const r = await run(csv(H, row('E001'), row('E002')));
-  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：2件（新規追加：0件、更新：2件）']);
+  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：2件']);
 });
 
 test('51: up to 5 error rows -> partial, each row with its line and cause in the message, no file', async () => {
@@ -71,11 +71,11 @@ test('51: up to 5 error rows -> partial, each row with its line and cause in the
   });
 });
 
-test('51 with updated codes: 成功 split into added / updated, then 失敗 and the rows', async () => {
+test('51 with updated codes: updated rows count in 成功, then 失敗 and the rows', async () => {
   const r = await run(csv(H, row('E001'), 'N3,,t@example.com,DX'));
   assert.deepEqual(ids(r), [51]);
   assert.deepEqual(lines(r), [
-    'インポートが完了しました。', '成功：1件（新規追加：0件、更新：1件）', '失敗：1件',
+    'インポートが完了しました。', '成功：1件', '失敗：1件',
     'エラー内容：', '・3行目：社員氏名は必須です',
   ]);
 });

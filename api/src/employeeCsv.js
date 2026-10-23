@@ -236,12 +236,8 @@ function importResult(checked, upserted, errorFile = null) {
   const inserted = upserted.filter((r) => r.action === 'INSERT').length;
   const updated = upserted.filter((r) => r.action === 'UPDATE').length;
   const skipped = checked.errors.length;
-  // 成功 split into added / updated only when codes already in the DB were updated.
-  const counts = {
-    OK: fmt(inserted + updated),
-    DETAIL: updated ? `（新規追加：${fmt(inserted)}件、更新：${fmt(updated)}件）` : '',
-    Y: fmt(skipped),
-  };
+  // 成功 = added + updated rows (codes already in the DB are updated).
+  const counts = { OK: fmt(inserted + updated), Y: fmt(skipped) };
 
   let status;
   let msg;
