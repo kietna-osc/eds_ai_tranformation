@@ -17,10 +17,8 @@ const { TITLES, message, sentences } = require('./messages');
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 5000;
-// Error rows listed in the popup; with more, the rows go to the error file instead.
+// Error rows listed in the popup (5 included); with more, the rows go to the error file instead.
 const MAX_LISTED_ROWS = 5;
-// Codes listed in message 54; the rest become "ほかN件".
-const MAX_LISTED_CODES = 10;
 
 const fmt = (n) => n.toLocaleString('en-US');
 
@@ -218,10 +216,6 @@ const needsErrorFile = (checked) => checked.errors.length > MAX_LISTED_ROWS;
 
 const rowLine = (r) => `・${r.line}行目：${r.errors.map((p) => p.message).join('、')}`;
 
-const codeList = (ids) => (ids.length > MAX_LISTED_CODES
-  ? `${ids.slice(0, MAX_LISTED_CODES).join('、')} ほか${ids.length - MAX_LISTED_CODES}件`
-  : ids.join('、'));
-
 /** Body for a file that could not be imported (50 / 55 / 56 / unexpected). */
 function failure(code, reason = null) {
   const msg = message(code);
@@ -240,40 +234,45 @@ function failure(code, reason = null) {
  *  when the error rows were stored as a file; without it they are listed (first 5, ほかN行). */
 function importResult(checked, upserted, errorFile = null) {
   const inserted = upserted.filter((r) => r.action === 'INSERT').length;
-  const updatedIds = upserted.filter((r) => r.action === 'UPDATE').map((r) => r.employee_id);
+  const updated = upserted.filter((r) => r.action === 'UPDATE').length;
   const skipped = checked.errors.length;
+  // 成功 split into added / updated only when codes already in the DB were updated.
+  const counts = {
+    OK: fmt(inserted + updated),
+    DETAIL: updated ? `（新規追加：${fmt(inserted)}件、更新：${fmt(updated)}件）` : '',
+    Y: fmt(skipped),
+  };
 
   let status;
-  const messages = [];
+  let msg;
   if (!checked.valid.length) {
     status = 'error';
-    messages.push(message(53, { X: checked.total }));
+    msg = message(53, counts);
   } else if (skipped) {
     status = 'partial';
-    messages.push(message(51, { X: inserted, Y: skipped }));
+    msg = message(51, counts);
   } else {
     status = 'success';
-    messages.push(message(52, { X: inserted }));
+    msg = message(52, counts);
   }
-  if (updatedIds.length) messages.push(message(54, { X: updatedIds.length, LIST: codeList(updatedIds) }));
 
   const listed = errorFile ? [] : checked.errors.slice(0, MAX_LISTED_ROWS);
   const details = [];
   if (errorFile) {
-    details.push(`エラー行が${fmt(skipped)}行あるため、「確認」を押すとエラー詳細ファイル（CSV）をダウンロードします。`);
+    details.push('エラー詳細はダウンロードされるファイル（CSV）をご確認ください。');
   } else if (skipped) {
     details.push('エラー内容：', ...listed.map(rowLine));
-    if (skipped > listed.length) details.push(`ほか${fmt(skipped - listed.length)}行`);
+    if (skipped > listed.length) details.push(`ほか${fmt(skipped - listed.length)}件`);
   }
 
   return {
     status,
     title: TITLES[status],
-    message: [...messages.flatMap((m) => sentences(m.text)), ...details].join('\n'),
-    error: skipped ? { code: messages[0].id, reason: null, rowCount: skipped, rows: listed } : null,
+    message: [...sentences(msg.text), ...details].join('\n'),
+    error: skipped ? { code: msg.id, reason: null, rowCount: skipped, rows: listed } : null,
     errorFile,
-    summary: { total: checked.total, inserted, updated: updatedIds.length, skipped },
-    messages,
+    summary: { total: checked.total, inserted, updated, skipped },
+    messages: [msg],
   };
 }
 

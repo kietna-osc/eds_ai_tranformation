@@ -1,18 +1,18 @@
 /* Messages of the employee CSV import: ids and texts from the ErrorDesign sheet
    (宅配便伝票仕分けDX_テストケース一覧, 7.2.2 CSV import), Japanese column.
    The app shows the API's title and message as they are, so every popup text is here.
-   {X} / {Y} / {LIST} are filled by message(id, params). */
+   {X} / {Y} / {OK} / {DETAIL} are filled by message(id, params); \n starts a new popup line.
+   51-53 are counts, as the user asked on 2026-10-23: 成功 = added + updated rows (codes already
+   in the DB are updated, Update案; only their number is shown, not the codes), 失敗 = skipped rows. */
 const TEXTS = {
   // 50 CSVファイルの形式不正、破損、またはエンコーディング誤り
   50: 'CSVファイルを読み込めませんでした。CSV UTF-8形式で保存し直してから再度お試しください。',
   // 51 インポート完了（成功行とエラー行が混在）
-  51: 'インポートが完了しました。{X}名の従業員を追加しました。データエラーにより{Y}行をスキップしました。',
+  51: 'インポートが完了しました。\n成功：{OK}件{DETAIL}\n失敗：{Y}件',
   // 52 インポート完了、エラー0件
-  52: 'インポートが完了しました。{X}名の従業員を追加しました。',
+  52: 'インポートが完了しました。\n成功：{OK}件{DETAIL}',
   // 53 全行にエラーがある
-  53: 'インポートに失敗しました。{X}行すべてにデータエラーがあり、従業員は追加されませんでした。',
-  // 54 CSVファイルとDB既存データ間でのキー重複（Update案）
-  54: '重複コードが{X}件検出されました：{LIST}。既存データは新しい情報で更新されました。',
+  53: 'インポートに失敗しました。\n失敗：{Y}件（すべての行にデータエラーがあり、登録されませんでした）',
   // 55 アップロード許容サイズを超過するファイル
   55: 'CSVファイルのサイズが上限を超えています。ファイルを分割するか、行数を減らして再度お試しください。',
   // 56 インポートが中断され、一部データのみ書き込まれた状態（実際は全件ロールバック）
@@ -25,7 +25,7 @@ const TEXTS = {
 const TITLES = {
   success: 'インポート完了',
   partial: 'インポート完了（一部エラーあり）',
-  error: 'インポート失敗',
+  error: 'インポートエラー',
 };
 
 const message = (id, params = {}) => ({
@@ -34,6 +34,6 @@ const message = (id, params = {}) => ({
 });
 
 /** One sentence per line: the popup shows the message as it is. */
-const sentences = (text) => text.split(/(?<=。)/).map((s) => s.trim()).filter(Boolean);
+const sentences = (text) => text.split(/(?<=。)|\n/).map((s) => s.trim()).filter(Boolean);
 
 module.exports = { TEXTS, TITLES, message, sentences };

@@ -21,39 +21,29 @@ const T56 = ['接続切断によりインポート処理が中断されました
 
 data.employees = [{ employee_id: 'E001' }, { employee_id: 'E002' }];
 
-test('52: every row valid -> success, インポートが完了しました。{X}名…', async () => {
+test('52: every row valid -> success, インポートが完了しました。成功：N件', async () => {
   const r = await run(csv(H, row('N1'), row('N2'), row('N3')));
   assert.equal(r.status, 200);
   assert.equal(r.jsonBody.status, 'success');
   assert.equal(r.jsonBody.title, 'インポート完了');
   assert.deepEqual(ids(r), [52]);
-  assert.deepEqual(lines(r), ['インポートが完了しました。', '3名の従業員を追加しました。']);
+  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：3件']);
   assert.equal(r.jsonBody.error, null);
   assert.equal(r.jsonBody.errorFile, null);
   assert.deepEqual(r.jsonBody.summary, { total: 3, inserted: 3, updated: 0, skipped: 0 });
 });
 
-test('54 (Update案): codes already in the DB are listed and updated', async () => {
+test('Update案: codes already in the DB are updated and counted in 成功 (added / updated), no code list', async () => {
   const r = await run(csv(H, row('E001'), row('E002'), row('N9')));
   assert.equal(r.jsonBody.status, 'success');
-  assert.deepEqual(ids(r), [52, 54]);
-  assert.deepEqual(lines(r), [
-    'インポートが完了しました。', '1名の従業員を追加しました。',
-    '重複コードが2件検出されました：E001、E002。', '既存データは新しい情報で更新されました。',
-  ]);
+  assert.deepEqual(ids(r), [52]);
+  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：3件（新規追加：1件、更新：2件）']);
   assert.equal(r.jsonBody.summary.updated, 2);
 });
 
-test('54: more than 10 codes -> the first 10, then ほかN件', async () => {
-  const many = Array.from({ length: 12 }, (_, i) => `U${String(i + 1).padStart(2, '0')}`);
-  const saved = data.employees;
-  data.employees = many.map((employee_id) => ({ employee_id }));
-  try {
-    const r = await run(csv(H, ...many.map(row)));
-    assert.equal(lines(r)[2], '重複コードが12件検出されました：U01、U02、U03、U04、U05、U06、U07、U08、U09、U10 ほか2件。');
-  } finally {
-    data.employees = saved;
-  }
+test('Update案: every row already in the DB -> 成功：N件（新規追加：0件、更新：N件）, not 0件', async () => {
+  const r = await run(csv(H, row('E001'), row('E002')));
+  assert.deepEqual(lines(r), ['インポートが完了しました。', '成功：2件（新規追加：0件、更新：2件）']);
 });
 
 test('51: up to 5 error rows -> partial, each row with its line and cause in the message, no file', async () => {
@@ -62,7 +52,7 @@ test('51: up to 5 error rows -> partial, each row with its line and cause in the
   assert.equal(r.jsonBody.status, 'partial');
   assert.equal(r.jsonBody.title, 'インポート完了（一部エラーあり）');
   assert.deepEqual(lines(r), [
-    'インポートが完了しました。', '2名の従業員を追加しました。', 'データエラーにより2行をスキップしました。',
+    'インポートが完了しました。', '成功：2件', '失敗：2件',
     'エラー内容：',
     '・4行目：社員氏名は必須です',
     '・5行目：社員番号は必須です、メールアドレスの形式が正しくありません、部署は必須です',
@@ -81,10 +71,22 @@ test('51: up to 5 error rows -> partial, each row with its line and cause in the
   });
 });
 
-test('51 + 54: with skipped rows and updated codes, 51 then 54 then the rows', async () => {
+test('51 with updated codes: 成功 split into added / updated, then 失敗 and the rows', async () => {
   const r = await run(csv(H, row('E001'), 'N3,,t@example.com,DX'));
-  assert.deepEqual(ids(r), [51, 54]);
-  assert.deepEqual(lines(r).slice(-2), ['エラー内容：', '・3行目：社員氏名は必須です']);
+  assert.deepEqual(ids(r), [51]);
+  assert.deepEqual(lines(r), [
+    'インポートが完了しました。', '成功：1件（新規追加：0件、更新：1件）', '失敗：1件',
+    'エラー内容：', '・3行目：社員氏名は必須です',
+  ]);
+});
+
+test('51: exactly 5 error rows -> still listed in the message, no file', async () => {
+  const bad = Array.from({ length: 5 }, (_, i) => `B${i},名前,bad,DX`);
+  const r = await run(csv(H, row('N1'), ...bad));
+  assert.equal(r.jsonBody.errorFile, null);
+  assert.deepEqual(lines(r).slice(2), [
+    '失敗：5件', 'エラー内容：', ...[3, 4, 5, 6, 7].map((n) => `・${n}行目：メールアドレスの形式が正しくありません`),
+  ]);
 });
 
 test('51: more than 5 error rows -> the error file (one line per cell), the message says 確認 downloads it', async () => {
@@ -92,8 +94,8 @@ test('51: more than 5 error rows -> the error file (one line per cell), the mess
   const r = await run(csv(H, row('N1'), ...bad));
   assert.equal(r.jsonBody.status, 'partial');
   assert.deepEqual(lines(r), [
-    'インポートが完了しました。', '1名の従業員を追加しました。', 'データエラーにより6行をスキップしました。',
-    'エラー行が6行あるため、「確認」を押すとエラー詳細ファイル（CSV）をダウンロードします。',
+    'インポートが完了しました。', '成功：1件', '失敗：6件',
+    'エラー詳細はダウンロードされるファイル（CSV）をご確認ください。',
   ]);
   assert.match(r.jsonBody.errorFile.fileName, /^employee_import_errors_\d{14}\.csv$/);
   assert.equal(r.jsonBody.errorFile.url, `https://blob/${r.jsonBody.errorFile.fileName}`);
@@ -108,7 +110,7 @@ test('51: more than 5 error rows -> the error file (one line per cell), the mess
   assert.equal(file.length, 1 + 12);
 });
 
-test('error file not stored -> the message lists the first 5 rows and ほかN行', async () => {
+test('error file not stored -> the message lists the first 5 rows and ほかN件', async () => {
   const bad = Array.from({ length: 7 }, (_, i) => `B${i},名前,bad,DX`);
   data.failExport = true;
   try {
@@ -117,20 +119,20 @@ test('error file not stored -> the message lists the first 5 rows and ほかN行
     assert.deepEqual(lines(r).slice(3), [
       'エラー内容：',
       ...[3, 4, 5, 6, 7].map((n) => `・${n}行目：メールアドレスの形式が正しくありません`),
-      'ほか2行',
+      'ほか2件',
     ]);
   } finally {
     data.failExport = false;
   }
 });
 
-test('53: every row invalid -> 422 error, インポートに失敗しました。{X}行すべて…, with the rows', async () => {
+test('53: every row invalid -> 422 error, インポートエラー, 失敗：N件, with the rows', async () => {
   const r = await run(csv(H, 'N1,,,', ',名前,,DX', 'N3,名前,t@example.com,'));
   assert.equal(r.status, 422);
   assert.equal(r.jsonBody.status, 'error');
-  assert.equal(r.jsonBody.title, 'インポート失敗');
+  assert.equal(r.jsonBody.title, 'インポートエラー');
   assert.deepEqual(lines(r), [
-    'インポートに失敗しました。', '3行すべてにデータエラーがあり、従業員は追加されませんでした。',
+    'インポートに失敗しました。', '失敗：3件（すべての行にデータエラーがあり、登録されませんでした）',
     'エラー内容：',
     '・2行目：社員氏名は必須です、メールは必須です、部署は必須です',
     '・3行目：社員番号は必須です、メールは必須です',
@@ -221,7 +223,7 @@ for (const [name, [send, http, code, text, cause]] of Object.entries(failures)) 
     const r = await send();
     assert.equal(r.status, http);
     assert.equal(r.jsonBody.status, 'error');
-    assert.equal(r.jsonBody.title, 'インポート失敗');
+    assert.equal(r.jsonBody.title, 'インポートエラー');
     assert.deepEqual(ids(r), [code]);
     const got = lines(r);
     assert.deepEqual(got.slice(0, text.length), text);

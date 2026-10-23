@@ -423,7 +423,7 @@
                 "statusCode": 200,
                 "body": {
                   "status": "error",
-                  "response": "{\"status\": \"error\", \"title\": \"インポート失敗\", \"message\": \"接続切断によりインポート処理が中断されました。\\nデータ整合性を保つため、データは保存されていません。\\nファイル全体を再度インポートしてください。\", \"error\": {\"code\": 56, \"reason\": null, \"rowCount\": 0, \"rows\": []}, \"errorFile\": null, \"summary\": {\"total\": 0, \"inserted\": 0, \"updated\": 0, \"skipped\": 0}, \"messages\": [{\"id\": 56, \"text\": \"接続切断によりインポート処理が中断されました。データ整合性を保つため、データは保存されていません。ファイル全体を再度インポートしてください。\"}]}",
+                  "response": "{\"status\": \"error\", \"title\": \"インポートエラー\", \"message\": \"接続切断によりインポート処理が中断されました。\\nデータ整合性を保つため、データは保存されていません。\\nファイル全体を再度インポートしてください。\", \"error\": {\"code\": 56, \"reason\": null, \"rowCount\": 0, \"rows\": []}, \"errorFile\": null, \"summary\": {\"total\": 0, \"inserted\": 0, \"updated\": 0, \"skipped\": 0}, \"messages\": [{\"id\": 56, \"text\": \"接続切断によりインポート処理が中断されました。データ整合性を保つため、データは保存されていません。ファイル全体を再度インポートしてください。\"}]}",
                   "success": false,
                   "success_num": 0,
                   "error": "接続切断によりインポート処理が中断されました。\nデータ整合性を保つため、データは保存されていません。\nファイル全体を再度インポートしてください。",
