@@ -89,7 +89,7 @@ test('51: exactly 5 error rows -> still listed in the message, no file', async (
   ]);
 });
 
-test('51: more than 5 error rows -> the error file (one line per cell), the message says 確認 downloads it', async () => {
+test('51: more than 5 error rows -> the error file (imported rows in error + エラー理由), the message says 確認 downloads it', async () => {
   const bad = Array.from({ length: 6 }, (_, i) => `B${i},,bad,DX`);
   const r = await run(csv(H, row('N1'), ...bad));
   assert.equal(r.jsonBody.status, 'partial');
@@ -102,12 +102,38 @@ test('51: more than 5 error rows -> the error file (one line per cell), the mess
   assert.deepEqual(r.jsonBody.error.rows, []);
   assert.equal(r.jsonBody.error.rowCount, 6);
   const file = parseCsv(stored.at(-1).text);
-  assert.deepEqual(file[0], ['行番号', '社員番号', '列名', '入力値', 'エラー内容']);
-  assert.deepEqual(file.slice(1, 3), [
-    ['3', 'B0', '社員氏名', '', '社員氏名は必須です'],
-    ['3', 'B0', 'メール', 'bad', 'メールアドレスの形式が正しくありません'],
+  assert.deepEqual(file[0], ['行番号', '社員番号', '社員氏名', 'メール', '部署', 'エラー理由']);
+  assert.deepEqual(file[1], ['3', 'B0', '', 'bad', 'DX', '社員氏名は必須です、メールアドレスの形式が正しくありません']);
+  assert.equal(file.length, 1 + 6);
+});
+
+test('error file can be imported again after the fix (行番号 / エラー理由 are ignored)', async () => {
+  const bad = Array.from({ length: 6 }, (_, i) => `F${i},名前,bad,DX`);
+  await run(csv(H, ...bad));
+  const fixed = stored.at(-1).text.replace(/,bad,/g, (m, i) => `,fix${i}@example.com,`);
+  const r = await run(fixed);
+  assert.equal(r.jsonBody.status, 'success');
+  assert.equal(r.jsonBody.summary.inserted, 6);
+});
+
+test('error file keeps the imported cells as they are and pads short rows', async () => {
+  const bad = Array.from({ length: 6 }, (_, i) => `B${i}, 名前 ,bad`);
+  await run(csv(H, row('N1'), ...bad));
+  const file = parseCsv(stored.at(-1).text);
+  assert.deepEqual(file[1], ['3', 'B0', ' 名前 ', 'bad', '', '列数がヘッダーより少なくなっています（3列／ヘッダー4列）']);
+});
+
+test('50: wrong header -> the whole file comes back with the cause on the header line', async () => {
+  const r = await run(csv('社員番号,氏名,メール,部署', 'N1,名前,t1@example.com,DX', 'N2,名前2,t2@example.com,DX'));
+  assert.equal(r.status, 400);
+  assert.deepEqual(lines(r).slice(-2), ['原因：必須列がありません：社員氏名／不明な列があります：氏名', 'エラー詳細はダウンロードされるファイル（CSV）をご確認ください。']);
+  assert.match(r.jsonBody.errorFile.fileName, /^employee_import_errors_\d{14}\.csv$/);
+  const file = parseCsv(stored.at(-1).text);
+  assert.deepEqual(file, [
+    ['行番号', '社員番号', '氏名', 'メール', '部署', 'エラー理由：必須列がありません：社員氏名／不明な列があります：氏名（必要な列名：社員番号、社員氏名、メール、部署）'],
+    ['2', 'N1', '名前', 't1@example.com', 'DX', ''],
+    ['3', 'N2', '名前2', 't2@example.com', 'DX', ''],
   ]);
-  assert.equal(file.length, 1 + 12);
 });
 
 test('error file not stored -> the message lists the first 5 rows and ほかN件', async () => {
@@ -147,7 +173,7 @@ test('rows follow the app create rules: 社員番号 half-width letters/digits, 
     'E05,名前,e@example.c,DX', `${'A'.repeat(51)},名前,f@example.com,DX`));
   assert.equal(r.jsonBody.summary.inserted, 1);
   const file = parseCsv(stored.at(-1).text).slice(1);
-  assert.deepEqual(file.map((f) => f[4]), [
+  assert.deepEqual(file.map((f) => f.at(-1)), [
     '社員番号は半角英数字のみ使用できます',
     '社員番号は半角英数字のみ使用できます',
     'メールアドレスの形式が正しくありません',
@@ -155,6 +181,21 @@ test('rows follow the app create rules: 社員番号 half-width letters/digits, 
     'メールアドレスの形式が正しくありません',
     '社員番号は50文字以内で入力してください',
   ]);
+});
+
+test('a row with more or fewer cells than the header -> only the column-count error', async () => {
+  const r = await run(csv(H, row('N1'), 'N2,山田,太郎,b@example.com,DX', 'N3,名前,c@example.com', `${row('N4')},,`));
+  assert.equal(r.jsonBody.summary.inserted, 2); // N1, and N4 whose extra cells are empty
+  assert.deepEqual(lines(r).slice(-2), [
+    '・3行目：列数がヘッダーより多くなっています（5列目に値があります）',
+    '・4行目：列数がヘッダーより少なくなっています（3列／ヘッダー4列）',
+  ]);
+});
+
+test('a blank header column is allowed while it stays empty', async () => {
+  const r = await run(csv(`社員番号,,社員氏名,メール,部署`, 'N1,,名前,a@example.com,DX', 'N2,x,名前,b@example.com,DX'));
+  assert.equal(r.jsonBody.summary.inserted, 1);
+  assert.equal(lines(r).at(-1), '・3行目：列数がヘッダーより多くなっています（2列目に値があります）');
 });
 
 test('line numbers are the file lines (blank lines counted), as Excel shows them', async () => {
@@ -227,6 +268,9 @@ const failures = {
   'empty file': [() => post('employeeImport', { csv_base64: '' }), 400, 50, T50, 'ファイルが空です'],
   'missing column': [() => run(csv('社員番号,社員氏名,メール', 'N1,名前,t@example.com')), 400, 50, T50, '必須列がありません：部署'],
   'two missing columns': [() => run(csv('社員番号,社員氏名', 'N1,名前')), 400, 50, T50, '必須列がありません：メール、部署'],
+  'unknown column': [() => run(csv(`${H},備考`, `${row('N1')},メモ`)), 400, 50, T50, '不明な列があります：備考'],
+  'column given twice': [() => run(csv(`${H},employee_id`, `${row('N1')},N9`)), 400, 50, T50, '列名が重複しています：社員番号'],
+  'missing and unknown column': [() => run(csv('社員番号,氏名,メール,部署', 'N1,名前,t@example.com,DX')), 400, 50, T50, '必須列がありません：社員氏名／不明な列があります：氏名'],
   'unterminated quote': [() => run(csv(H, 'N1,"名前,t@example.com,DX')), 400, 50, T50, 'CSVの形式が正しくありません（閉じられていない「"」があります）'],
   'Shift-JIS file': [() => post('employeeImport', {
     csv_base64: Buffer.from([0x8e, 0xd0, 0x88, 0xf5, 0x94, 0xd4, 0x8d, 0x86, 0x0d, 0x0a]).toString('base64'),
@@ -248,6 +292,8 @@ for (const [name, [send, http, code, text, cause]] of Object.entries(failures)) 
     if (cause instanceof RegExp) assert.match(got[text.length].replace(/^原因：/, ''), cause);
     else if (cause) assert.equal(got[text.length], `原因：${cause}`);
     else assert.equal(got.length, text.length);
+    // Only a wrong header returns a file (and its note after the cause).
+    assert.equal(r.jsonBody.errorFile !== null, /必須列|重複|不明な列/.test(String(cause)));
     assert.equal(r.jsonBody.error.code, code);
   });
 }

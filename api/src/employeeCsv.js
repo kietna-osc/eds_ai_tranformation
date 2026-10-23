@@ -8,8 +8,9 @@
      error     null, or { code, reason, rowCount, rows }: rows = the error rows listed in
                the message (at most MAX_LISTED_ROWS), each { line, employee_id, errors:
                [{ column, value, message }] }
-     errorFile null, or { fileName, url }: CSV of every error (one line per cell) when
-               there are more error rows than the message lists
+     errorFile null, or { fileName, url }: the imported file with only its error rows, a
+               行番号 column first and an エラー理由 column last, when there are more error rows than the message lists; for
+               a wrong header, the whole file with the reason on the header line
      summary   { total, inserted, updated, skipped }
      messages  [{ id, text }] the ErrorDesign ids that make up the message */
 const { CsvParseError, parseCsvRows, toCsv } = require('./csv');
@@ -29,20 +30,24 @@ const REASONS = {
   noData: 'ヘッダー行のみで、データ行がありません',
   noHeader: 'ヘッダー行がありません',
   missingColumns: (names) => `必須列がありません：${names.join('、')}`,
+  duplicateColumns: (names) => `列名が重複しています：${names.join('、')}`,
+  unknownColumns: (names) => `不明な列があります：${names.join('、')}`,
   quote: 'CSVの形式が正しくありません（閉じられていない「"」があります）',
   encoding: '文字コードがUTF-8ではありません',
   tooLarge: (bytes) => `ファイルサイズ ${(bytes / 1024 / 1024).toFixed(1)}MB（上限 ${MAX_BYTES / 1024 / 1024}MB）`,
   tooManyRows: (n) => `データ行数 ${fmt(n)}行（上限 ${fmt(MAX_ROWS)}行）`,
 };
 
-/** A file that cannot be imported at all: ErrorDesign code 50 / 55 / 56, HTTP status, cause. */
+/** A file that cannot be imported at all: ErrorDesign code 50 / 55 / 56, HTTP status, cause.
+ *  file: { header, rows, headerReason } when the error file should be returned (wrong header). */
 class ImportError extends Error {
-  constructor(code, httpStatus, reason, log) {
+  constructor(code, httpStatus, reason, log, file = null) {
     super(log || reason || `import error ${code}`);
     this.name = 'ImportError';
     this.code = code;
     this.httpStatus = httpStatus;
     this.reason = reason || null;
+    this.file = file;
   }
 }
 
@@ -52,6 +57,10 @@ const COLUMNS = {
   email: { label: 'メール', names: ['メール', 'email'] },
   department_name: { label: '部署', names: ['部署', 'department_name'] },
 };
+
+/* Columns of our own error file (行番号 first, エラー理由… last): ignored, so a fixed error
+   file can be imported again. */
+const isErrorFileColumn = (name) => name === '行番号' || name.startsWith('エラー理由');
 
 /* Same rules as the employee create popup in the app (cmpEmpModal, IsMatch = whole text). */
 const EMPLOYEE_ID = /^[A-Za-z0-9]+$/;
@@ -120,23 +129,60 @@ function validateImport(csvText) {
   }
   if (!rows.length) throw new ImportError(50, 400, REASONS.noHeader, 'no header');
 
-  const header = rows[0].cells.map((h) => h.trim());
+  const headerCells = rows[0].cells;
+  const header = headerCells.map((h) => h.trim());
+  /* Header problems: a required column missing, a column given twice (社員番号 and
+     employee_id count as one), or a column we do not know. Blank header cells are allowed
+     (Excel writes them for an empty column); a value under one is a row error below. */
   const col = {};
   const missing = [];
+  const duplicate = [];
   for (const [key, { label, names }] of Object.entries(COLUMNS)) {
-    col[key] = names.map((n) => header.indexOf(n)).find((i) => i >= 0) ?? -1;
-    if (col[key] < 0) missing.push(label);
+    const at = header.map((h, i) => (names.includes(h) ? i : -1)).filter((i) => i >= 0);
+    col[key] = at.length ? at[0] : -1;
+    if (!at.length) missing.push(label);
+    if (at.length > 1) duplicate.push(label);
   }
-  if (missing.length) throw new ImportError(50, 400, REASONS.missingColumns(missing), `missing column ${missing.join(', ')}`);
+  const known = Object.values(COLUMNS).flatMap((c) => c.names);
+  const unknown = header.filter((h) => h && !known.includes(h) && !isErrorFileColumn(h));
+  const headerReasons = [
+    ...(missing.length ? [REASONS.missingColumns(missing)] : []),
+    ...(duplicate.length ? [REASONS.duplicateColumns(duplicate)] : []),
+    ...(unknown.length ? [REASONS.unknownColumns(unknown)] : []),
+  ];
+  if (headerReasons.length) {
+    /* Nothing can be read safely: the error file is the whole file, with the cause on the
+       header line. */
+    const expected = Object.values(COLUMNS).map((c) => c.label).join('、');
+    const reason = headerReasons.join('／');
+    throw new ImportError(50, 400, reason, `header: ${reason}`, {
+      header: headerCells,
+      headerReason: `${reason}（必要な列名：${expected}）`,
+      rows: rows.slice(1).map(({ line, cells }) => ({ line, cells, reason: '' })),
+    });
+  }
+  // Cells a row may use: named columns only (blank-named ones must stay empty).
+  const named = new Set(header.map((h, i) => (h ? i : -1)).filter((i) => i >= 0));
+  const width = Math.max(...named) + 1;
 
   const total = rows.length - 1;
   if (!total) throw new ImportError(50, 400, REASONS.noData, 'no data rows');
   if (total > MAX_ROWS) throw new ImportError(55, 413, REASONS.tooManyRows(total), `too many rows (${total})`);
 
   const items = rows.slice(1).map(({ line, cells }) => {
-    const item = { line };
+    const item = { line, cells };
     for (const key of Object.keys(COLUMNS)) item[key] = (cells[col[key]] || '').trim();
-    item.problems = rowProblems(item);
+    /* A row with more or fewer cells than the header (a stray comma, a name with an
+       unquoted comma, a cut line): its values are in the wrong columns, so only this is
+       reported, not the field checks that would point at the wrong cause. */
+    const extra = cells.findIndex((c, i) => !named.has(i) && c.trim() !== '');
+    if (extra >= 0) {
+      item.problems = [{ column: '', value: cells[extra], message: `列数がヘッダーより多くなっています（${extra + 1}列目に値があります）` }];
+    } else if (cells.length < width) {
+      item.problems = [{ column: '', value: '', message: `列数がヘッダーより少なくなっています（${cells.length}列／ヘッダー${width}列）` }];
+    } else {
+      item.problems = rowProblems(item);
+    }
     return item;
   });
 
@@ -162,14 +208,14 @@ function validateImport(csvText) {
   const valid = [];
   const errors = [];
   for (const { problems, ...item } of items) {
-    if (problems.length) errors.push({ line: item.line, employee_id: item.employee_id, errors: problems });
+    if (problems.length) errors.push({ line: item.line, employee_id: item.employee_id, cells: item.cells, errors: problems });
     else valid.push(item);
   }
-  return { total, valid, errors };
+  return { total, header: headerCells, valid, errors };
 }
 
-/** The rows sp_employee_upsert receives (valid rows without their line number). */
-const upsertRows = (checked) => checked.valid.map(({ line, ...row }) => row);
+/** The rows sp_employee_upsert receives (valid rows without their line number and cells). */
+const upsertRows = (checked) => checked.valid.map(({ line, cells, ...row }) => row);
 
 /* Duplicates against the database, as the user asked on 2026-10-23 (Skip案 instead of
    Update案): nothing in the database is overwritten by an import.
@@ -199,7 +245,7 @@ function markDbConflicts(checked, dbRows) {
     if (lines.length > 1) text = `メールアドレスがファイル内で重複しています（${lines.map((l) => `${l}行目`).join('、')}）`;
     else if (owner !== undefined && key(owner) !== key(r.employee_id)) text = `このメールアドレスは既に他の従業員に使用されています（社員番号：${owner}）`;
     if (text) problems.push({ column: COLUMNS.email.label, value: r.email, message: text });
-    if (problems.length) checked.errors.push({ line: r.line, employee_id: r.employee_id, errors: problems });
+    if (problems.length) checked.errors.push({ line: r.line, employee_id: r.employee_id, cells: r.cells, errors: problems });
     else keep.push(r);
   }
   checked.valid = keep;
@@ -207,11 +253,25 @@ function markDbConflicts(checked, dbRows) {
   return checked;
 }
 
-/** Error file: one line per problem, so the user sees the row and the column. UTF-8 BOM for Excel. */
-function errorCsv(errors) {
-  return toCsv([['行番号', '社員番号', '列名', '入力値', 'エラー内容']].concat(errors.flatMap((r) =>
-    r.errors.map((p) => [r.line, r.employee_id, p.column, p.value, p.message]))));
+/** Error file: the imported file as it was (header + only the rows in error, cells unchanged)
+ *  between two more columns: 行番号 (the file line, as Excel numbers it: header = 1) and
+ *  エラー理由. headerReason goes on the header line (wrong header). Rows are padded so the
+ *  reason is always in the last column. Re-importing it works: columns are found by name.
+ *  UTF-8 BOM for Excel. */
+function errorFileCsv({ header, rows, headerReason = '' }) {
+  const width = Math.max(header.length, ...rows.map((r) => r.cells.length));
+  const pad = (cells) => [...cells, ...Array(width - cells.length).fill('')];
+  return toCsv([
+    ['行番号', ...pad(header), headerReason ? `エラー理由：${headerReason}` : 'エラー理由'],
+    ...rows.map((r) => [r.line, ...pad(r.cells), r.reason]),
+  ]);
 }
+
+/** Error file of the row errors (see errorFileCsv); a row's reasons are joined by 、. */
+const errorCsv = (checked) => errorFileCsv({
+  header: checked.header,
+  rows: checked.errors.map((r) => ({ line: r.line, cells: r.cells, reason: r.errors.map((p) => p.message).join('、') })),
+});
 
 /** Error file name (ASCII, for the download link) in local time. tzOffset is Power Fx
  *  TimeZoneOffset() (minutes, JST = -540); JST when the flow does not send it. */
@@ -223,17 +283,23 @@ function errorFileName(now = new Date(), tzOffset = -540) {
 /** True when the error rows go to a file instead of the popup. */
 const needsErrorFile = (checked) => checked.errors.length > MAX_LISTED_ROWS;
 
+const ERROR_FILE_NOTE = 'エラー詳細はダウンロードされるファイル（CSV）をご確認ください。';
+
 const rowLine = (r) => `・${r.line}行目：${r.errors.map((p) => p.message).join('、')}`;
 
 /** Body for a file that could not be imported (50 / 55 / 56 / unexpected). */
-function failure(code, reason = null) {
+function failure(code, reason = null, errorFile = null) {
   const msg = message(code);
   return {
     status: 'error',
     title: TITLES.error,
-    message: [...sentences(msg.text), ...(reason ? [`原因：${reason}`] : [])].join('\n'),
+    message: [
+      ...sentences(msg.text),
+      ...(reason ? [`原因：${reason}`] : []),
+      ...(errorFile ? [ERROR_FILE_NOTE] : []),
+    ].join('\n'),
     error: { code, reason, rowCount: 0, rows: [] },
-    errorFile: null,
+    errorFile,
     summary: { total: 0, inserted: 0, updated: 0, skipped: 0 },
     messages: [msg],
   };
@@ -261,10 +327,10 @@ function importResult(checked, upserted, errorFile = null) {
     msg = message(52, counts);
   }
 
-  const listed = errorFile ? [] : checked.errors.slice(0, MAX_LISTED_ROWS);
+  const listed = errorFile ? [] : checked.errors.slice(0, MAX_LISTED_ROWS).map(({ cells, ...r }) => r);
   const details = [];
   if (errorFile) {
-    details.push('エラー詳細はダウンロードされるファイル（CSV）をご確認ください。');
+    details.push(ERROR_FILE_NOTE);
   } else if (skipped) {
     details.push('エラー内容：', ...listed.map(rowLine));
     if (skipped > listed.length) details.push(`ほか${fmt(skipped - listed.length)}件`);
@@ -292,6 +358,7 @@ module.exports = {
   upsertRows,
   needsErrorFile,
   errorCsv,
+  errorFileCsv,
   errorFileName,
   failure,
   importResult,

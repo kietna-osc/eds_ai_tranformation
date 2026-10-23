@@ -474,10 +474,6 @@ app.http('employeeImport', {
      HTTP: 200 success or partial, 422 every row invalid (53), 400 unreadable file (50),
      413 too large (55), 503 connection lost (56), 500 unexpected. The cause is logged. */
   handler: handler('employeeImport', async (request, context) => {
-    const failed = (status, code, reason, log) => {
-      context.warn(`employeeImport: ${status} ${log || reason}`);
-      return json(status, employeeCsv.failure(code, reason));
-    };
     const b = await request.json().catch(() => ({}));
     const upload = typeof b.csv === 'string' ? { text: b.csv, form: 'csv' } : employeeCsv.decodeUpload(b.csv_base64);
     const csvText = upload.text;
@@ -486,13 +482,28 @@ app.http('employeeImport', {
       context.warn(`employeeImport: csv_base64 received as ${upload.form}; the flow should send the trigger's contentBytes`);
     }
 
+    const storeErrorFile = async (csv) => {
+      if (!blobImages.enabled()) return null;
+      try {
+        const name = employeeCsv.errorFileName(new Date(), Number(b.tz_offset ?? -540) || 0);
+        const { url } = await blobImages.storeExport(name, csv);
+        return { fileName: name, url };
+      } catch (e) {
+        context.error(`employeeImport: error file not stored: ${e.message}`);
+        return null;
+      }
+    };
+
     let checked;
     try {
       employeeCsv.checkFile(fileName, csvText);
       checked = employeeCsv.validateImport(csvText);
     } catch (e) {
-      if (e instanceof employeeCsv.ImportError) return failed(e.httpStatus, e.code, e.reason, e.message);
-      throw e;
+      if (!(e instanceof employeeCsv.ImportError)) throw e;
+      // Wrong header: the file comes back with the cause on its header line.
+      const errorFile = e.file ? await storeErrorFile(employeeCsv.errorFileCsv(e.file)) : null;
+      context.warn(`employeeImport: ${e.httpStatus} ${e.message}`);
+      return json(e.httpStatus, employeeCsv.failure(e.code, e.reason, errorFile));
     }
 
     /* 社員番号 already registered, or email used twice in the file / by another employee
@@ -515,16 +526,7 @@ app.http('employeeImport', {
 
     /* More error rows than the popup lists -> a CSV of every error in Blob Storage. If it
        cannot be stored, the popup lists the first rows instead (logged). */
-    let errorFile = null;
-    if (employeeCsv.needsErrorFile(checked) && blobImages.enabled()) {
-      try {
-        const name = employeeCsv.errorFileName(new Date(), Number(b.tz_offset ?? -540) || 0);
-        const { url } = await blobImages.storeExport(name, employeeCsv.errorCsv(checked.errors));
-        errorFile = { fileName: name, url };
-      } catch (e) {
-        context.error(`employeeImport: error file not stored: ${e.message}`);
-      }
-    }
+    const errorFile = employeeCsv.needsErrorFile(checked) ? await storeErrorFile(employeeCsv.errorCsv(checked)) : null;
     if (!checked.valid.length) return json(422, employeeCsv.importResult(checked, [], errorFile));
 
     let upserted;
