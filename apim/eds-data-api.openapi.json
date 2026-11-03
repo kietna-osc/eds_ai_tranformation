@@ -794,7 +794,7 @@
           {
             "name": "receiver_name",
             "in": "query",
-            "description": "OCR receiver name. Empty returns the first top_k roster rows.",
+            "description": "OCR receiver name. Empty returns match_type none with no candidates.",
             "schema": {
               "type": "string"
             }
@@ -817,21 +817,21 @@
             }
           },
           {
-            "name": "top_k",
-            "in": "query",
-            "description": "Weak-candidate count when no exact name match.",
-            "schema": {
-              "type": "integer",
-              "default": 3
-            }
-          },
-          {
             "name": "fuzzy_threshold",
             "in": "query",
             "description": "If the best fuzzy score is above this, return top 1.",
             "schema": {
               "type": "number",
               "default": 90
+            }
+          },
+          {
+            "name": "min_score",
+            "in": "query",
+            "description": "When the best score is not above fuzzy_threshold, return every candidate scoring above this (0-100), best first.",
+            "schema": {
+              "type": "number",
+              "default": 30
             }
           }
         ],
@@ -843,7 +843,7 @@
       },
       "post": {
         "summary": "Fuzzy search employees",
-        "description": "Same as GET. Accepts snake_case or camelCase body fields (receiverName, nameWeight, topK, fuzzyThreshold).",
+        "description": "Same as GET. Accepts snake_case or camelCase body fields (receiverName, nameWeight, fuzzyThreshold, minScore).",
         "operationId": "employee-fuzzy-search-post",
         "requestBody": {
           "content": {
@@ -868,14 +868,6 @@
                     "type": "number",
                     "default": 0.85
                   },
-                  "top_k": {
-                    "type": "integer",
-                    "default": 3
-                  },
-                  "topK": {
-                    "type": "integer",
-                    "default": 3
-                  },
                   "fuzzy_threshold": {
                     "type": "number",
                     "default": 90
@@ -883,6 +875,14 @@
                   "fuzzyThreshold": {
                     "type": "number",
                     "default": 90
+                  },
+                  "min_score": {
+                    "type": "number",
+                    "default": 30
+                  },
+                  "minScore": {
+                    "type": "number",
+                    "default": 30
                   }
                 }
               },
@@ -890,8 +890,8 @@
                 "receiverName": "前川 雄亮",
                 "department": "総務部",
                 "nameWeight": 0.85,
-                "topK": 3,
-                "fuzzyThreshold": 90
+                "fuzzyThreshold": 90,
+                "minScore": 30
               }
             }
           }
