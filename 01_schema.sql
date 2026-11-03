@@ -188,27 +188,19 @@ IF COL_LENGTH('dbo.history', 'ocr_department') IS NOT NULL
     ALTER TABLE dbo.history DROP COLUMN ocr_department;
 GO
 
------------------------------------------------------------------ department
-IF OBJECT_ID('dbo.department', 'U') IS NULL
-CREATE TABLE dbo.department
-(
-    department_id    INT             IDENTITY(1,1) NOT NULL,
-    department_name  NVARCHAR(200)   NOT NULL,
-    created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_department_created_at DEFAULT (SYSUTCDATETIME()),
-    updated_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_department_updated_at DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT PK_department          PRIMARY KEY CLUSTERED (department_id),
-    CONSTRAINT UQ_department_name     UNIQUE (department_name)
-);
+------------------------------------------------- department (removed)
+-- department_name is stored as text on employee / history; the catalog table is no longer used.
+DROP PROCEDURE IF EXISTS dbo.sp_department_list;
+DROP PROCEDURE IF EXISTS dbo.sp_department_insert;
+GO
+DROP TRIGGER IF EXISTS dbo.TR_department_updated_at;
+GO
+DROP TABLE IF EXISTS dbo.department;
 GO
 
-IF OBJECT_ID('dbo.TR_department_updated_at', 'TR') IS NOT NULL DROP TRIGGER dbo.TR_department_updated_at;
-GO
-CREATE TRIGGER dbo.TR_department_updated_at ON dbo.department AFTER UPDATE AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE d SET updated_at = SYSUTCDATETIME()
-    FROM dbo.department d JOIN inserted i ON d.department_id = i.department_id;
-END
+------------------------------------------------- employee backup (removed)
+-- Copy made by 14_employee_schema.sql on 2026-10-08; no longer needed.
+DROP TABLE IF EXISTS dbo.employee_backup_20261008;
 GO
 
 --------------------------------------------------------------- ocr_history
