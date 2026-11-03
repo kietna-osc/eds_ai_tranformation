@@ -256,13 +256,13 @@ test('e2e Employee list: 部署 contains + 登録日時 range', async () => {
   assert.deepEqual(r.jsonBody.value.map((v) => v.employee_id), ['E002']);
 });
 
-test('e2e Employee ダウンロード: 4 columns, same rows as the list (登録日時 included)', async () => {
+test('e2e Employee ダウンロード: import columns + 状態, same rows as the list (登録日時 included)', async () => {
   stored.length = 0;
   const r = await e2e('employeeExport', appEmployeeContent({ dept: '営業', from: jst(2026, 10, 8), to: jst(2026, 10, 8, 23, 59) }, { list: false }));
   assert.equal(r.status, 200);
   assert.equal(r.jsonBody.rowCount, 1); // E002 only, like the list: E001 was created on 10/01
   const text = stored[0].text.replace(/^﻿/, '');
-  assert.equal(text.split('\r\n')[0], '社員番号,社員氏名,メール,部署');
+  assert.equal(text.split('\r\n')[0], '社員番号,社員氏名,メール,部署,電話番号,状態');
   assert.ok(!/2026/.test(text));
 });
 

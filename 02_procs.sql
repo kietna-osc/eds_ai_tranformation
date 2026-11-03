@@ -242,6 +242,8 @@ BEGIN
         full_name,
         department_name,
         email,
+        phone,
+        is_active,
         created_at,
         updated_at,
         COUNT(*) OVER() AS total_count
@@ -278,9 +280,10 @@ BEGIN
            + CASE WHEN @department_name IS NOT NULL AND department_name = @department_name
                   THEN 10 ELSE 0 END AS match_score
     FROM   dbo.employee
-    WHERE  REPLACE(full_name, N' ', N'') = @name_normalized
+    WHERE  is_active = 1
+      AND (REPLACE(full_name, N' ', N'') = @name_normalized
         OR REPLACE(full_name, N' ', N'') LIKE @name_normalized + N'%'
-        OR @name_normalized LIKE REPLACE(full_name, N' ', N'') + N'%'
+        OR @name_normalized LIKE REPLACE(full_name, N' ', N'') + N'%')
     ORDER BY match_score DESC, full_name
     OPTION (RECOMPILE);
 END
@@ -294,18 +297,21 @@ BEGIN
     SET NOCOUNT ON;
     SELECT employee_id, full_name, department_name, email
     FROM   dbo.employee
+    WHERE  is_active = 1
     ORDER BY full_name, employee_id;
 END
 GO
 
 --------------------------------------------------------- Insert employee
--- employee_id is the employee code.
--- 50002: employee_id already used. 50003: email already used.
+-- employee_id is the employee code. phone / is_active are optional (active by default).
+-- 50002: employee_id already used. 50003: email already used (deleted employees included).
 CREATE OR ALTER PROCEDURE dbo.sp_employee_insert
     @employee_id      NVARCHAR(50),
     @full_name        NVARCHAR(200),
     @department_name  NVARCHAR(200),
-    @email            NVARCHAR(320)
+    @email            NVARCHAR(320),
+    @phone            NVARCHAR(20) = NULL,
+    @is_active        BIT          = 1
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -322,10 +328,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM dbo.employee WHERE email = @email)
         THROW 50003, N'このメールアドレスは既に他の従業員に使用されている', 1;
 
-    INSERT dbo.employee (employee_id, full_name, department_name, email)
-    VALUES (@employee_id, @full_name, @department_name, @email);
+    INSERT dbo.employee (employee_id, full_name, department_name, email, phone, is_active)
+    VALUES (@employee_id, @full_name, @department_name, @email,
+            NULLIF(LTRIM(RTRIM(@phone)), N''), ISNULL(@is_active, 1));
 
-    SELECT employee_id, full_name, department_name, email, created_at, updated_at
+    SELECT employee_id, full_name, department_name, email, phone, is_active, created_at, updated_at
     FROM   dbo.employee
     WHERE  employee_id = @employee_id;
 END
@@ -333,12 +340,16 @@ GO
 
 --------------------------------------------------------- Update employee
 -- employee_id is the key and is not changed. The other columns match insert.
+-- @update_phone = 0 keeps the phone, @is_active NULL keeps the state (1 restores).
 -- updated_at is set by TR_employee_updated_at.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_update
     @employee_id      NVARCHAR(50),
     @full_name        NVARCHAR(200),
     @department_name  NVARCHAR(200),
-    @email            NVARCHAR(320)
+    @email            NVARCHAR(320),
+    @phone            NVARCHAR(20) = NULL,
+    @update_phone     BIT          = 0,
+    @is_active        BIT          = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -354,28 +365,44 @@ BEGIN
     UPDATE dbo.employee
     SET    full_name = @full_name,
            department_name = @department_name,
-           email = @email
+           email = @email,
+           phone = CASE WHEN @update_phone = 1 THEN NULLIF(LTRIM(RTRIM(@phone)), N'') ELSE phone END,
+           is_active = ISNULL(@is_active, is_active)
     WHERE  employee_id = @employee_id;
 
-    SELECT employee_id, full_name, department_name, email, created_at, updated_at
+    SELECT employee_id, full_name, department_name, email, phone, is_active, created_at, updated_at
     FROM   dbo.employee
     WHERE  employee_id = @employee_id;
 END
 GO
 
 --------------------------------------------------------- Delete employee
--- Hard delete by employee_id. history.employee_id is not a foreign key, so
--- package rows that still store this id are left in place.
+-- Soft delete (@permanent = 0: is_active = 0) or, for an already deleted employee,
+-- hard delete (@permanent = 1). rows_deleted = rows changed, found = the id exists.
+-- history.employee_id is not a foreign key, so package rows keep their id.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_delete
-    @employee_id NVARCHAR(50)
+    @employee_id NVARCHAR(50),
+    @permanent   BIT = 0
 AS
 BEGIN
     SET NOCOUNT ON;
     IF @employee_id IS NULL OR LTRIM(RTRIM(@employee_id)) = N''
         THROW 50001, 'sp_employee_delete requires @employee_id.', 1;
 
-    DELETE FROM dbo.employee WHERE employee_id = @employee_id;
-    SELECT @@ROWCOUNT AS rows_deleted;
+    DECLARE @found BIT = CASE WHEN EXISTS (SELECT 1 FROM dbo.employee WHERE employee_id = @employee_id)
+                              THEN 1 ELSE 0 END;
+    DECLARE @n INT;
+    IF ISNULL(@permanent, 0) = 1
+    BEGIN
+        DELETE FROM dbo.employee WHERE employee_id = @employee_id AND is_active = 0;
+        SET @n = @@ROWCOUNT;
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.employee SET is_active = 0 WHERE employee_id = @employee_id AND is_active = 1;
+        SET @n = @@ROWCOUNT;
+    END
+    SELECT @n AS rows_deleted, @found AS found;
 END
 GO
 
@@ -562,8 +589,9 @@ END
 GO
 
 ------------------------------------------------ Upsert employees from a CSV import
--- @rows is a JSON array of { employee_id, full_name, email, department_name }.
--- employee_id is the employee code (社員番号). One transaction.
+-- @rows is a JSON array of { employee_id, full_name, email, department_name, phone? }.
+-- employee_id is the employee code (社員番号). New rows are inserted; an existing
+-- employee only gets its phone filled when it has none. One transaction.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_upsert
     @rows NVARCHAR(MAX)
 AS
@@ -575,17 +603,19 @@ BEGIN
         employee_id     NVARCHAR(50)  NOT NULL PRIMARY KEY,
         full_name       NVARCHAR(200) NOT NULL,
         email           NVARCHAR(320) NOT NULL,
-        department_name NVARCHAR(200) NOT NULL
+        department_name NVARCHAR(200) NOT NULL,
+        phone           NVARCHAR(20)  NULL
     );
 
-    INSERT @incoming (employee_id, full_name, email, department_name)
-    SELECT employee_id, full_name, email, department_name
+    INSERT @incoming (employee_id, full_name, email, department_name, phone)
+    SELECT employee_id, full_name, email, department_name, NULLIF(LTRIM(RTRIM(phone)), N'')
     FROM OPENJSON(@rows)
     WITH (
         employee_id     NVARCHAR(50)  '$.employee_id',
         full_name       NVARCHAR(200) '$.full_name',
         email           NVARCHAR(320) '$.email',
-        department_name NVARCHAR(200) '$.department_name'
+        department_name NVARCHAR(200) '$.department_name',
+        phone           NVARCHAR(20)  '$.phone'
     );
 
     DECLARE @result TABLE (
@@ -595,13 +625,11 @@ BEGIN
 
     MERGE dbo.employee AS e
     USING @incoming AS i ON e.employee_id = i.employee_id
-    WHEN MATCHED THEN
-        UPDATE SET e.full_name = i.full_name,
-                   e.email = i.email,
-                   e.department_name = i.department_name
+    WHEN MATCHED AND e.phone IS NULL AND i.phone IS NOT NULL THEN
+        UPDATE SET e.phone = i.phone
     WHEN NOT MATCHED THEN
-        INSERT (employee_id, full_name, email, department_name)
-        VALUES (i.employee_id, i.full_name, i.email, i.department_name)
+        INSERT (employee_id, full_name, email, department_name, phone)
+        VALUES (i.employee_id, i.full_name, i.email, i.department_name, i.phone)
     OUTPUT inserted.employee_id, $action INTO @result;
 
     SELECT employee_id, action FROM @result;

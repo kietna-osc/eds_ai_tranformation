@@ -86,12 +86,12 @@ After the import, the file picker is cleared and the employee list reloads from 
 UTF-8 (with or without BOM). Header row, then one employee per row:
 
 ```
-社員番号,社員氏名,メール,部署
-E-1001,山田 太郎,yamada@example.jp,営業部
-E-1002,佐藤 花子,,総務部
+社員番号,社員氏名,メール,部署,電話番号
+E1001,山田 太郎,yamada@example.jp,営業部,0312345678
+E1002,佐藤 花子,sato@example.jp,総務部,
 ```
 
-- 社員番号 and 社員氏名 are required; メール and 部署 are optional.
-- An existing 社員番号 is **updated** with the new values; a new one is **added**.
-- Invalid rows are skipped (message 51 says how many). Up to 10,000 rows / 2 MB per file.
-- 部署 is matched to the department list by name (spaces and full-width digits ignored).
+- 社員番号, 社員氏名, メール and 部署 are required columns. 電話番号 is optional (files without it import as before); its value is half-width digits, at most 20.
+- 状態 (in the employee download) is accepted and ignored, so a downloaded file can be imported again; imported employees are always 有効.
+- A new 社員番号 is **added**. An existing one is a row error (「この社員番号は既に登録されています」), except: an active employee **without a phone** gets the row's 電話番号 filled in (the row's other columns are ignored). A 社員番号 of a deleted employee is a row error (「この社員番号は削除済みの従業員です」).
+- Invalid rows are skipped (message 51 says how many). Up to 5,000 rows / 5 MB per file.

@@ -56,7 +56,13 @@ const COLUMNS = {
   full_name: { label: '社員氏名', names: ['社員氏名', 'full_name'] },
   email: { label: 'メール', names: ['メール', 'email'] },
   department_name: { label: '部署', names: ['部署', 'department_name'] },
+  // Optional: files made before the column existed import as before.
+  phone: { label: '電話番号', names: ['電話番号', 'phone'], optional: true },
 };
+
+/* Columns read by name but not imported: 状態 is in the employee download, so a downloaded
+   file can be imported again; a new employee is always active. */
+const IGNORED_COLUMNS = ['状態', 'is_active'];
 
 /* Columns of our own error file (行番号 first, エラー理由… last): ignored, so a fixed error
    file can be imported again. */
@@ -65,6 +71,9 @@ const isErrorFileColumn = (name) => name === '行番号' || name.startsWith('エ
 /* Same rules as the employee create popup in the app (cmpEmpModal, IsMatch = whole text). */
 const EMPLOYEE_ID = /^[A-Za-z0-9]+$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/;
+// Half-width digits only, at most 20 (same rule as the app and POST/PATCH /api/employees).
+const PHONE = /^[0-9]{1,20}$/;
+const PHONE_MESSAGE = '電話番号は半角数字のみ（20桁以内）で入力してください';
 
 /** Problems of one row: [{ column, value, message }] (empty when the row is valid). */
 function rowProblems(item) {
@@ -80,6 +89,7 @@ function rowProblems(item) {
   else if (item.email.length > 320) add('email', 'メールは320文字以内で入力してください');
   if (!item.department_name) add('department_name', '部署は必須です');
   else if (item.department_name.length > 200) add('department_name', '部署は200文字以内で入力してください');
+  if (item.phone && !PHONE.test(item.phone)) add('phone', PHONE_MESSAGE);
   return problems;
 }
 
@@ -137,13 +147,13 @@ function validateImport(csvText) {
   const col = {};
   const missing = [];
   const duplicate = [];
-  for (const [key, { label, names }] of Object.entries(COLUMNS)) {
+  for (const [key, { label, names, optional }] of Object.entries(COLUMNS)) {
     const at = header.map((h, i) => (names.includes(h) ? i : -1)).filter((i) => i >= 0);
     col[key] = at.length ? at[0] : -1;
-    if (!at.length) missing.push(label);
+    if (!at.length && !optional) missing.push(label);
     if (at.length > 1) duplicate.push(label);
   }
-  const known = Object.values(COLUMNS).flatMap((c) => c.names);
+  const known = [...Object.values(COLUMNS).flatMap((c) => c.names), ...IGNORED_COLUMNS];
   const unknown = header.filter((h) => h && !known.includes(h) && !isErrorFileColumn(h));
   const headerReasons = [
     ...(missing.length ? [REASONS.missingColumns(missing)] : []),
@@ -153,7 +163,7 @@ function validateImport(csvText) {
   if (headerReasons.length) {
     /* Nothing can be read safely: the error file is the whole file, with the cause on the
        header line. */
-    const expected = Object.values(COLUMNS).map((c) => c.label).join('、');
+    const expected = Object.values(COLUMNS).filter((c) => !c.optional).map((c) => c.label).join('、');
     const reason = headerReasons.join('／');
     throw new ImportError(50, 400, reason, `header: ${reason}`, {
       header: headerCells,
@@ -171,7 +181,7 @@ function validateImport(csvText) {
 
   const items = rows.slice(1).map(({ line, cells }) => {
     const item = { line, cells };
-    for (const key of Object.keys(COLUMNS)) item[key] = (cells[col[key]] || '').trim();
+    for (const key of Object.keys(COLUMNS)) item[key] = col[key] < 0 ? '' : (cells[col[key]] || '').trim();
     /* A row with more or fewer cells than the header (a stray comma, a name with an
        unquoted comma, a cut line): its values are in the wrong columns, so only this is
        reported, not the field checks that would point at the wrong cause. */
@@ -214,30 +224,52 @@ function validateImport(csvText) {
   return { total, header: headerCells, valid, errors };
 }
 
-/** The rows sp_employee_upsert receives (valid rows without their line number and cells). */
-const upsertRows = (checked) => checked.valid.map(({ line, cells, ...row }) => row);
+/** The rows sp_employee_upsert receives (valid rows without their line number, cells and
+ *  phone-fill flag). */
+const upsertRows = (checked) => checked.valid.map(({ line, cells, phoneFill, ...row }) => row);
 
 /* Duplicates against the database, as the user asked on 2026-10-23 (Skip案 instead of
-   Update案): nothing in the database is overwritten by an import.
-   - 社員番号 already registered -> row error (the existing employee is not updated).
-   - メール used twice in the file, or by an employee in the database (ErrorDesign 47) -> row error.
+   Update案): nothing in the database is overwritten by an import, with one exception.
+   - 社員番号 of an active employee who has no phone yet, and the row has a phone -> the
+     phone is filled in (2026-11-03, for employees registered before 電話番号 existed); the
+     row's other columns are ignored, so its メール is not checked either.
+   - 社員番号 of a deleted employee (is_active false) -> row error.
+   - 社員番号 already registered otherwise -> row error (the existing employee is not updated).
+   - メール used twice in the file, or by an employee in the database (ErrorDesign 47, deleted
+     employees included) -> row error.
    Both are reported on the same row when both apply. Compared trimmed and case-insensitively,
    like the database (default collation). */
 function markDbConflicts(checked, dbRows) {
   const key = (v) => String(v ?? '').trim().toLowerCase();
-  const dbIds = new Set(dbRows.map((r) => key(r.employee_id)));
+  const dbById = new Map(dbRows.map((r) => [key(r.employee_id), r]));
+  const isActive = (r) => r.is_active !== false && r.is_active !== 0;
+  for (const r of checked.valid) {
+    const db = dbById.get(key(r.employee_id));
+    r.phoneFill = Boolean(db && isActive(db) && !String(db.phone ?? '').trim() && r.phone);
+  }
   const dbOwner = new Map();
   for (const r of dbRows) {
     if (key(r.email) && !dbOwner.has(key(r.email))) dbOwner.set(key(r.email), String(r.employee_id));
   }
   const linesByEmail = new Map();
-  for (const r of checked.valid) linesByEmail.set(key(r.email), [...(linesByEmail.get(key(r.email)) || []), r.line]);
+  for (const r of checked.valid) {
+    if (!r.phoneFill) linesByEmail.set(key(r.email), [...(linesByEmail.get(key(r.email)) || []), r.line]);
+  }
 
   const keep = [];
   for (const r of checked.valid) {
+    if (r.phoneFill) {
+      keep.push(r);
+      continue;
+    }
     const problems = [];
-    if (dbIds.has(key(r.employee_id))) {
-      problems.push({ column: COLUMNS.employee_id.label, value: r.employee_id, message: 'この社員番号は既に登録されています' });
+    const db = dbById.get(key(r.employee_id));
+    if (db) {
+      problems.push({
+        column: COLUMNS.employee_id.label,
+        value: r.employee_id,
+        message: isActive(db) ? 'この社員番号は既に登録されています' : 'この社員番号は削除済みの従業員です',
+      });
     }
     const lines = linesByEmail.get(key(r.email));
     const owner = dbOwner.get(key(r.email));
@@ -350,6 +382,8 @@ function importResult(checked, upserted, errorFile = null) {
 module.exports = {
   ImportError,
   REASONS,
+  PHONE,
+  PHONE_MESSAGE,
   MAX_LISTED_ROWS,
   decodeUpload,
   checkFile,
