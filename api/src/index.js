@@ -672,20 +672,28 @@ const EMPLOYEE_NOT_FOUND = '指定された社員IDの従業員が見つかり�
 /* Same text as THROW 50003 in sp_employee_insert. */
 const EMAIL_IN_USE = 'このメールアドレスは既に他の従業員に使用されている';
 
+/* employee_id the way SQL Server compares it (case-insensitive collation, trailing spaces
+   ignored), so the employee being edited is recognised even when its stored id has e.g. a
+   trailing space from an import. */
+const sameEmployeeId = (a, b) => String(a ?? '').trimEnd().toLowerCase() === String(b ?? '').trimEnd().toLowerCase();
+const emailKey = (v) => String(v ?? '').trim().toLowerCase();
+
 /** True when another employee already has this email (trimmed, case-insensitive).
- *  sp_employee_update has no such check and SQL is frozen, so it is done here:
- *  sp_employee_list's keyword (a LIKE on email, among others) narrows the rows,
- *  the exact comparison is made in JS. */
+ *  sp_employee_update has no such check, so it is done here: sp_employee_list's keyword
+ *  (a LIKE on email, among others) narrows the rows, the exact comparison is made in JS.
+ *  An unchanged email is never a conflict, so an employee whose email was already shared
+ *  in old data can still be edited. */
 async function emailUsedByOther(email, employeeId, context) {
-  const wanted = email.trim().toLowerCase();
+  const wanted = emailKey(email);
   const rows = await exec('dbo.sp_employee_list', [
     ['page', sql.Int, 1],
     ['page_size', sql.Int, FETCH_ALL],
     ['department_name', sql.NVarChar(200), null],
     ['search_keyword', sql.NVarChar(200), wanted.length <= 200 ? wanted : null],
   ], context);
-  return rows.some((r) => String(r.employee_id) !== employeeId
-    && String(r.email ?? '').trim().toLowerCase() === wanted);
+  const self = rows.find((r) => sameEmployeeId(r.employee_id, employeeId));
+  if (self && emailKey(self.email) === wanted) return false;
+  return rows.some((r) => !sameEmployeeId(r.employee_id, employeeId) && emailKey(r.email) === wanted);
 }
 
 /* ------------------------------------------ PATCH /api/employees/{id}

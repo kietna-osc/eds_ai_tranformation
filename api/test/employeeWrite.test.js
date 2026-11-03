@@ -60,6 +60,28 @@ test('employeeUpdate: email used by another employee -> 409, nothing updated', a
   assert.ok(!calls.some((c) => c.proc === 'dbo.sp_employee_update'));
 });
 
+test('employeeUpdate: stored id with a trailing space / other case is still the same employee', async () => {
+  data.employees.push({ employee_id: 'X9 ', full_name: '空白 太郎', email: 'x9@example.co.jp', department_name: 'DX推進部' });
+  try {
+    const r = await post('employeeUpdate', { ...BODY, email: 'x9@example.co.jp' }, { id: 'x9' });
+    assert.notEqual(r.status, 409);
+  } finally {
+    data.employees.pop();
+  }
+});
+
+test('employeeUpdate: unchanged email shared in old data is not blocked; changing to it is', async () => {
+  data.employees.push({ employee_id: 'E003', full_name: '重複 花子', email: 'taro@example.co.jp', department_name: 'DX推進部' });
+  try {
+    const keep = await post('employeeUpdate', { ...BODY, email: 'taro@example.co.jp' }, { id: 'E002' });
+    assert.equal(keep.status, 200);
+    const change = await post('employeeUpdate', { ...BODY, email: 'taro@example.co.jp' }, { id: 'E001' });
+    assert.equal(change.status, 409);
+  } finally {
+    data.employees.pop();
+  }
+});
+
 test('employeeUpdate: keeping its own email is not a duplicate', async () => {
   const r = await post('employeeUpdate', { ...BODY, email: 'D-Miura@example.co.jp' }, { id: 'E001' });
   assert.equal(r.status, 200);
