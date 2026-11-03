@@ -90,7 +90,7 @@ test('history CSV header uses 処理状態 and the new labels', () => {
 /* ---------------------------------------------------------------- Employees */
 
 const E = [
-  { employee_id: 'E001', full_name: '林 健太', email: 'hayashi@example.com', department_name: '第１営業本部', created_at: '2026-10-01T03:00:00Z', updated_at: '2026-10-02T03:00:00Z' },
+  { employee_id: 'E001', full_name: '林 健太', email: 'hayashi@example.com', department_name: '第１営業本部', phone: '09012345678', created_at: '2026-10-01T03:00:00Z', updated_at: '2026-10-02T03:00:00Z' },
   { employee_id: 'E002', full_name: '佐藤花子', email: 'sato@example.com', department_name: 'DX推進部', created_at: '2026-10-05T03:00:00Z', updated_at: '2026-10-05T03:00:00Z' },
   { employee_id: 'X100', full_name: '=SUM(A1)', email: 'x@example.com', department_name: '経営企画部', created_at: '2026-10-10T03:00:00Z', updated_at: null },
 ];
@@ -151,13 +151,13 @@ test('employee: 登録日時 range is inclusive, invalid dates rejected', () => 
   assert.match(es.parseFilters(query({ created_start: '2026-10-09', created_end: '2026-10-01' })).error, /after/);
 });
 
-test('employee CSV: only the 4 import columns, BOM, CRLF, formula-safe', () => {
-  const csv = es.buildCsv(E);
+test('employee CSV: import columns + 状態, BOM, CRLF, formula-safe', () => {
+  const csv = es.buildCsv(E.map((r) => (r.employee_id === 'X100' ? { ...r, is_active: false } : r)));
   assert.ok(csv.startsWith('﻿'));
   const lines = csv.slice(1).split('\r\n');
-  assert.equal(lines[0], '社員番号,社員氏名,メール,部署');
-  assert.equal(lines[1], 'E001,林 健太,hayashi@example.com,第１営業本部');
-  assert.equal(lines[3], "X100,'=SUM(A1),x@example.com,経営企画部");
+  assert.equal(lines[0], '社員番号,社員氏名,メール,部署,電話番号,状態');
+  assert.equal(lines[1], 'E001,林 健太,hayashi@example.com,第１営業本部,09012345678,有効');
+  assert.equal(lines[3], "X100,'=SUM(A1),x@example.com,経営企画部,,削除済み");
   assert.equal(lines.length, 5); // header + 3 rows + trailing ''
   assert.ok(!csv.includes('2026-10'));
 });

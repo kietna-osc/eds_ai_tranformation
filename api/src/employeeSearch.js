@@ -7,8 +7,12 @@
      full_name        社員氏名
      email            メール
      department_name  部署
+     phone            電話番号
+     is_active        状態: "true" (有効) / "false" (削除済み); empty = both
      created_start / created_end   登録日時 From / To (ISO datetime, inclusive)
-   search_keyword is the single search box of the result screen (受取人 / CC): it is split on
+   Deleted employees (is_active false) come after the active ones.
+   search_keyword is the single search box of the result screen (受取人 / CC): only active
+   employees are returned (a deleted one cannot receive a package). It is split on
    spaces and every word must be in 社員番号, 社員氏名, メール or 部署 (any of them). 登録日時 /
    更新日時 are not searched: a short employee id such as "10" would match almost every date.
    Keyword results are ranked (exact match, then prefix, then contains), so the best match
@@ -20,6 +24,18 @@ const { normalize, tzOffsetOrDefault, dateParam } = require('./historySearch');
 const text = (v) => (v === undefined || v === null ? '' : String(v));
 const pad = (n) => String(n).padStart(2, '0');
 
+/** "true" / "false" -> boolean, empty -> null, anything else -> undefined (invalid). */
+function boolParam(v) {
+  const t = text(v).trim().toLowerCase();
+  if (t === '') return null;
+  if (t === 'true') return true;
+  if (t === 'false') return false;
+  return undefined;
+}
+
+/** is_active of a row; a row without it (before 22_employee_active_phone.sql) is active. */
+const isActiveRow = (row) => row.is_active !== false && row.is_active !== 0;
+
 const trimmed = (v, max = 200) => {
   const t = text(v).trim();
   return t === '' ? null : t.slice(0, max);
@@ -30,6 +46,8 @@ const trimmed = (v, max = 200) => {
  * Returns `{ error }` for an invalid value, else the filters.
  */
 function parseFilters(get) {
+  const isActive = boolParam(get('is_active'));
+  if (isActive === undefined) return { error: 'is_active must be true or false' };
   const createdStart = dateParam(get('created_start'));
   if (createdStart === undefined) return { error: 'created_start must be a valid datetime' };
   const createdEnd = dateParam(get('created_end'));
@@ -42,6 +60,8 @@ function parseFilters(get) {
     fullName: trimmed(get('full_name')),
     email: trimmed(get('email'), 320),
     departmentName: trimmed(get('department_name')),
+    phone: trimmed(get('phone'), 20),
+    isActive,
     createdStart,
     createdEnd,
     keyword: trimmed(get('search_keyword')),
@@ -51,7 +71,7 @@ function parseFilters(get) {
 
 /** True when any filter is set (all of them run here, after SQL). */
 const hasFilter = (f) => Boolean(f.employeeId || f.fullName || f.email || f.departmentName
-  || f.createdStart || f.createdEnd || f.keyword);
+  || f.phone || f.isActive !== null || f.createdStart || f.createdEnd || f.keyword);
 
 /** search_keyword words, each normalized; full-width spaces split too (NFKC). */
 const keywordWords = (keyword) => text(keyword).normalize('NFKC').split(/\s+/).map(normalize).filter(Boolean);
@@ -64,10 +84,12 @@ function applyFilters(rows, f) {
   if (!hasFilter(f)) return rows;
   const contains = [
     ['employee_id', f.employeeId], ['full_name', f.fullName],
-    ['email', f.email], ['department_name', f.departmentName],
+    ['email', f.email], ['department_name', f.departmentName], ['phone', f.phone],
   ].filter(([, v]) => v).map(([col, v]) => [col, normalize(v)]);
   const words = f.keyword ? keywordWords(f.keyword) : [];
   return rows.filter((row) => {
+    if (f.isActive !== null && isActiveRow(row) !== f.isActive) return false;
+    if (f.keyword && !isActiveRow(row)) return false;
     for (const [col, v] of contains) if (!normalize(row[col]).includes(v)) return false;
     if (f.createdStart || f.createdEnd) {
       const c = row.created_at ? new Date(row.created_at) : null;
@@ -103,28 +125,33 @@ function keywordRank(row, kw) {
   return [id, name, email, dept].some((v) => v.startsWith(kw)) ? 1 : 2;
 }
 
-/** Order of the filtered rows: best keyword match first, else (and within a rank) newest
-    employee_id first. */
+/** Active employees before deleted ones. */
+const compareActive = (a, b) => isActiveRow(b) - isActiveRow(a);
+
+/** Order of the filtered rows: active employees first, deleted ones last; within each, best
+    keyword match first, else (and within a rank) newest employee_id first. */
 function sortRows(rows, f) {
   const kw = f.keyword ? normalize(f.keyword) : '';
-  if (!kw) return sortByIdDesc(rows);
-  return rows.map((row) => ({ row, rank: keywordRank(row, kw) }))
-    .sort((a, b) => a.rank - b.rank || compareIdDesc(a.row, b.row))
+  return rows.map((row) => ({ row, rank: kw ? keywordRank(row, kw) : 0 }))
+    .sort((a, b) => compareActive(a.row, b.row) || a.rank - b.rank || compareIdDesc(a.row, b.row))
     .map((x) => x.row);
 }
 
 /* ---------------------------------------------------------------- CSV download */
 
-// The same 4 columns as the import file (employeeCsv.js), so a download can be edited
-// and imported again. 登録日時 / 更新日時 are not included.
-const HEADER = ['社員番号', '社員氏名', 'メール', '部署'];
+// The import file's columns (employeeCsv.js) plus 状態, so a download can be edited and
+// imported again (the import ignores 状態). 登録日時 / 更新日時 are not included.
+const HEADER = ['社員番号', '社員氏名', 'メール', '部署', '電話番号', '状態'];
+
+const statusLabel = (row) => (isActiveRow(row) ? '有効' : '削除済み');
 
 // A cell starting with = + - @ would run as a formula in Excel, so it is prefixed with '.
 const safeCell = (v) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
 
 /** CSV text (UTF-8 BOM, CRLF), one row per employee. */
 const buildCsv = (rows) => toCsv([HEADER, ...rows.map((row) =>
-  [row.employee_id, row.full_name, row.email, row.department_name].map((v) => safeCell(text(v))))]);
+  [row.employee_id, row.full_name, row.email, row.department_name, row.phone, statusLabel(row)]
+    .map((v) => safeCell(text(v))))]);
 
 /** employee_yyyymmdd_hhmmss.csv in the caller's time zone. */
 function fileName(now, tzOffset) {
@@ -133,4 +160,6 @@ function fileName(now, tzOffset) {
     + `${pad(l.getUTCHours())}${pad(l.getUTCMinutes())}${pad(l.getUTCSeconds())}.csv`;
 }
 
-module.exports = { parseFilters, hasFilter, applyFilters, sortByIdDesc, sortRows, buildCsv, fileName, HEADER };
+module.exports = {
+  parseFilters, hasFilter, applyFilters, sortByIdDesc, sortRows, buildCsv, fileName, isActiveRow, HEADER,
+};

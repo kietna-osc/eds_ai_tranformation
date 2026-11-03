@@ -21,6 +21,8 @@ CREATE TABLE dbo.employee
     full_name        NVARCHAR(200)   NOT NULL,
     department_name  NVARCHAR(200)   NOT NULL,
     email            NVARCHAR(320)   NOT NULL,
+    phone            NVARCHAR(20)    NULL,          -- half-width digits (22_employee_active_phone.sql)
+    is_active        BIT             NOT NULL CONSTRAINT DF_employee_is_active DEFAULT (1),  -- soft delete
     created_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_created_at DEFAULT (SYSUTCDATETIME()),
     updated_at       DATETIME2(0)    NOT NULL CONSTRAINT DF_employee_updated_at DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT PK_employee PRIMARY KEY CLUSTERED (employee_id)

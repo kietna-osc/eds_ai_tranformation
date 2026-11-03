@@ -125,16 +125,16 @@ test('employeeList: per-field filters and 登録日時 range', async () => {
   assert.equal((await call('employeeList', { created_start: 'bad' })).status, 400);
 });
 
-test('employeeExport: 4 columns, same rows as the list', async () => {
+test('employeeExport: import columns + 状態, same rows as the list', async () => {
   stored.length = 0;
   const r = await call('employeeExport', { department_name: 'DX', tz_offset: '-540' });
   assert.equal(r.status, 200);
   assert.equal(r.jsonBody.rowCount, 6);
   assert.match(r.jsonBody.file.fileName, /^employee_\d{8}_\d{6}\.csv$/);
   const lines = stored[0].text.slice(1).trim().split('\r\n');
-  assert.equal(lines[0], '社員番号,社員氏名,メール,部署');
+  assert.equal(lines[0], '社員番号,社員氏名,メール,部署,電話番号,状態');
   assert.equal(lines.length, 7);
-  assert.ok(lines.slice(1).every((l) => l.split(',').length === 4 && l.endsWith('DX推進部')));
+  assert.ok(lines.slice(1).every((l) => l.split(',').length === 6 && l.endsWith('DX推進部,,有効')));
 });
 
 test('employeeExport applies 登録日時 (created_start / created_end) like the list', async () => {

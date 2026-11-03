@@ -53,14 +53,38 @@ function employeeIdOut(v) {
   return /^\d+$/.test(s) && Number.isSafeInteger(Number(s)) ? Number(s) : s;
 }
 
+/* phone stays text (a leading 0 matters). is_active is a JSON boolean; a row read before
+   22_employee_active_phone.sql has no column and counts as active. */
 const toEmployee = (row) => ({
   employee_id: row.employee_id,
   full_name: row.full_name,
   department_name: row.department_name,
   email: row.email,
+  phone: row.phone === undefined || row.phone === null || row.phone === '' ? null : String(row.phone),
+  is_active: employeeSearch.isActiveRow(row),
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
+
+const PHONE_INVALID = employeeCsv.PHONE_MESSAGE;
+const IS_ACTIVE_INVALID = '状態（is_active）は true または false で指定してください';
+
+/** Body phone: undefined when absent, null when empty, else the trimmed digits;
+ *  { error } when it is not half-width digits (at most 20). */
+function phoneIn(v) {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const t = String(v).trim();
+  if (t === '') return null;
+  return employeeCsv.PHONE.test(t) ? t : { error: PHONE_INVALID };
+}
+
+/** Body is_active: undefined when absent or null, else it must be a JSON boolean. */
+function activeIn(v) {
+  if (v === undefined || v === null) return undefined;
+  return typeof v === 'boolean' ? v : { error: IS_ACTIVE_INVALID };
+}
+const isError = (v) => v !== null && typeof v === 'object';
 
 const clampTop = (v, dflt = 50, max = 200) => {
   const n = parseInt(v, 10);
@@ -399,11 +423,12 @@ app.http('historyPlannerSync', {
 /* ------------------------------------- GET /api/employees
    Employee page with server-side pagination, same shape as historyList.
    Filters (employeeSearch.js), each "contains": employee_id, full_name, email,
-   department_name; created_start / created_end (登録日時); search_keyword (the result
-   screen's search box: words in 社員番号 / 社員氏名 / メール / 部署).
-   Every employee is read, filtered and sorted here (employee_id descending, newest
-   first, or best keyword match first; the order of sp_employee_list, by full_name, is
-   not used), then paged. */
+   department_name, phone; is_active (true / false, empty = both); created_start /
+   created_end (登録日時); search_keyword (the result screen's search box: words in 社員番号 /
+   社員氏名 / メール / 部署, active employees only).
+   Every employee is read, filtered and sorted here (active before deleted; then
+   employee_id descending, newest first, or best keyword match first; the order of
+   sp_employee_list, by full_name, is not used), then paged. */
 
 /** Every employee matching the filters, in screen order. */
 async function employeesMatching(f, context, label) {
@@ -603,7 +628,8 @@ app.http('fuzzySearch', {
 });
 
 /* ----------------------------------------- POST /api/employees
-   Inserts a new employee into dbo.employee. */
+   Inserts a new employee into dbo.employee. phone (half-width digits) and is_active
+   (boolean, default true) are optional. */
 app.http('employeeInsert', {
   methods: ['POST'],
   authLevel: 'function',
@@ -620,16 +646,22 @@ app.http('employeeInsert', {
     if (!fullName) return json(400, { error: 'full_name is required' });
     if (!departmentName) return json(400, { error: 'department_name is required' });
     if (!email) return json(400, { error: 'email is required' });
+    const phone = phoneIn(b.phone);
+    if (isError(phone)) return json(400, phone);
+    const isActive = activeIn(b.is_active);
+    if (isError(isActive)) return json(400, isActive);
 
     const rows = await exec('dbo.sp_employee_insert', [
       ['employee_id', sql.NVarChar(50), employeeId],
       ['full_name', sql.NVarChar(200), fullName],
       ['department_name', sql.NVarChar(200), departmentName],
       ['email', sql.NVarChar(320), email],
+      ['phone', sql.NVarChar(20), phone ?? null],
+      ['is_active', sql.Bit, isActive ?? true],
     ], context);
 
     return json(201, {
-      value: rows[0]
+      value: rows[0] ? toEmployee(rows[0]) : rows[0]
     });
   }),
 });
@@ -658,7 +690,8 @@ async function emailUsedByOther(email, employeeId, context) {
 
 /* ------------------------------------------ PATCH /api/employees/{id}
    Updates full_name, department_name, and email. employee_id is not changed.
-   409 when another employee already uses the email. */
+   phone: absent = unchanged, "" = cleared. is_active: absent = unchanged, true restores a
+   deleted employee, false deletes (soft). 409 when another employee already uses the email. */
 app.http('employeeUpdate', {
   methods: ['PATCH'],
   authLevel: 'function',
@@ -674,6 +707,10 @@ app.http('employeeUpdate', {
     if (!fullName) return json(400, { error: '名前が指定されていません' });
     if (!departmentName) return json(400, { error: '部署が指定されていません' });
     if (!email) return json(400, { error: 'メールが指定されていません' });
+    const phone = phoneIn(b.phone);
+    if (isError(phone)) return json(400, phone);
+    const isActive = activeIn(b.is_active);
+    if (isError(isActive)) return json(400, isActive);
     if (await emailUsedByOther(email, employeeId, context)) {
       return json(409, { error: EMAIL_IN_USE });
     }
@@ -683,15 +720,26 @@ app.http('employeeUpdate', {
       ['full_name', sql.NVarChar(200), fullName],
       ['department_name', sql.NVarChar(200), departmentName],
       ['email', sql.NVarChar(320), email],
+      ['phone', sql.NVarChar(20), phone ?? null],
+      ['update_phone', sql.Bit, phone !== undefined],
+      ['is_active', sql.Bit, isActive ?? null],
     ], context);
     return rows[0]
-      ? json(200, { value: rows[0] })
+      ? json(200, { value: toEmployee(rows[0]) })
       : json(404, { error: EMPLOYEE_NOT_FOUND });
   }),
 });
 
-/* --------------------------------------- DELETE /api/employees/{id}
-   Removes the employee row. History rows keep their employee_id snapshot. */
+/* --------------------------------------- DELETE /api/employees/{id}[?permanent=true]
+   Soft delete: an active employee becomes deleted (is_active false) and stays in the list.
+   permanent=true removes the row, only for an employee that is already deleted, so a stale
+   screen can never hard-delete an active one. History rows keep their employee_id snapshot.
+     not found                         404
+     soft, already deleted             409 ALREADY_DELETED
+     permanent, still active           409 NOT_DELETED_YET */
+const ALREADY_DELETED = 'この従業員は既に削除済みです。一覧を更新してください。';
+const NOT_DELETED_YET = '削除されていない従業員は完全に削除できません。一覧を更新してください。';
+
 app.http('employeeDelete', {
   methods: ['DELETE'],
   authLevel: 'function',
@@ -701,14 +749,21 @@ app.http('employeeDelete', {
     if (!employeeId) {
       return json(400, { error: '社員IDが指定されていません' });
     }
+    const permanentParam = String(request.query?.get('permanent') ?? '').trim().toLowerCase();
+    if (!['', 'true', 'false'].includes(permanentParam)) {
+      return json(400, { error: 'permanent は true または false で指定してください' });
+    }
+    const permanent = permanentParam === 'true';
 
     const rows = await exec('dbo.sp_employee_delete', [
       ['employee_id', sql.NVarChar(50), employeeId],
+      ['permanent', sql.Bit, permanent],
     ], context);
     const deleted = rows[0]?.rows_deleted ?? 0;
-    return deleted
-      ? json(200, { deleted })
-      : json(404, { error: EMPLOYEE_NOT_FOUND });
+    if (deleted) return json(200, { deleted, permanent });
+    // found is absent before 22_employee_active_phone.sql (hard delete only): 0 rows = not found.
+    if (!rows[0]?.found) return json(404, { error: EMPLOYEE_NOT_FOUND });
+    return json(409, { error: permanent ? NOT_DELETED_YET : ALREADY_DELETED });
   }),
 });
 
