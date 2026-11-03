@@ -3,35 +3,40 @@
    The live dbo.employee was recreated on 2026-10-06 08:31 UTC with six columns
    (employee_id NVARCHAR(50), full_name, department_name, email, created_at, updated_at).
    The app and EDS-APIManagement1 expect the designed table: employee_id INT,
-   employee_code (社員番号), name_normalized, department_id, is_active.
+   employee_code (社員番号), name_normalized, is_active.
 
-   1. Copies the current table to dbo.employee_backup_20261008 (kept; drop it later).
+   1. Copies the current rows into the temp table #src (no permanent backup table).
    2. Re-creates dbo.employee as in 01_schema.sql, with its indexes and trigger.
-   3. Copies the 2,007 rows:
+   3. Copies the 2,007 rows back:
         employee_code   = old employee_id (the 社員番号, e.g. 2012, 10000000004, test-3)
         employee_id     = the old id where it is a positive whole number that fits in INT
                           (history rows keep pointing at the same person); a new number otherwise
         name_normalized = full_name (as the CSV import does)
-        department_id   = dbo.department matched by name (spaces and full-width digits ignored)
+        department_name = kept as text (there is no department catalog)
         email           = NULL when empty; is_active = 1
    4. Re-creates the employee procedures as in 02_procs.sql, plus sp_employee_upsert (CSV import).
    5. EXECUTE on sp_employee_upsert for [func-eds-dev].
 
    dbo.history is not touched. Run against eds-db in the Azure Portal Query editor.
    Steps 1-3 run in one transaction; any error rolls them back and the table stays as it was.
-   Not meant to be run twice: it stops if the backup table already exists. */
+   Not meant to be run twice: it stops if dbo.employee already has employee_code. */
 
 SET XACT_ABORT ON;
 
-IF OBJECT_ID('dbo.employee_backup_20261008', 'U') IS NOT NULL
-    THROW 50000, 'dbo.employee_backup_20261008 already exists: this script has already run.', 1;
 IF COL_LENGTH('dbo.employee', 'employee_code') IS NOT NULL
     THROW 50000, 'dbo.employee already has employee_code: nothing to migrate.', 1;
 
 BEGIN TRANSACTION;
 
------------------------------------------------------------------- 1. backup
-SELECT * INTO dbo.employee_backup_20261008 FROM dbo.employee;
+------------------------------------------------------------------ 1. copy to #src
+SELECT b.employee_id                          AS old_id,
+       TRY_CONVERT(INT, b.employee_id)        AS old_int,
+       CASE WHEN TRY_CONVERT(INT, b.employee_id) > 0
+             AND b.employee_id = CAST(TRY_CONVERT(INT, b.employee_id) AS NVARCHAR(50)) THEN 1 ELSE 0 END AS keep_id,
+       b.full_name, b.department_name, NULLIF(LTRIM(RTRIM(b.email)), N'') AS email,
+       b.created_at, b.updated_at
+INTO #src
+FROM dbo.employee b;
 
 ------------------------------------------------------------------ 2. designed table
 DROP TABLE dbo.employee;
@@ -44,7 +49,6 @@ EXEC (N'CREATE TABLE dbo.employee
     employee_code    NVARCHAR(50)    NOT NULL,
     full_name        NVARCHAR(200)   NOT NULL,
     name_normalized  NVARCHAR(200)   NULL,
-    department_id    INT             NULL,
     department_name  NVARCHAR(200)   NULL,
     email            NVARCHAR(320)   NULL,
     is_active        BIT             NOT NULL CONSTRAINT DF_employee_is_active  DEFAULT (1),
@@ -55,46 +59,28 @@ EXEC (N'CREATE TABLE dbo.employee
 )');
 
 EXEC (N'CREATE INDEX IX_employee_name_normalized ON dbo.employee (name_normalized)
-    INCLUDE (full_name, department_id, department_name, email)
-    WHERE is_active = 1');
-
-EXEC (N'CREATE INDEX IX_employee_department_id ON dbo.employee (department_id)
+    INCLUDE (full_name, department_name, email)
     WHERE is_active = 1');
 
 ------------------------------------------------------------------ 3. data
--- Department lookup: names compared without spaces and with full-width digits as half-width,
--- the same rule as sp_employee_upsert.
-SELECT b.employee_id                          AS old_id,
-       TRY_CONVERT(INT, b.employee_id)        AS old_int,
-       CASE WHEN TRY_CONVERT(INT, b.employee_id) > 0
-             AND b.employee_id = CAST(TRY_CONVERT(INT, b.employee_id) AS NVARCHAR(50)) THEN 1 ELSE 0 END AS keep_id,
-       b.full_name, b.department_name, NULLIF(LTRIM(RTRIM(b.email)), N'') AS email,
-       b.created_at, b.updated_at,
-       (SELECT TOP 1 d.department_id FROM dbo.department d
-        WHERE TRANSLATE(REPLACE(REPLACE(d.department_name, N' ', N''), N'　', N''), N'０１２３４５６７８９', N'0123456789')
-            = TRANSLATE(REPLACE(REPLACE(b.department_name, N' ', N''), N'　', N''), N'０１２３４５６７８９', N'0123456789')
-        ORDER BY d.department_id) AS department_id
-INTO #src
-FROM dbo.employee_backup_20261008 b;
-
 -- Old ids that are positive whole numbers keep their number.
 EXEC (N'SET IDENTITY_INSERT dbo.employee ON;
-INSERT dbo.employee (employee_id, employee_code, full_name, name_normalized, department_id, department_name,
+INSERT dbo.employee (employee_id, employee_code, full_name, name_normalized, department_name,
                      email, is_active, created_at, updated_at)
-SELECT old_int, old_id, full_name, full_name, department_id, department_name, email, 1, created_at, updated_at
+SELECT old_int, old_id, full_name, full_name, department_name, email, 1, created_at, updated_at
 FROM #src
 WHERE keep_id = 1;
 SET IDENTITY_INSERT dbo.employee OFF;');
 
 -- Everything else (e.g. 10000000004, test-3) gets the next free number.
-EXEC (N'INSERT dbo.employee (employee_code, full_name, name_normalized, department_id, department_name,
+EXEC (N'INSERT dbo.employee (employee_code, full_name, name_normalized, department_name,
                      email, is_active, created_at, updated_at)
-SELECT old_id, full_name, full_name, department_id, department_name, email, 1, created_at, updated_at
+SELECT old_id, full_name, full_name, department_name, email, 1, created_at, updated_at
 FROM #src
 WHERE keep_id = 0
 ORDER BY old_id;');
 
-IF (SELECT COUNT(*) FROM dbo.employee) <> (SELECT COUNT(*) FROM dbo.employee_backup_20261008)
+IF (SELECT COUNT(*) FROM dbo.employee) <> (SELECT COUNT(*) FROM #src)
     THROW 50000, 'Row count mismatch after copy; rolled back.', 1;
 
 DROP TABLE #src;
@@ -120,12 +106,12 @@ GO
 
 ------------------------------------------------------------------ 4. procedures (02_procs.sql)
 --------------------------------------------------------- Employee page: list + pagination
--- Filters (department, name keyword) are applied first, then page/page_size
+-- Filters (department name, name keyword) are applied first, then page/page_size
 -- determine the returned chunk. search_keyword is optional; omitted means all names.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_list
     @page            INT          = 1,
     @page_size       INT          = 50,
-    @department_id   INT          = NULL,
+    @department_name NVARCHAR(200) = NULL,
     @search_keyword  NVARCHAR(200) = NULL
 AS
 BEGIN
@@ -136,7 +122,6 @@ BEGIN
         employee_code,
         full_name,
         name_normalized,
-        department_id,
         department_name,
         email,
         is_active,
@@ -144,7 +129,7 @@ BEGIN
         updated_at,
         COUNT(*) OVER() AS total_count
     FROM dbo.employee
-    WHERE (@department_id IS NULL OR department_id = @department_id)
+    WHERE (@department_name IS NULL OR department_name = @department_name)
       AND (@search_keyword IS NULL
            OR name_normalized  LIKE @search_keyword + N'%'
            OR full_name        LIKE N'%' + @search_keyword + N'%'
@@ -164,17 +149,17 @@ GO
 -- katakana->hiragana, whitespace stripped) so both sides match.
 CREATE OR ALTER PROCEDURE dbo.sp_match_candidates
     @name_normalized NVARCHAR(200),
-    @department_id   INT = NULL,
+    @department_name NVARCHAR(200) = NULL,
     @top             INT = 10
 AS
 BEGIN
     SET NOCOUNT ON;
     SELECT TOP (@top)
-           employee_id, employee_code, full_name, department_id, department_name, email,
+           employee_id, employee_code, full_name, department_name, email,
            CASE WHEN name_normalized = @name_normalized THEN 100    -- exact
                 WHEN name_normalized LIKE @name_normalized + N'%' THEN 80
                 ELSE 60 END
-           + CASE WHEN @department_id IS NOT NULL AND department_id = @department_id
+           + CASE WHEN @department_name IS NOT NULL AND department_name = @department_name
                   THEN 10 ELSE 0 END AS match_score
     FROM   dbo.employee
     WHERE  is_active = 1
@@ -208,7 +193,6 @@ CREATE OR ALTER PROCEDURE dbo.sp_employee_insert
     @employee_code    NVARCHAR(50),
     @full_name        NVARCHAR(200),
     @name_normalized  NVARCHAR(200) = NULL,
-    @department_id    INT           = NULL,
     @department_name  NVARCHAR(200) = NULL,
     @email            NVARCHAR(320) = NULL,
     @is_active        BIT           = 1
@@ -229,11 +213,11 @@ BEGIN
         SET IDENTITY_INSERT dbo.employee ON;
         INSERT dbo.employee (
             employee_id, employee_code, full_name, name_normalized,
-            department_id, department_name, email, is_active
+            department_name, email, is_active
         )
         VALUES (
             @employee_id, @employee_code, @full_name, @name_normalized,
-            @department_id, @department_name, @email, ISNULL(@is_active, 1)
+            @department_name, @email, ISNULL(@is_active, 1)
         );
         SET IDENTITY_INSERT dbo.employee OFF;
     END TRY
@@ -243,7 +227,7 @@ BEGIN
     END CATCH
 
     SELECT employee_id, employee_code, full_name, name_normalized,
-           department_id, department_name, email, is_active, created_at, updated_at
+           department_name, email, is_active, created_at, updated_at
     FROM   dbo.employee
     WHERE  employee_id = @employee_id;
 END
@@ -271,8 +255,6 @@ GO
 -- An existing employee_code is updated with the file's data; a new one is
 -- inserted (is_active = 1, employee_id from IDENTITY). The whole batch is one
 -- transaction with XACT_ABORT, so any failure leaves no row written.
--- department_id comes from dbo.department by name, ignoring spaces and
--- full/half-width digits (same rule as 08_sync_employee_department_id.sql).
 -- Returns one row per employee_code with action 'inserted' | 'updated'.
 CREATE OR ALTER PROCEDURE dbo.sp_employee_upsert
     @rows NVARCHAR(MAX)
@@ -288,8 +270,7 @@ BEGIN
         employee_code    NVARCHAR(50)  NOT NULL PRIMARY KEY,
         full_name        NVARCHAR(200) NOT NULL,
         email            NVARCHAR(320) NULL,
-        department_name  NVARCHAR(200) NULL,
-        department_id    INT           NULL
+        department_name  NVARCHAR(200) NULL
     );
 
     INSERT @src (employee_code, full_name, email, department_name)
@@ -300,13 +281,6 @@ BEGIN
                email            NVARCHAR(320) '$.email',
                department_name  NVARCHAR(200) '$.department_name');
 
-    UPDATE s
-    SET    s.department_id = d.department_id
-    FROM   @src AS s
-    JOIN   dbo.department AS d
-      ON   TRANSLATE(REPLACE(REPLACE(s.department_name, N' ', N''), N'　', N''), N'０１２３４５６７８９', N'0123456789')
-         = TRANSLATE(REPLACE(REPLACE(d.department_name, N' ', N''), N'　', N''), N'０１２３４５６７８９', N'0123456789');
-
     DECLARE @result TABLE (employee_code NVARCHAR(50), action VARCHAR(10));
 
     BEGIN TRANSACTION;
@@ -315,17 +289,16 @@ BEGIN
     SET    e.full_name       = s.full_name,
            e.name_normalized = s.full_name,
            e.email           = s.email,
-           e.department_name = s.department_name,
-           e.department_id   = s.department_id
+           e.department_name = s.department_name
     OUTPUT inserted.employee_code, 'updated' INTO @result
     FROM   dbo.employee AS e
     JOIN   @src AS s ON s.employee_code = e.employee_code;
 
     INSERT dbo.employee (employee_code, full_name, name_normalized,
-                         department_id, department_name, email, is_active)
+                         department_name, email, is_active)
     OUTPUT inserted.employee_code, 'inserted' INTO @result
     SELECT s.employee_code, s.full_name, s.full_name,
-           s.department_id, s.department_name, s.email, 1
+           s.department_name, s.email, 1
     FROM   @src AS s
     WHERE  NOT EXISTS (SELECT 1 FROM dbo.employee AS e WHERE e.employee_code = s.employee_code);
 
@@ -342,9 +315,7 @@ GO
 ------------------------------------------------------------------ check
 SELECT 'rows' AS what, CAST(COUNT(*) AS NVARCHAR(50)) AS value FROM dbo.employee
 UNION ALL SELECT 'kept their old number', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE employee_code = CAST(employee_id AS NVARCHAR(50))
-UNION ALL SELECT 'new number (non-numeric or too large old id)', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE employee_code <> CAST(employee_id AS NVARCHAR(50))
-UNION ALL SELECT 'with department_id', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE department_id IS NOT NULL
-UNION ALL SELECT 'backup rows', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee_backup_20261008;
+UNION ALL SELECT 'new number (non-numeric or too large old id)', CAST(COUNT(*) AS NVARCHAR(50)) FROM dbo.employee WHERE employee_code <> CAST(employee_id AS NVARCHAR(50));
 GO
 
 SET NOEXEC OFF;

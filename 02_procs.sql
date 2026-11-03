@@ -379,32 +379,6 @@ BEGIN
 END
 GO
 
---------------------------------------------------------- Department catalog
-CREATE OR ALTER PROCEDURE dbo.sp_department_list
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT department_id, department_name, created_at, updated_at
-    FROM   dbo.department
-    ORDER BY department_name, department_id;
-END
-GO
-
-CREATE OR ALTER PROCEDURE dbo.sp_department_insert
-    @department_name NVARCHAR(200)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF @department_name IS NULL OR LTRIM(RTRIM(@department_name)) = N''
-        THROW 50001, 'sp_department_insert requires @department_name.', 1;
-
-    INSERT dbo.department (department_name) VALUES (@department_name);
-    SELECT department_id, department_name, created_at, updated_at
-    FROM   dbo.department
-    WHERE  department_id = SCOPE_IDENTITY();
-END
-GO
-
 --------------------------------------------------------- OCR result log
 CREATE OR ALTER PROCEDURE dbo.sp_ocr_history_insert
     @history_id                 BIGINT         = NULL,
