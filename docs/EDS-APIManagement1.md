@@ -220,7 +220,7 @@ Xóa nhân viên. Dòng `history` giữ nguyên `employee_id`.
 `content` mẫu. Flow lấy `employee_id` đưa vào path:
 
 ```json
-{ "employee_id": 2100 }
+{ "employee_id": "2100" }
 ```
 
 Request schema:
@@ -229,7 +229,7 @@ Request schema:
 {
   "type": "object",
   "properties": {
-    "employee_id": { "type": "integer" }
+    "employee_id": { "type": "string" }
   },
   "required": ["employee_id"]
 }
