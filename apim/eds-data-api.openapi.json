@@ -440,27 +440,6 @@
             }
           },
           {
-            "name": "phone",
-            "in": "query",
-            "description": "電話番号 (contains)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "is_active",
-            "in": "query",
-            "description": "状態: true = 有効, false = 削除済み, empty = both. Deleted employees are listed after the active ones.",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "",
-                "true",
-                "false"
-              ]
-            }
-          },
-          {
             "name": "created_start",
             "in": "query",
             "description": "登録日時 From (inclusive)",
@@ -529,16 +508,6 @@
                   },
                   "email": {
                     "type": "string"
-                  },
-                  "phone": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "Half-width digits only, at most 20. Empty = no phone."
-                  },
-                  "is_active": {
-                    "type": "boolean",
-                    "nullable": true,
-                    "description": "Default true on create. On update: omitted = unchanged, true restores a deleted employee, false deletes it (soft)."
                   }
                 }
               },
@@ -645,27 +614,6 @@
             "description": "部署 (contains)",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "phone",
-            "in": "query",
-            "description": "電話番号 (contains)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "is_active",
-            "in": "query",
-            "description": "状態: true = 有効, false = 削除済み, empty = both. Deleted employees are listed after the active ones.",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "",
-                "true",
-                "false"
-              ]
             }
           },
           {
@@ -939,16 +887,6 @@
                   },
                   "email": {
                     "type": "string"
-                  },
-                  "phone": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "Half-width digits only, at most 20. Empty = no phone. Omitted = unchanged."
-                  },
-                  "is_active": {
-                    "type": "boolean",
-                    "nullable": true,
-                    "description": "Default true on create. On update: omitted = unchanged, true restores a deleted employee, false deletes it (soft)."
                   }
                 }
               },
@@ -974,7 +912,7 @@
       },
       "delete": {
         "summary": "Delete employee",
-        "description": "Soft delete: an active employee becomes deleted (is_active false) and stays in the list. permanent=true removes the row, only for an employee that is already deleted. History rows keep the employee_id snapshot.",
+        "description": "Deletes the employee by employee_id. History rows keep the employee_id snapshot.",
         "operationId": "employee-delete",
         "parameters": [
           {
@@ -985,30 +923,14 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "permanent",
-            "in": "query",
-            "description": "true = remove an already deleted employee permanently.",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "",
-                "true",
-                "false"
-              ]
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Deleted (soft, or permanently with permanent=true)."
+            "description": "Deleted."
           },
           "404": {
             "description": "employee_id not found."
-          },
-          "409": {
-            "description": "Wrong state: soft delete of an already deleted employee, or permanent delete of an active one."
           }
         }
       }
