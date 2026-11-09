@@ -10,11 +10,6 @@
      sp_set_delivered    rows_updated 1; history_id 404 -> 0, history_id 400 -> 50001
      sp_employee_upsert  INSERT / UPDATE per row (UPDATE when the id is in data.employees);
                          id DROP throws a retryable error, BOOM a non-retryable one
-     sp_employee_insert  50002 / 50003 on a used id / email; returns the row (active by default)
-     sp_employee_update  phone only when @update_phone, is_active unless NULL
-     sp_employee_delete  @permanent 0: active -> deleted; 1: removes a deleted row; returns
-                         rows_deleted + found (data.oldDeleteProc: rows_deleted only, the
-                         procedure before 22_employee_active_phone.sql)
    Set `data.history` / `data.employees` before calling a handler. */
 const Module = require('node:module');
 const path = require('node:path');
@@ -59,28 +54,13 @@ async function exec(proc, params) {
       employee_id: r.employee_id,
       action: data.employees.some((e) => e.employee_id === r.employee_id) ? 'UPDATE' : 'INSERT',
     }));
-  } else if (proc === 'dbo.sp_employee_insert') {
-    if (data.employees.some((r) => r.employee_id === p.employee_id)) {
-      throw Object.assign(new Error('このIDは既に他の従業員に使用されている'), { number: 50002 });
-    }
-    if (data.employees.some((r) => r.email === p.email)) {
-      throw Object.assign(new Error('このメールアドレスは既に他の従業員に使用されている'), { number: 50003 });
-    }
-    return [{ employee_id: p.employee_id, full_name: p.full_name, department_name: p.department_name,
-      email: p.email, phone: p.phone, is_active: p.is_active ?? true, created_at: 'now', updated_at: 'now' }];
   } else if (proc === 'dbo.sp_employee_update') {
     const row = data.employees.find((r) => r.employee_id === p.employee_id);
-    if (!row) return [];
-    return [{ ...row, full_name: p.full_name, department_name: p.department_name, email: p.email,
-      phone: p.update_phone ? p.phone : row.phone, is_active: p.is_active ?? row.is_active ?? true }];
+    return row ? [{ ...row, ...p }] : [];
   } else if (proc === 'dbo.sp_employee_delete') {
     if (p.employee_id === 'IN_USE') throw Object.assign(new Error('FK'), { number: 547 });
     if (p.employee_id === 'BOOM') throw new Error('connection reset');
-    const row = data.employees.find((r) => r.employee_id === p.employee_id);
-    if (data.oldDeleteProc) return [{ rows_deleted: row ? 1 : 0 }];
-    const active = row && row.is_active !== false;
-    const changed = Boolean(row && (p.permanent ? !active : active));
-    return [{ rows_deleted: changed ? 1 : 0, found: Boolean(row) }];
+    return [{ rows_deleted: data.employees.some((r) => r.employee_id === p.employee_id) ? 1 : 0 }];
   } else {
     throw new Error(`unexpected ${proc}`);
   }
@@ -127,10 +107,10 @@ async function call(name, query) {
   return handlers[name]({ query: q }, context);
 }
 
-/** Calls a POST/PATCH/DELETE handler with a JSON body, optional route params and query. */
-async function post(name, body, params = {}, query = {}) {
+/** Calls a POST/PATCH/DELETE handler with a JSON body and optional route params. */
+async function post(name, body, params = {}) {
   calls.length = 0;
-  return handlers[name]({ json: async () => body, query: new URLSearchParams(query), params }, context);
+  return handlers[name]({ json: async () => body, query: new URLSearchParams(), params }, context);
 }
 
 /** CSV text -> data lines (no BOM, no header, no trailing blank). */

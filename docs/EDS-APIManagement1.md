@@ -215,31 +215,25 @@ Response **201**:
 
 ### employeeDelete
 
-Xóa nhân viên, 2 mức (từ `22_employee_active_phone.sql`). Dòng `history` giữ nguyên `employee_id`.
+Xóa nhân viên. Dòng `history` giữ nguyên `employee_id`.
 
-- **Xóa mềm** (mặc định): nhân viên đang 有効 chuyển thành 削除済み (`is_active = false`), vẫn nằm trong danh sách (cuối danh sách).
-- **Xóa vĩnh viễn** (`permanent: true`): xóa hẳn dòng khỏi DB, **chỉ** khi nhân viên đã là 削除済み.
-
-`content` mẫu. Flow đưa `employee_id` vào path và `permanent` vào query (`?permanent=true|false`):
+`content` mẫu. Flow lấy `employee_id` đưa vào path:
 
 ```json
-{ "employee_id": "1060002002", "permanent": false }
+{ "employee_id": "2100" }
 ```
 
-Request schema (Parse JSON):
+Request schema:
 
 ```json
 {
   "type": "object",
   "properties": {
-    "employee_id": { "type": "string" },
-    "permanent": { "type": ["boolean", "null"] }
+    "employee_id": { "type": "string" }
   },
   "required": ["employee_id"]
 }
 ```
-
-URI: `…/employees/@{body('Parse_delete_employee')?['employee_id']}?permanent=@{coalesce(body('Parse_delete_employee')?['permanent'], false)}`
 
 Response **200**:
 
@@ -247,30 +241,13 @@ Response **200**:
 {
   "type": "object",
   "properties": {
-    "deleted": { "type": "integer" },
-    "permanent": { "type": "boolean" }
+    "deleted": { "type": "integer" }
   },
   "required": ["deleted"]
 }
 ```
 
-| Trường hợp | Kết quả |
-|---|---|
-| Xóa mềm, đang 有効 | **200** `{ "deleted": 1, "permanent": false }` |
-| Xóa mềm, đã 削除済み | **409** `{ "error": "この従業員は既に削除済みです。一覧を更新してください。" }` |
-| `permanent: true`, đã 削除済み | **200** `{ "deleted": 1, "permanent": true }` |
-| `permanent: true`, đang 有効 | **409** `{ "error": "削除されていない従業員は完全に削除できません。一覧を更新してください。" }` |
-| Không có nhân viên | **404** `{ "error": "指定された社員IDの従業員が見つかりません。一覧を更新してください。" }` (employeeUpdate cũng vậy) |
-| `permanent` không phải true/false | **400** |
-
-**500**: `{ "error": "サーバーでエラーが発生しました。…（requestId: …）", "requestId": "…" }`. employeeUpdate trả **409** `{ "error": "このメールアドレスは既に他の従業員に使用されている" }` khi email (trim, không phân biệt hoa thường) đã thuộc nhân viên khác (kể cả nhân viên 削除済み); kiểm tra trong JS vì `sp_employee_update` không có. Message lỗi của employeeUpdate / employeeDelete là tiếng Nhật vì flow đưa thẳng `error` lên popup của app.
-
-**phone / is_active (employeeInsert / employeeUpdate / employeeList / employeeExport):**
-- `phone`: chuỗi số nửa độ rộng, tối đa 20 chữ số, không bắt buộc. Sai định dạng: **400** `{ "error": "電話番号は半角数字のみ（20桁以内）で入力してください" }`. Update: không gửi = giữ nguyên, `""` = xóa.
-- `is_active`: JSON boolean. Insert mặc định `true`. Update: không gửi = giữ nguyên, `true` = khôi phục, `false` = xóa mềm. Giá trị không phải boolean: **400**.
-- Parse JSON của insert / update thêm `"phone": { "type": ["string", "null"] }`, `"is_active": { "type": ["boolean", "null"] }` và đưa cả hai vào body HTTP.
-  Trong body HTTP, ghi **không có ngoặc nhọn** để giữ đúng kiểu: `"phone": "@body('Parse_update_employee')?['phone']"`, `"is_active": "@body('Parse_update_employee')?['is_active']"`. Dạng `@{…}` biến boolean thành chuỗi `"True"` (API trả 400) và biến `null` thành `""` (update sẽ xóa phone thay vì giữ nguyên).
-- employeeList / employeeExport thêm query `phone` (chứa chuỗi) và `is_active` (`true` / `false` / rỗng = tất cả). Response mỗi nhân viên có thêm `phone` (string|null) và `is_active` (boolean); nhân viên 削除済み xếp cuối. `search_keyword` (ô tìm 受取人 / CC) chỉ trả nhân viên 有効.
+`deleted` là số dòng đã xóa, thành công thì bằng 1. **404** khi không có nhân viên: `{ "error": "指定された社員IDの従業員が見つかりません。一覧を更新してください。" }` (employeeUpdate cũng vậy). **409** khi còn history tham chiếu (FK): `{ "error": "この従業員は履歴データで使用されているため削除できません" }`. **500**: `{ "error": "サーバーでエラーが発生しました。…（requestId: …）", "requestId": "…" }`. employeeUpdate trả **409** `{ "error": "このメールアドレスは既に他の従業員に使用されている" }` khi email (trim, không phân biệt hoa thường) đã thuộc nhân viên khác; kiểm tra trong JS vì `sp_employee_update` không có. Message lỗi của employeeUpdate / employeeDelete là tiếng Nhật vì flow đưa thẳng `error` lên popup của app.
 
 ### employeeMatch
 
