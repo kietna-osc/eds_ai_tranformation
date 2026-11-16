@@ -342,7 +342,7 @@ Request schema. Mọi field optional.
 }
 ```
 
-Mặc định: `nameWeight` 0.85, `minScore` 30. Nếu không có ai khớp đúng tên, trả mọi ứng viên có điểm lớn hơn `minScore`, xếp từ cao xuống. `receiverName` rỗng thì trả `match_type` `none`, không có ứng viên.
+Mặc định: `nameWeight` 0.85, `minScore` 30. Nếu có nhân viên khớp đúng họ tên, trả **tất cả** người khớp đúng tên (bất kể phòng ban), `match_type` `exact_name`, `score` 100, xếp theo điểm tên + phòng ban (người cùng phòng ban lên đầu). Nếu không ai khớp đúng họ tên nhưng `receiverName` khớp đúng **họ** (phần trước dấu cách đầu tiên của `full_name`; tên không có dấu cách thì bỏ qua), trả tất cả người đó, `match_type` `family_name`, `score` = 60 + `department_score` × 0.3. Nếu cũng không có, trả mọi ứng viên có điểm lớn hơn `minScore`, xếp từ cao xuống. `receiverName` rỗng thì trả `match_type` `none`, không có ứng viên.
 
 Response **200**. `employee_id` ở endpoint này là **string**.
 

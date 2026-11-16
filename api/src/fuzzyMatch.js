@@ -24,84 +24,63 @@ function fuzzyMatchEmployees(
   const exactNameMatches = employees.filter(
     (employee) => normalizeText(employee.name) === normalizedReceiverName
   );
-  if (exactNameMatches.length === 1) {
+  /* Every exact full-name match, whatever its department: ordered by the
+     blended (name + department) score, but each is shown with score 100. */
+  if (exactNameMatches.length > 0) {
     return {
       match_type: 'exact_name',
-      candidates: [
-        toPublicCandidate(
-          withDisplayedScore(
-            scoreEmployee(
-              exactNameMatches[0],
-              normalizedReceiverName,
-              normalizedDepartment,
-              safeNameWeight
-            ),
-            true
-          )
-        ),
-      ],
+      candidates: exactNameMatches
+        .map((employee) =>
+          scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, safeNameWeight)
+        )
+        .sort((a, b) => b.blended_score - a.blended_score)
+        .map((candidate) => toPublicCandidate({ ...candidate, score: 100 })),
     };
   }
-  if (exactNameMatches.length >= 2) {
-    const exactDepartmentMatches =
-      normalizedDepartment.length === 0
-        ? []
-        : exactNameMatches.filter(
-            (employee) =>
-              normalizeText(employee.department) === normalizedDepartment
-          );
-    if (exactDepartmentMatches.length > 0) {
-      return {
-        match_type: 'exact_name',
-        candidates: exactDepartmentMatches.map((employee) =>
-          toPublicCandidate(
-            withDisplayedScore(
-              scoreEmployee(
-                employee,
-                normalizedReceiverName,
-                normalizedDepartment,
-                safeNameWeight
-              ),
-              false
-            )
-          )
-        ),
-      };
-    }
-    const scoredNameMatches = exactNameMatches
-      .map((employee) =>
-        withDisplayedScore(
-          scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, safeNameWeight),
-          false
-        )
-      )
-      .sort((a, b) => b.score - a.score);
+  /* No exact full name: the OCR name may be the family name only. The family
+     name is the part of the DB full name before the first space; names without
+     a space have none. score = 60 + department similarity × 0.3. */
+  const familyNameMatches = employees.filter((employee) => {
+    const family = familyName(employee.name);
+    return family !== '' && normalizeText(family) === normalizedReceiverName;
+  });
+  if (familyNameMatches.length > 0) {
     return {
-      match_type: 'top_k',
-      candidates: scoredNameMatches.map(toPublicCandidate),
+      match_type: 'family_name',
+      candidates: familyNameMatches
+        .map((employee) => {
+          const candidate = scoreEmployee(
+            employee, normalizedReceiverName, normalizedDepartment, safeNameWeight
+          );
+          const score = Math.min(100, FAMILY_NAME_BASE_SCORE
+            + candidate.department_score * FAMILY_NAME_DEPARTMENT_WEIGHT);
+          return { ...candidate, score: round2(score) };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map(toPublicCandidate),
     };
   }
   const scored = employees.map((employee) =>
-    withDisplayedScore(
-      scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, safeNameWeight),
-      false
-    )
+    scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, safeNameWeight)
   );
   return {
     match_type: 'top_k',
     candidates: pickAboveMinScore(scored, safeMinScore).map(toPublicCandidate),
   };
 }
+const FAMILY_NAME_BASE_SCORE = 60;
+const FAMILY_NAME_DEPARTMENT_WEIGHT = 0.3;
+/* Part of the full name before the first space (half- or full-width);
+   '' when the name has no space, e.g. "竹平 裕紀" -> "竹平", "竹平裕紀" -> "". */
+function familyName(fullName) {
+  const parts = String(fullName ?? '').normalize('NFKC').trim().split(/\s+/);
+  return parts.length >= 2 ? parts[0] : '';
+}
 function scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, nameWeight) {
   const nameScore = similarity(normalizedReceiverName, normalizeText(employee.name));
   const departmentScore = similarity(normalizedDepartment, normalizeText(employee.department));
   const blendedScore = nameWeight * nameScore + (1 - nameWeight) * departmentScore;
   return toCandidate(employee, nameScore, departmentScore, blendedScore);
-}
-function withDisplayedScore(candidate, uniqueExactName) {
-  const score =
-    uniqueExactName && candidate.name_score === 100 ? 100 : candidate.blended_score;
-  return { ...candidate, score: round2(score) };
 }
 /* Every candidate scoring above minScore, best first. */
 function pickAboveMinScore(scored, minScore) {
