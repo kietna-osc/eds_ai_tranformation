@@ -587,7 +587,6 @@ app.http('fuzzySearch', {
     const receiverName = String(pick('receiver_name', 'receiverName') ?? '');
     const department = String(pick('department', 'department') ?? '');
     const nameWeight = Number(pick('name_weight', 'nameWeight') ?? 0.85);
-    const fuzzyThreshold = Number(pick('fuzzy_threshold', 'fuzzyThreshold') ?? 90);
     const minScore = Number(pick('min_score', 'minScore') ?? 30);
 
     const roster = await exec('dbo.sp_employee_fuzzy_roster', [], context);
@@ -596,7 +595,6 @@ app.http('fuzzySearch', {
       receiverName,
       department,
       nameWeight,
-      fuzzyThreshold,
       minScore
     ));
   }),

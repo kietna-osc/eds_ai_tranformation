@@ -321,7 +321,6 @@ So OCR receiver với nhân viên `is_active = 1`. Không cần gửi roster. T�
   "receiverName": "前川 雄亮",
   "department": "営業部",
   "nameWeight": 0.85,
-  "fuzzyThreshold": 90,
   "minScore": 30
 }
 ```
@@ -337,15 +336,13 @@ Request schema. Mọi field optional.
     "department": { "type": "string" },
     "nameWeight": { "type": "number" },
     "name_weight": { "type": "number" },
-    "fuzzyThreshold": { "type": "number" },
-    "fuzzy_threshold": { "type": "number" },
     "minScore": { "type": "number" },
     "min_score": { "type": "number" }
   }
 }
 ```
 
-Mặc định: `nameWeight` 0.85, `fuzzyThreshold` 90, `minScore` 30. Nếu điểm cao nhất lớn hơn `fuzzyThreshold` thì chỉ trả người đó; nếu không, trả mọi ứng viên có điểm lớn hơn `minScore`, xếp từ cao xuống. `receiverName` rỗng thì trả `match_type` `none`, không có ứng viên.
+Mặc định: `nameWeight` 0.85, `minScore` 30. Nếu không có ai khớp đúng tên, trả mọi ứng viên có điểm lớn hơn `minScore`, xếp từ cao xuống. `receiverName` rỗng thì trả `match_type` `none`, không có ứng viên.
 
 Response **200**. `employee_id` ở endpoint này là **string**.
 

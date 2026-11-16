@@ -8,7 +8,6 @@ function fuzzyMatchEmployees(
   receiverName,
   department,
   nameWeight = 0.85,
-  fuzzyThreshold = 90,
   minScore = 30
 ) {
   const employees = (roster || []).map(toRosterEmployee);
@@ -18,7 +17,6 @@ function fuzzyMatchEmployees(
   const normalizedReceiverName = normalizeText(receiverName);
   const normalizedDepartment = normalizeText(department);
   const safeNameWeight = clamp(nameWeight, 0, 1);
-  const safeFuzzyThreshold = clamp(fuzzyThreshold, 0, 100);
   const safeMinScore = clamp(minScore, 0, 100);
   if (normalizedReceiverName.length === 0) {
     return { match_type: 'none', candidates: [] };
@@ -91,7 +89,7 @@ function fuzzyMatchEmployees(
   );
   return {
     match_type: 'top_k',
-    candidates: pickByFuzzyThreshold(scored, safeFuzzyThreshold, safeMinScore).map(toPublicCandidate),
+    candidates: pickAboveMinScore(scored, safeMinScore).map(toPublicCandidate),
   };
 }
 function scoreEmployee(employee, normalizedReceiverName, normalizedDepartment, nameWeight) {
@@ -105,13 +103,11 @@ function withDisplayedScore(candidate, uniqueExactName) {
     uniqueExactName && candidate.name_score === 100 ? 100 : candidate.blended_score;
   return { ...candidate, score: round2(score) };
 }
-/* Best candidate alone when it is above fuzzyThreshold; otherwise every
-   candidate scoring above minScore, best first. */
-function pickByFuzzyThreshold(scored, fuzzyThreshold, minScore) {
-  const sorted = scored.slice().sort((a, b) => b.score - a.score);
-  if (sorted.length === 0) return [];
-  if (sorted[0].score > fuzzyThreshold) return [sorted[0]];
-  return sorted.filter((candidate) => candidate.score > minScore);
+/* Every candidate scoring above minScore, best first. */
+function pickAboveMinScore(scored, minScore) {
+  return scored
+    .filter((candidate) => candidate.score > minScore)
+    .sort((a, b) => b.score - a.score);
 }
 function toRosterEmployee(row) {
   return {

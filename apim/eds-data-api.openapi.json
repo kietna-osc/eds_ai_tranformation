@@ -765,18 +765,9 @@
             }
           },
           {
-            "name": "fuzzy_threshold",
-            "in": "query",
-            "description": "If the best fuzzy score is above this, return top 1.",
-            "schema": {
-              "type": "number",
-              "default": 90
-            }
-          },
-          {
             "name": "min_score",
             "in": "query",
-            "description": "When the best score is not above fuzzy_threshold, return every candidate scoring above this (0-100), best first.",
+            "description": "Without an exact name match, return every candidate scoring above this (0-100), best first.",
             "schema": {
               "type": "number",
               "default": 30
@@ -791,7 +782,7 @@
       },
       "post": {
         "summary": "Fuzzy search employees",
-        "description": "Same as GET. Accepts snake_case or camelCase body fields (receiverName, nameWeight, fuzzyThreshold, minScore).",
+        "description": "Same as GET. Accepts snake_case or camelCase body fields (receiverName, nameWeight, minScore).",
         "operationId": "employee-fuzzy-search-post",
         "requestBody": {
           "content": {
@@ -816,14 +807,6 @@
                     "type": "number",
                     "default": 0.85
                   },
-                  "fuzzy_threshold": {
-                    "type": "number",
-                    "default": 90
-                  },
-                  "fuzzyThreshold": {
-                    "type": "number",
-                    "default": 90
-                  },
                   "min_score": {
                     "type": "number",
                     "default": 30
@@ -838,7 +821,6 @@
                 "receiverName": "前川 雄亮",
                 "department": "総務部",
                 "nameWeight": 0.85,
-                "fuzzyThreshold": 90,
                 "minScore": 30
               }
             }
